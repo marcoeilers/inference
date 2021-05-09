@@ -25,4 +25,6 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
     trailArg[String](
       name = "file",
       descr = "The path to the input file.")
+
+  verify()
 }
