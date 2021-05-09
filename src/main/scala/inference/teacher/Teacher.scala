@@ -6,13 +6,14 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-lazy val silicon = project
-  .in(file("silicon"))
+package inference.teacher
 
-lazy val inference = project
-  .in(file("."))
-  .dependsOn(silicon)
-  .settings(
-    // dependencies
-    libraryDependencies += "org.rogach" %% "scallop" % "4.0.2",
-  )
+import inference.core.{AbstractTeacher, _}
+
+/**
+ * The default implementation of the teacher.
+ */
+class Teacher extends AbstractTeacher {
+  override def check(hypothesis: Hypothesis): Seq[Sample] =
+    Seq.empty
+}

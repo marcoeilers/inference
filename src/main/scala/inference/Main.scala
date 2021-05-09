@@ -8,8 +8,10 @@
 
 package inference
 
-object Inference {
+import inference.runner.PrintRunner
+
+object Main extends PrintRunner {
   def main(arguments: Array[String]): Unit = {
-    println("Hello inference world!")
+    run(arguments)
   }
 }

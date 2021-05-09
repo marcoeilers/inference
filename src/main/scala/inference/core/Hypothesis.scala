@@ -6,13 +6,9 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-lazy val silicon = project
-  .in(file("silicon"))
+package inference.core
 
-lazy val inference = project
-  .in(file("."))
-  .dependsOn(silicon)
-  .settings(
-    // dependencies
-    libraryDependencies += "org.rogach" %% "scallop" % "4.0.2",
-  )
+/**
+ * A hypothesis.
+ */
+case class Hypothesis()
