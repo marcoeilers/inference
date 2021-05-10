@@ -13,6 +13,14 @@ lazy val inference = project
   .in(file("."))
   .dependsOn(silicon)
   .settings(
+    // general settings
+    name := "inference",
+    version := "0",
+
     // dependencies
     libraryDependencies += "org.rogach" %% "scallop" % "4.0.2",
+
+    // jvm options
+    fork := true,
+    run / javaOptions += "-Xss128m",
   )
