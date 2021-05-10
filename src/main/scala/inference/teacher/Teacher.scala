@@ -8,12 +8,17 @@
 
 package inference.teacher
 
-import inference.core.{AbstractTeacher, _}
+import inference.core.{AbstractTeacher, Hypothesis, Sample}
+import inference.runner.Input
+import viper.silver.verifier.Verifier
 
 /**
  * The default implementation of the teacher.
+ *
+ * @param input    The input to the inference.
+ * @param verifier The verifier used to check the hypotheses.
  */
-class Teacher extends AbstractTeacher {
+class Teacher(input: Input, verifier: Verifier) extends AbstractTeacher {
   override def check(hypothesis: Hypothesis): Seq[Sample] =
     Seq.empty
 }

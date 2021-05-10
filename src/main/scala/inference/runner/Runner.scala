@@ -8,9 +8,12 @@
 
 package inference.runner
 
-import inference.core.{Hypothesis, Inference}
+import inference.core.{AbstractLearner, AbstractTeacher, Hypothesis, Inference}
 import inference.learner.Learner
 import inference.teacher.Teacher
+import inference.util.solver.Solver
+import viper.silicon.Silicon
+import viper.silver.verifier.Verifier
 
 /**
  * An inference runner.
@@ -18,11 +21,40 @@ import inference.teacher.Teacher
  * @tparam R The result type.
  */
 trait Runner[R] extends Inference {
-  override protected def createTeacher(input: Input): Teacher =
-    new Teacher()
+  /**
+   * Creates a verifier with the given configuration.
+   *
+   * @param configuration The configuration.
+   * @return The verifier.
+   */
+  def createVerifier(configuration: Configuration): Verifier = {
+    // create instance
+    val instance = new Silicon()
+    // pass arguments
+    val arguments = Seq(
+      "--z3Exe", configuration.z3Exe(),
+      "--counterexample", "raw",
+      "--enableMoreCompleteExhale",
+      "--ignoreFile", "dummy.vpr")
+    instance.parseCommandLine(arguments)
+    // return instance
+    instance
+  }
 
-  override protected def createLearner(input: Input): Learner =
-    new Learner
+  /**
+   * Creates a solver with the given configuration.
+   *
+   * @param configuration The configuration.
+   * @return The solver.
+   */
+  def createSolver(configuration: Configuration): Solver =
+    new Solver()
+
+  override protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
+    new Teacher(input, verifier)
+
+  override protected def createLearner(input: Input, solver: Solver): AbstractLearner =
+    new Learner(input, solver)
 
   /**
    * Runs the inference with the given arguments.
@@ -42,8 +74,19 @@ trait Runner[R] extends Inference {
    * @return The result.
    */
   def run(configuration: Configuration): R = {
+    // create input
     val input = Input(configuration)
-    run(input)
+    // create verifier and solver
+    val verifier = createVerifier(configuration)
+    val solver = createSolver(configuration)
+    // before
+    verifier.start()
+    // run
+    val result = run(input)(verifier, solver)
+    // after
+    verifier.stop()
+    // return result
+    result
   }
 
   /**
@@ -52,8 +95,8 @@ trait Runner[R] extends Inference {
    * @param input The input.
    * @return The result.
    */
-  def run(input: Input): R = {
-    val hypothesis = infer(input)
+  def run(input: Input)(verifier: Verifier, solver: Solver): R = {
+    val hypothesis = infer(input)(verifier, solver)
     result(input, hypothesis)
   }
 

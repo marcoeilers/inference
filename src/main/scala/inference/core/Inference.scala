@@ -9,6 +9,8 @@
 package inference.core
 
 import inference.runner.Input
+import inference.util.solver.Solver
+import viper.silver.verifier.Verifier
 
 import scala.annotation.tailrec
 
@@ -17,31 +19,35 @@ import scala.annotation.tailrec
  */
 trait Inference {
   /**
-   * Creates a teacher with the given input.
+   * Creates a teacher with the given input and verifier.
    *
-   * @param input The input.
+   * @param input    The input.
+   * @param verifier The verifier.
    * @return The teacher.
    */
-  protected def createTeacher(input: Input): AbstractTeacher
+  protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher
 
   /**
-   * Creates a learner with the given input.
+   * Creates a learner with the given input and solver.
    *
-   * @param input The input.
+   * @param input  The input.
+   * @param solver The solver.
    * @return The learner.
    */
-  protected def createLearner(input: Input): AbstractLearner
+  protected def createLearner(input: Input, solver: Solver): AbstractLearner
 
   /**
    * Infers a hypothesis for the given input.
    *
-   * @param input The input.
+   * @param input    The input.
+   * @param verifier The verifier used by the teacher to check hypotheses.
+   * @param solver   The solver used by the learner to generate hypotheses.
    * @return The inferred hypothesis.
    */
-  def infer(input: Input): Hypothesis = {
+  def infer(input: Input)(verifier: Verifier, solver: Solver): Hypothesis = {
     // create teacher and learner
-    val teacher = createTeacher(input)
-    val learner = createLearner(input)
+    val teacher = createTeacher(input, verifier)
+    val learner = createLearner(input, solver)
 
     /**
      * Helper method used to iteratively compute the hypothesis.

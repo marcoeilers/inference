@@ -8,12 +8,18 @@
 
 package inference.learner
 
-import inference.core.{AbstractLearner, _}
+import inference.core.{AbstractLearner, Hypothesis, Sample}
+import inference.runner.Input
+import inference.util.solver.Solver
 
 /**
  * The default implementation of the learner.
+ *
+ * @param input  The input to the inference.
+ * @param solver The solver used to generate hypotheses.
+ *
  */
-class Learner extends AbstractLearner {
+class Learner(input: Input, solver: Solver) extends AbstractLearner {
   override def addSample(sample: Sample): Unit =
     ()
 
