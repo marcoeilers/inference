@@ -11,7 +11,7 @@ package inference.runner
 import fastparse.Parsed
 import inference.Names
 import inference.core.Placeholder
-import inference.util.Namespace
+import inference.util.{Builder, Namespace}
 import viper.silver.ast
 import viper.silver.parser.{FastParser, PProgram, Resolver, Translator}
 
@@ -37,10 +37,14 @@ object Input {
     // process program
     val builder = new CheckBuilder()
     val processed = builder.processProgram(program)
-    val placeholders = builder.placeholders
     println(processed)
     // return input
-    Input(configuration, processed, placeholders)
+    val namespace = builder.namespace.copy()
+    val placeholders = builder
+      .placeholders
+      .map { placeholder => placeholder.name -> placeholder }
+      .toMap
+    new Input(configuration, namespace, processed, placeholders)
   }
 
   /**
@@ -86,22 +90,23 @@ object Input {
  * An input to the inference.
  *
  * @param configuration The configuration.
+ * @param namespace     The namespace.
  * @param program       The input program.
  * @param placeholders  A map containing all placeholders.
  */
-case class Input(configuration: Configuration, program: ast.Program, placeholders: Map[String, Placeholder])
+class Input(val configuration: Configuration, val namespace: Namespace, val program: ast.Program, val placeholders: Map[String, Placeholder])
 
-private class CheckBuilder {
+private class CheckBuilder extends Builder {
   /**
    * The buffer used to accumulate all specification placeholders.
    */
-  private val buffer: mutable.Buffer[Placeholder] =
+  val placeholders: mutable.Buffer[Placeholder] =
     ListBuffer.empty
 
   /**
    * The namespace used to generate unique identifiers.
    */
-  private val namespace: Namespace =
+  val namespace: Namespace =
     new Namespace()
 
   /**
@@ -115,20 +120,19 @@ private class CheckBuilder {
   private def createPlaceholder(base: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
     val unique = namespace.uniqueIdentifier(base)
     val placeholder = Placeholder(unique, parameters, existing)
-    buffer.append(placeholder)
+    placeholders.append(placeholder)
     placeholder
   }
 
   /**
-   * Returns the given specification placeholder as a specification, i.e., a sequence of expressions.
+   * Returns the given specification placeholder as a specification, i.e., an expression.
    *
    * @param placeholder The placeholder.
    * @return The specification.
    */
-  private def makeSpecification(placeholder: Placeholder): Seq[ast.Exp] = {
+  private def makeSpecification(placeholder: Placeholder): ast.Exp = {
     val access = ast.PredicateAccess(placeholder.variables, placeholder.name)()
-    val resource = ast.PredicateAccessPredicate(access, ast.FullPerm()())()
-    Seq(resource)
+    ast.PredicateAccessPredicate(access, ast.FullPerm()())()
   }
 
   /**
@@ -149,23 +153,38 @@ private class CheckBuilder {
    * @return The processed method.
    */
   def processMethod(method: ast.Method): ast.Method = {
-    // create placeholder specifications
-    val precondition = createPlaceholder(Names.precondition, method.formalArgs, method.pres)
-    val postcondition = createPlaceholder(Names.postcondition, method.formalArgs ++ method.formalReturns, method.posts)
-    // update method
-    method.copy(
-      pres = makeSpecification(precondition),
-      posts = makeSpecification(postcondition),
-    )(method.pos, method.info, method.errT)
+    method.body match {
+      case Some(body) =>
+        // create placeholder specifications
+        val precondition = createPlaceholder(Names.precondition, method.formalArgs, method.pres)
+        val postcondition = createPlaceholder(Names.postcondition, method.formalArgs ++ method.formalReturns, method.posts)
+        // process body
+        val processed = makeScope {
+          emitInhale(makeSpecification(precondition))
+          processStatement(body, method.formalArgs ++ method.formalReturns)
+          emitExhale(makeSpecification(postcondition))
+        }
+        // update method
+        method.copy(
+          pres = Seq.empty,
+          posts = Seq.empty,
+          body = Some(processed)
+        )(method.pos, method.info, method.errT)
+      case _ =>
+        sys.error("Methods without bodies are not supported yet.")
+    }
   }
 
   /**
-   * Returns a map containing all specification placeholders.
+   * Processes the given statement.
+   * TODO: Properly implement.
    *
-   * @return The map containing all placeholders.
+   * @param statement    The statement to process.
+   * @param declarations The declarations.
    */
-  def placeholders: Map[String, Placeholder] =
-    buffer
-      .map { placeholder => placeholder.name -> placeholder }
-      .toMap
+  private def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl]): Unit =
+    statement match {
+      case _ =>
+        emit(statement)
+    }
 }

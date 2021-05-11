@@ -18,4 +18,9 @@ object Names {
    * The prefix used to generate names for postcondition placeholder.
    */
   val postcondition = "post"
+
+  /**
+   * The prefix used to generate names for snapshots.
+   */
+  val snapshot = "s"
 }

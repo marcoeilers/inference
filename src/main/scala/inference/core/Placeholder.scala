@@ -24,6 +24,14 @@ case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], existing
   lazy val variables: Seq[ast.LocalVar] =
     parameters.map(_.localVar)
 
+  /**
+   * Returns an instance of the placeholder specification.
+   *
+   * @return The instance.
+   */
+  def asInstance: Instance =
+    IdentityInstance(this)
+
   override def toString: String =
     s"$name(${parameters.mkString(", ")}"
 }
@@ -61,6 +69,15 @@ sealed trait Instance {
    * @return The instantiated expression.
    */
   def instantiate(expression: ast.Exp): ast.Exp
+
+  /**
+   * Returns a copy of the instance with the given arguments.
+   *
+   * @param arguments The arguments.
+   * @return The copy of the instance.
+   */
+  def apply(arguments: Seq[ast.Exp]): Instance =
+    BindingInstance(placeholder, arguments)
 
   override def toString: String =
     s"$name(${arguments.mkString(", ")})"

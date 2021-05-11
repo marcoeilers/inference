@@ -25,6 +25,7 @@ class Namespace(private var map: Map[String, Int] = Map.empty) {
     if (version.isDefined || map.contains(name)) {
       var current = math.max(version.getOrElse(0), map.getOrElse(name, 0))
       while (map.contains(s"${name}_$current")) current = current + 1
+      map = map.updated(name, current + 1)
       s"${name}_$current"
     } else {
       map = map.updated(name, 0)
