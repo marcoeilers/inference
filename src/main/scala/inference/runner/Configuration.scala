@@ -21,6 +21,12 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       name = "z3Exe",
       descr = "The path to the z3 executable.")
 
+  val iterations: ScallopOption[Int] =
+    opt[Int](
+      name = "iterations",
+      descr = "The number of iterations after which the learner gets exhausted and gives up.",
+      default = Some(10))
+
   val file: ScallopOption[String] =
     trailArg[String](
       name = "file",

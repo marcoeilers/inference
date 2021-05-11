@@ -9,10 +9,15 @@
 package inference.runner
 
 import fastparse.Parsed
+import inference.Names
+import inference.core.Placeholder
+import inference.util.Namespace
 import viper.silver.ast
 import viper.silver.parser.{FastParser, PProgram, Resolver, Translator}
 
 import java.nio.file.{Files, Paths}
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
 /**
@@ -29,8 +34,13 @@ object Input {
     // parse input program
     val file = configuration.file()
     val program = parse(file)
+    // process program
+    val builder = new CheckBuilder()
+    val processed = builder.processProgram(program)
+    val placeholders = builder.placeholders
+    println(processed)
     // return input
-    Input(program)
+    Input(configuration, processed, placeholders)
   }
 
   /**
@@ -74,5 +84,88 @@ object Input {
 
 /**
  * An input to the inference.
+ *
+ * @param configuration The configuration.
+ * @param program       The input program.
+ * @param placeholders  A map containing all placeholders.
  */
-case class Input(program: ast.Program)
+case class Input(configuration: Configuration, program: ast.Program, placeholders: Map[String, Placeholder])
+
+private class CheckBuilder {
+  /**
+   * The buffer used to accumulate all specification placeholders.
+   */
+  private val buffer: mutable.Buffer[Placeholder] =
+    ListBuffer.empty
+
+  /**
+   * The namespace used to generate unique identifiers.
+   */
+  private val namespace: Namespace =
+    new Namespace()
+
+  /**
+   * Creates a specification placeholder with the given base name, parameters, and existing specifications.
+   *
+   * @param base       The base name.
+   * @param parameters The parameters.
+   * @param existing   The existing specification.
+   * @return The placeholder.
+   */
+  private def createPlaceholder(base: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
+    val unique = namespace.uniqueIdentifier(base)
+    val placeholder = Placeholder(unique, parameters, existing)
+    buffer.append(placeholder)
+    placeholder
+  }
+
+  /**
+   * Returns the given specification placeholder as a specification, i.e., a sequence of expressions.
+   *
+   * @param placeholder The placeholder.
+   * @return The specification.
+   */
+  private def makeSpecification(placeholder: Placeholder): Seq[ast.Exp] = {
+    val access = ast.PredicateAccess(placeholder.variables, placeholder.name)()
+    val resource = ast.PredicateAccessPredicate(access, ast.FullPerm()())()
+    Seq(resource)
+  }
+
+  /**
+   * Processes the given program.
+   *
+   * @param program The program to process.
+   * @return The processed program.
+   */
+  def processProgram(program: ast.Program): ast.Program = {
+    val methods = program.methods.map(processMethod)
+    program.copy(methods = methods)(program.pos, program.info, program.errT)
+  }
+
+  /**
+   * Processes the given method.
+   *
+   * @param method The method to process.
+   * @return The processed method.
+   */
+  def processMethod(method: ast.Method): ast.Method = {
+    // create placeholder specifications
+    val precondition = createPlaceholder(Names.precondition, method.formalArgs, method.pres)
+    val postcondition = createPlaceholder(Names.postcondition, method.formalArgs ++ method.formalReturns, method.posts)
+    // update method
+    method.copy(
+      pres = makeSpecification(precondition),
+      posts = makeSpecification(postcondition),
+    )(method.pos, method.info, method.errT)
+  }
+
+  /**
+   * Returns a map containing all specification placeholders.
+   *
+   * @return The map containing all placeholders.
+   */
+  def placeholders: Map[String, Placeholder] =
+    buffer
+      .map { placeholder => placeholder.name -> placeholder }
+      .toMap
+}

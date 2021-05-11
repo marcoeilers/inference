@@ -48,25 +48,28 @@ trait Inference {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
+    // get maximum iteration number
+    val max = input.configuration.iterations()
 
     /**
      * Helper method used to iteratively compute the hypothesis.
      *
      * @param hypothesis The current hypothesis.
-     * @return The final hypothesis.
+     * @param iteration  The current iteration number.
+     * @return The final hypothesis
      */
     @tailrec
-    def iterate(hypothesis: Hypothesis): Hypothesis = {
+    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Hypothesis = {
       // check hypothesis
       val samples = teacher.check(hypothesis)
       // check if there are new samples
-      if (samples.isEmpty) hypothesis
+      if (samples.isEmpty || iteration >= max) hypothesis
       else {
         // add samples to learner
         learner.addSamples(samples)
         // compute updated hypothesis and iterate
         val updated = learner.hypothesis
-        iterate(updated)
+        iterate(updated, iteration + 1)
       }
     }
 
