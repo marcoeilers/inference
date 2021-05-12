@@ -38,7 +38,7 @@ trait SampleExtractor {
    * @param query The query that caused the error.
    * @param error The verification error.
    */
-  def extractSample(query: Query, error: VerificationError): Sample = {
+  protected def extractSample(query: Query, error: VerificationError): Sample = {
     // extract counterexample and offending location
     val (counter, offending) = extractInformation(error)
 

@@ -44,7 +44,7 @@ trait QueryBuilder extends Builder {
    * @param hypothesis The hypothesis to check.
    * @return The query.
    */
-  def buildQuery(hypothesis: Hypothesis): Query = {
+  protected def buildQuery(hypothesis: Hypothesis): Query = {
     // reset
     reset()
     // build program
