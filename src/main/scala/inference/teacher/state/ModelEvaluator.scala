@@ -50,7 +50,7 @@ case class ModelEvaluator(model: Model) {
             val rightValue = evaluateReference(right)
             leftValue == rightValue
           case sort =>
-            sys.error(s"Comparison of unsupported sort: ${sort}")
+            sys.error(s"Comparison of unsupported sort: $sort")
         }
     }
 
