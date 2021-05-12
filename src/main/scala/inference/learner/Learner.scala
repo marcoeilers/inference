@@ -19,10 +19,20 @@ import inference.util.solver.Solver
  * @param solver The solver used to generate hypotheses.
  *
  */
-class Learner(input: Input, solver: Solver) extends AbstractLearner {
-  override def addSample(sample: Sample): Unit =
-    ()
+class Learner(protected val input: Input, solver: Solver) extends AbstractLearner with TemplateGenerator {
+  /**
+   * The sequence of samples.
+   */
+  private var samples: Seq[Sample] =
+    Seq.empty
 
-  override def hypothesis: Hypothesis =
+  override def addSample(sample: Sample): Unit =
+    samples = samples :+ sample
+
+  override def hypothesis: Hypothesis = {
+    // generate templates
+    val templates = generateTemplates(samples)
+
     Hypothesis()
+  }
 }

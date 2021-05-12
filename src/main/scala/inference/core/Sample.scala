@@ -26,6 +26,6 @@ case class LowerBound(record: Record) extends Sample
  * A record representing a data point.
  *
  * @param placeholder The specification placeholder corresponding to this record.
- * @param resources   The set of expressions that can be used to represent the resource in question.
+ * @param locations   The set of locations that can be used to represent the resource in question.
  */
-case class Record(placeholder: Placeholder, resources: Set[ast.LocationAccess])
+case class Record(placeholder: Placeholder, locations: Set[ast.LocationAccess])
