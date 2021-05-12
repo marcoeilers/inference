@@ -33,7 +33,7 @@ case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], existing
     IdentityInstance(this)
 
   override def toString: String =
-    s"$name(${parameters.mkString(", ")}"
+    s"$name(${parameters.map(_.name).mkString(", ")})"
 }
 
 /**

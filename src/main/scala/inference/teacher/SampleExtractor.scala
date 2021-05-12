@@ -10,6 +10,7 @@ package inference.teacher
 
 import inference.core.{LowerBound, Record, Sample}
 import inference.runner.Input
+import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
@@ -41,27 +42,35 @@ trait SampleExtractor {
     // extract counterexample and offending location
     val (counter, offending) = extractInformation(error)
 
-    // gather all encountered snapshots
+    // get silicon state and model
     val siliconState = counter.state
-    val encountered = query
+    val model = ModelEvaluator(counter.model)
+
+    // failing state
+    val failState = StateEvaluator(None, siliconState, model)
+
+    // gather all encountered snapshots
+    val snapshots = query
       .snapshots
       .flatMap {
         case (name, instance) if siliconState.oldHeaps.contains(name) =>
-          Some(instance)
+          val state = StateEvaluator(Some(name), siliconState, model)
+          val snapshot = Snapshot(instance, state)
+          Some(snapshot)
         case _ => None
       }
 
-    // create record
-    val record = {
-      assert(encountered.size == 1)
-      val placeholder = encountered.head.placeholder
-      // TODO: Adapt resources.
-      val resources = Set(offending)
+    // create records
+    val records = snapshots.map { snapshot =>
+      val placeholder = snapshot.placeholder
+      val adaptor = Adaptor(failState, snapshot)
+      val resources = adaptor.adaptLocation(offending)
       Record(placeholder, resources)
     }
 
     // return lower bound sample
-    LowerBound(record)
+    assert(records.size == 1)
+    LowerBound(records.head)
   }
 
   /**

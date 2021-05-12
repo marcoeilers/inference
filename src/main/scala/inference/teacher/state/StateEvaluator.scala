@@ -25,7 +25,7 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
   /**
    * The precomputed heap map.
    */
-  private val heap = label
+  private[state] val heap = label
     .map(state.oldHeaps)
     .getOrElse(state.h)
     .values
