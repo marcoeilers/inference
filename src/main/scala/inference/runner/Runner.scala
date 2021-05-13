@@ -11,7 +11,7 @@ package inference.runner
 import inference.core.{AbstractLearner, AbstractTeacher, Hypothesis, Inference}
 import inference.learner.Learner
 import inference.teacher.Teacher
-import inference.util.solver.Solver
+import inference.util.solver.{Solver, Z3Solver}
 import viper.silicon.Silicon
 import viper.silver.verifier.Verifier
 
@@ -48,7 +48,7 @@ trait Runner[R] extends Inference {
    * @return The solver.
    */
   def createSolver(configuration: Configuration): Solver =
-    new Solver()
+    new Z3Solver(configuration.z3Exe())
 
   override protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
     new Teacher(input, verifier)
