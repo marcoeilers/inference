@@ -15,9 +15,10 @@ import viper.silver.ast
  *
  * @param name       The unique name identifying the placeholder.
  * @param parameters The parameters upon which the specification may depend.
+ * @param atoms      The atomic predicates that may be used for the specification.
  * @param existing   The existing partial specification.
  */
-case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]) {
+case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], atoms: Seq[ast.Exp], existing: Seq[ast.Exp]) {
   /**
    * The variables corresponding to the parameters.
    */

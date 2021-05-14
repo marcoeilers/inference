@@ -11,6 +11,7 @@ package inference.runner
 import fastparse.Parsed
 import inference.Names
 import inference.core.Placeholder
+import inference.util.collections.Collections
 import inference.util.{Builder, Namespace}
 import viper.silver.ast
 import viper.silver.parser.{FastParser, PProgram, Resolver, Translator}
@@ -118,8 +119,20 @@ private class CheckBuilder extends Builder {
    * @return The placeholder.
    */
   private def createPlaceholder(base: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
+    // get unique name
     val unique = namespace.uniqueIdentifier(base)
-    val placeholder = Placeholder(unique, parameters, existing)
+    // create atomic predicates
+    val atoms = {
+      val references = parameters
+        .filter(_.isSubtype(ast.Ref))
+        .map(_.localVar)
+      Collections
+        .pairs(references)
+        .map { case (a, b) => ast.NeCmp(a, b)() }
+        .toSeq
+    }
+    // create placeholder
+    val placeholder = Placeholder(unique, parameters, atoms, existing)
     placeholders.append(placeholder)
     placeholder
   }
