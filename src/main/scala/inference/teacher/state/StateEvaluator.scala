@@ -59,6 +59,21 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
    */
   def evaluateBoolean(expression: ast.Exp): Boolean =
     expression match {
+      case binary@ast.BinExp(left, right) =>
+        left.typ match {
+          case ast.Ref =>
+            // evaluate operands
+            val leftValue = evaluateReference(left)
+            val rightValue = evaluateReference(right)
+            // reduce operands
+            binary match {
+              case _: ast.EqCmp => leftValue == rightValue
+              case _: ast.NeCmp => leftValue != rightValue
+              case _ => sys.error(s"Unexpected binary expression: $binary")
+            }
+          case typ =>
+            sys.error(s"Unexpected argument type: $typ")
+        }
       case _ =>
         sys.error(s"Unexpected expression: $expression")
     }
