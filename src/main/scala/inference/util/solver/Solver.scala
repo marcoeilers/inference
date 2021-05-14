@@ -9,6 +9,7 @@
 package inference.util.solver
 
 import fastparse.Parsed
+import viper.silver.ast
 import viper.silver.verifier.{ConstantEntry, ModelParser}
 
 import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter, PrintWriter}
@@ -17,7 +18,15 @@ import java.nio.file.Paths
 /**
  * A solver.
  */
-trait Solver
+trait Solver {
+  /**
+   * Solves the given constraints and returns a satisfying model.
+   *
+   * @param constraints The constraints to solve.
+   * @return The model.
+   */
+  def solve(constraints: Seq[ast.Exp]): Map[String, Boolean] = ???
+}
 
 /**
  * A Z3 solver.

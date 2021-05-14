@@ -8,7 +8,11 @@
 
 package inference.core
 
+import viper.silver.ast
+
 /**
  * A hypothesis.
+ *
+ * @param predicates The predicates.
  */
-case class Hypothesis()
+case class Hypothesis(predicates: Seq[ast.Predicate])

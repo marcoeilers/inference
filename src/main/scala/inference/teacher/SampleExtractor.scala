@@ -8,7 +8,7 @@
 
 package inference.teacher
 
-import inference.core.{LowerBound, Record, Sample}
+import inference.core.{LowerBound, Record, Sample, SnapshotAbstraction}
 import inference.runner.Input
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
 import viper.silicon.interfaces.SiliconRawCounterexample
@@ -17,7 +17,7 @@ import viper.silver.verifier.VerificationError
 import viper.silver.verifier.reasons.InsufficientPermission
 
 /**
- * A sample extractor.
+ * A sample extractor mixin.
  */
 trait SampleExtractor {
   /**
@@ -63,9 +63,12 @@ trait SampleExtractor {
     // create records
     val records = snapshots.map { snapshot =>
       val placeholder = snapshot.placeholder
-      val adaptor = Adaptor(failState, snapshot)
-      val resources = adaptor.adaptLocation(offending)
-      Record(placeholder, resources)
+      val abstraction = SnapshotAbstraction(snapshot)
+      val locations = {
+        val adaptor = Adaptor(failState, snapshot)
+        adaptor.adaptLocation(offending)
+      }
+      Record(placeholder, abstraction, locations)
     }
 
     // return lower bound sample

@@ -19,7 +19,11 @@ import inference.util.solver.Solver
  * @param solver The solver used to generate hypotheses.
  *
  */
-class Learner(protected val input: Input, solver: Solver) extends AbstractLearner with TemplateGenerator {
+class Learner(protected val input: Input, protected val solver: Solver)
+  extends AbstractLearner
+    with TemplateGenerator
+    with GuardEncoder
+    with HypothesisBuilder {
   /**
    * The sequence of samples.
    */
@@ -30,9 +34,17 @@ class Learner(protected val input: Input, solver: Solver) extends AbstractLearne
     samples = samples :+ sample
 
   override def hypothesis: Hypothesis = {
-    // generate templates
-    val templates = generateTemplates(samples)
-
-    Hypothesis()
+    if (samples.isEmpty) {
+      // return empty hypothesis
+      Hypothesis(Seq.empty)
+    } else {
+      // generate templates
+      val templates = generateTemplates(samples)
+      // encode guards and solve constraints
+      val constraints = encodeSamples(templates, samples)
+      val model = solver.solve(constraints)
+      // build hypothesis
+      buildHypothesis(templates, model)
+    }
   }
 }

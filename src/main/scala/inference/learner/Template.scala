@@ -23,6 +23,14 @@ sealed trait Template {
   def placeholder: Placeholder
 
   /**
+   * Returns the name of the corresponding specification placeholder.
+   *
+   * @return The name
+   */
+  def name: String =
+    placeholder.name
+
+  /**
    * Returns the parameters of the specification.
    *
    * @return THe parameters.
@@ -75,5 +83,5 @@ case class Conjunction(conjuncts: Seq[TemplateExpression]) extends TemplateExpre
  */
 case class Guarded(guardId: Int, body: TemplateExpression) extends TemplateExpression {
   override def toString: String =
-    s"(phi_$guardId -> $body"
+    s"(phi_$guardId -> $body)"
 }

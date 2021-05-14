@@ -52,6 +52,18 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
     }
 
   /**
+   * Evaluates the given expression (assumed to be boolean-typed).
+   *
+   * @param expression The expression to evaluate.
+   * @return The boolean value.
+   */
+  def evaluateBoolean(expression: ast.Exp): Boolean =
+    expression match {
+      case _ =>
+        sys.error(s"Unexpected expression: $expression")
+    }
+
+  /**
    * Evaluates the given expression (assumed to be reference-typed).
    *
    * @param expression The expression to evaluate.
