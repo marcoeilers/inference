@@ -8,6 +8,7 @@
 
 package inference.learner
 
+import inference.Names
 import inference.core.{LowerBound, Record, Sample}
 import inference.util.ast.Expressions
 import inference.util.collections.SeqMap
@@ -19,7 +20,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * A guard encoder.
  */
-trait GuardEncoder extends X {
+trait GuardEncoder {
   private type GuardMap = Map[ast.LocationAccess, Seq[Seq[Guard]]]
 
   /**
@@ -147,23 +148,23 @@ trait GuardEncoder extends X {
     val maxClauses = 1
     // encode clauses
     val clauses = for (clauseIndex <- 0 until maxClauses) yield {
-      val clauseActivation = variable(clauseActivationName(guardId, clauseIndex))
+      val clauseActivation = variable(Names.clauseActivation(guardId, clauseIndex))
       val clauseEncoding = {
         // encode literals
         val literals = values
           .zipWithIndex
           .map { case (value, literalIndex) =>
-            val literalActivation = variable(literalActivationName(guardId, clauseIndex, literalIndex))
+            val literalActivation = variable(Names.literalActivation(guardId, clauseIndex, literalIndex))
             val literalEncoding = value match {
               case Some(sign) =>
-                val positive = variable(literalSignName(guardId, clauseIndex, literalIndex))
+                val positive = variable(Names.literalSign(guardId, clauseIndex, literalIndex))
                 if (sign) positive else ast.Not(positive)()
               case None =>
                 ast.BoolLit(default)()
             }
             ast.Implies(literalActivation, literalEncoding)()
           }
-        // conjoin all literals
+        // conjoin literals
         Expressions.conjoin(literals)
       }
       ast.And(clauseActivation, clauseEncoding)()
@@ -188,18 +189,4 @@ trait GuardEncoder extends X {
     override def toString: String =
       s"phi_$guardId[${atoms.mkString(", ")}]"
   }
-}
-
-trait X {
-  @inline
-  protected def clauseActivationName(guardId: Int, clauseIndex: Int): String =
-    s"x-$guardId-$clauseIndex"
-
-  @inline
-  protected def literalActivationName(guardId: Int, clauseIndex: Int, literalIndex: Int): String =
-    s"y-$guardId-$clauseIndex-$literalIndex"
-
-  @inline
-  protected def literalSignName(guardId: Int, clauseIndex: Int, literalIndex: Int): String =
-    s"s-$guardId-$clauseIndex-$literalIndex"
 }

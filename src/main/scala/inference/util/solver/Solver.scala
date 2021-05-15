@@ -20,12 +20,17 @@ import java.nio.file.Paths
  */
 trait Solver {
   /**
+   * Initializes the solver.
+   */
+  def initialize()
+
+  /**
    * Solves the given constraints and returns a satisfying model.
    *
    * @param constraints The constraints to solve.
    * @return The model.
    */
-  def solve(constraints: Seq[ast.Exp]): Map[String, Boolean] = ???
+  def solve(constraints: Seq[ast.Exp]): Map[String, Boolean]
 }
 
 /**
@@ -73,6 +78,62 @@ class Z3Solver(path: String) extends Solver {
     val bufferedWriter = new BufferedWriter(outputStreamWriter)
     new PrintWriter(bufferedWriter, true)
   }
+
+  override def initialize(): Unit = {
+    // set model format
+    writeLine("(set-option :model.v2 true)")
+  }
+
+  override def solve(constraints: Seq[ast.Exp]): Map[String, Boolean] = {
+    // enter new scope
+    writeLine("(push)")
+
+    // declare variables
+    constraints
+      .flatMap(_.collect { case ast.LocalVar(name, _) => name })
+      .distinct
+      .foreach { name => writeLine(s"(declare-const $name Bool)") }
+
+    // emit constraints
+    constraints.foreach { constraint =>
+      val converted = convert(constraint)
+      writeLine(s"(assert $converted)")
+    }
+
+    // solve constraints and process response
+    writeLine("(check-sat)")
+    val response = readResponse()
+    val model = response match {
+      case "sat" =>
+        // get model
+        writeLine("(get-model)")
+        readModel()
+      case _ => sys.error(s"Unexpected response: $response")
+    }
+
+    // leave scope
+    writeLine("(pop)")
+    // return model
+    model
+  }
+
+  /**
+   * Converts the given expression to an smt-lib string.
+   *
+   * @param expression The expression lib.
+   * @return The converted expression.
+   */
+  private def convert(expression: ast.Exp): String =
+    expression match {
+      case ast.TrueLit() => "true"
+      case ast.FalseLit() => "false"
+      case ast.LocalVar(name, _) => name
+      case ast.Not(argument) => s"(not ${convert(argument)})"
+      case ast.And(left, right) => s"(and ${convert(left)} ${convert(right)})"
+      case ast.Or(left, right) => s"(or ${convert(left)} ${convert(right)})"
+      case ast.Implies(left, right) => s"(=> ${convert(left)} ${convert(right)})"
+      case _ => sys.error(s"Unexpected expression: $expression")
+    }
 
   /**
    * Writes the given line to Z3's input.

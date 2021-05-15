@@ -23,4 +23,39 @@ object Names {
    * The prefix used to generate names for snapshots.
    */
   val snapshot = "s"
+
+  /**
+   * Returns the variable name used for the activation of a clause.
+   *
+   * @param guardId     The guard id.
+   * @param clauseIndex The clause index.
+   * @return The variable name.
+   */
+  @inline
+  def clauseActivation(guardId: Int, clauseIndex: Int): String =
+    s"x-$guardId-$clauseIndex"
+
+  /**
+   * Returns the variable name used for the activation of a literal.
+   *
+   * @param guardId      The guard id.
+   * @param clauseIndex  The clause index.
+   * @param literalIndex The literal index.
+   * @return The variable name.
+   */
+  @inline
+  def literalActivation(guardId: Int, clauseIndex: Int, literalIndex: Int): String =
+    s"y-$guardId-$clauseIndex-$literalIndex"
+
+  /**
+   * Returns the variable name used for the sign of a literal.
+   *
+   * @param guardId      The guard id.
+   * @param clauseIndex  The clause index.
+   * @param literalIndex The literal index.
+   * @return The variable name.
+   */
+  @inline
+  def literalSign(guardId: Int, clauseIndex: Int, literalIndex: Int): String =
+    s"s-$guardId-$clauseIndex-$literalIndex"
 }

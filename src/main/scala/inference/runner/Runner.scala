@@ -47,8 +47,13 @@ trait Runner[R] extends Inference {
    * @param configuration The configuration.
    * @return The solver.
    */
-  def createSolver(configuration: Configuration): Solver =
-    new Z3Solver(configuration.z3Exe())
+  def createSolver(configuration: Configuration): Solver = {
+    // create and initialize solver
+    val solver = new Z3Solver(configuration.z3Exe())
+    solver.initialize()
+    // return solver
+    solver
+  }
 
   override protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
     new Teacher(input, verifier)

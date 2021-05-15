@@ -18,7 +18,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
- * A query builder.
+ * A query builder mixin.
  */
 trait QueryBuilder extends Builder {
   /**
