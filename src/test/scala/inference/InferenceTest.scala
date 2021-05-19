@@ -12,7 +12,7 @@ import inference.runner.TestRunner
 import org.scalatest.funsuite.AnyFunSuite
 import viper.silver.utility.Paths
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 
 /**

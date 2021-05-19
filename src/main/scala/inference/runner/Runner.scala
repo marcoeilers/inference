@@ -9,11 +9,13 @@
 package inference.runner
 
 import inference.core.{AbstractLearner, AbstractTeacher, Hypothesis, Inference}
+import inference.extender.Extender
 import inference.learner.Learner
 import inference.teacher.Teacher
 import inference.util.solver.{Solver, Z3Solver}
 import viper.silicon.Silicon
-import viper.silver.verifier.Verifier
+import viper.silver.ast
+import viper.silver.verifier.{Success, Verifier}
 
 /**
  * An inference runner.
@@ -97,12 +99,14 @@ trait Runner[R] extends Inference {
   /**
    * Runs the inference with the given input.
    *
-   * @param input The input.
+   * @param input    The input.
+   * @param verifier The verifier.
+   * @param solver   The solver.
    * @return The result.
    */
   def run(input: Input)(verifier: Verifier, solver: Solver): R = {
     val hypothesis = infer(input)(verifier, solver)
-    result(input, hypothesis)
+    result(input, hypothesis)(verifier, solver)
   }
 
   /**
@@ -110,25 +114,46 @@ trait Runner[R] extends Inference {
    *
    * @param input      The input.
    * @param hypothesis The inferred hypothesis.
+   * @param verifier   The verifier.
+   * @param solver     The solver.
    * @return The result.
    */
-  def result(input: Input, hypothesis: Hypothesis): R
+  def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): R
 }
 
 /**
  * An inference runner that prints the inferred hypothesis.
  */
 trait PrintRunner extends Runner[Unit] {
-  override def result(input: Input, hypothesis: Hypothesis): Unit =
+  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Unit =
     println(hypothesis)
 }
 
 /**
  * An inference runner that verifiers the program annotated with the inferred specification.
  */
-trait TestRunner extends Runner[Boolean] {
-  override def result(input: Input, hypothesis: Hypothesis): Boolean = {
-    // TODO: Implement me.
-    true
+trait TestRunner extends Runner[Boolean] with Extender {
+  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Boolean = {
+    // extend input program
+    val extended = extend(input, hypothesis)
+    // verify extended program
+    doesVerify(extended)(verifier)
+  }
+
+  /**
+   * Returns whether the given program verifies.
+   *
+   * @param program  The program to verify.
+   * @param verifier The verifier.
+   * @return True if the program verifies.
+   */
+  private def doesVerify(program: ast.Program)(verifier: Verifier): Boolean = {
+    // verify program
+    val result = verifier.verify(program)
+    // process result
+    result match {
+      case Success => true
+      case _ => false
+    }
   }
 }

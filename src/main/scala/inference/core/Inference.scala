@@ -21,7 +21,7 @@ trait Inference {
   /**
    * Creates a teacher with the given input and verifier.
    *
-   * @param input    The input.
+   * @param input    The input to the inference.
    * @param verifier The verifier.
    * @return The teacher.
    */
@@ -30,7 +30,7 @@ trait Inference {
   /**
    * Creates a learner with the given input and solver.
    *
-   * @param input  The input.
+   * @param input  The input to the inference.
    * @param solver The solver.
    * @return The learner.
    */
