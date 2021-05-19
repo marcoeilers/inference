@@ -172,20 +172,34 @@ private class CheckBuilder extends Builder {
         val precondition = createPlaceholder(Names.precondition, method.formalArgs, method.pres)
         val postcondition = createPlaceholder(Names.postcondition, method.formalArgs ++ method.formalReturns, method.posts)
         // process body
-        val processed = makeScope {
-          emitInhale(makeSpecification(precondition))
-          processStatement(body, method.formalArgs ++ method.formalReturns)
-          emitExhale(makeSpecification(postcondition))
-        }
+        val processed = processSequence(body, method.formalArgs ++ method.formalReturns)
         // update method
         method.copy(
-          pres = Seq.empty,
-          posts = Seq.empty,
+          pres = Seq(makeSpecification(precondition)),
+          posts = Seq(makeSpecification(postcondition)),
           body = Some(processed)
         )(method.pos, method.info, method.errT)
       case _ =>
         sys.error("Methods without bodies are not supported yet.")
     }
+  }
+
+  /**
+   * Processes the given sequence.
+   *
+   * @param sequence     The sequence to process.
+   * @param declarations The declarations.
+   * @return The processed sequence.
+   */
+  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl]): ast.Seqn = {
+    // process statements
+    val statements = scoped {
+      val variables = sequence.scopedDecls.collect { case variable: ast.LocalVarDecl => variable }
+      val updated = declarations ++ variables
+      sequence.ss.foreach { statement => processStatement(statement, updated) }
+    }
+    // update sequence
+    sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
   }
 
   /**

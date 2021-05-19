@@ -15,4 +15,24 @@ import viper.silver.ast
  *
  * @param predicates The predicates.
  */
-case class Hypothesis(predicates: Seq[ast.Predicate])
+case class Hypothesis(predicates: Seq[ast.Predicate]) {
+  /**
+   * The map from names to predicates.
+   */
+  private lazy val map =
+    predicates
+      .map { predicate => predicate.name -> predicate }
+      .toMap
+
+  /**
+   * Returns the inferred specification for the placeholder with the given name.
+   *
+   * @param name The name.
+   * @return The inferred specification.
+   */
+  def get(name: String): ast.Exp =
+    map
+      .get(name)
+      .flatMap(_.body)
+      .getOrElse(ast.TrueLit()())
+}

@@ -71,7 +71,7 @@ trait QueryBuilder extends Builder {
   private def instrumentProgram(program: ast.Program, hypothesis: Hypothesis): ast.Program = {
     val methods = program
       .methods
-      .map { method => instrumentMethod(method, hypothesis) }
+      .map { method => instrumentMethod(method)(hypothesis) }
     program.copy(methods = methods)(program.pos, program.info, program.errT)
   }
 
@@ -79,25 +79,37 @@ trait QueryBuilder extends Builder {
    * Instruments the given method.
    *
    * @param method     The method to instrument.
-   * @param hypothesis The current hypothesis.
+   * @param hypothesis The implicitly passed current hypothesis.
    * @return The instrumented method.
    */
-  private def instrumentMethod(method: ast.Method, hypothesis: Hypothesis): ast.Method = {
-    val body = method.body.map { sequence => instrumentSequence(sequence, hypothesis) }
-    method.copy(body = body)(method.pos, method.info, method.errT)
+  private def instrumentMethod(method: ast.Method)(implicit hypothesis: Hypothesis): ast.Method = {
+    method.body match {
+      case Some(body) =>
+        val instrumented = makeScope {
+          method.pres.foreach { expression => instrumentStatement(ast.Inhale(expression)()) }
+          instrumentStatement(body)
+          method.posts.foreach { expression => instrumentStatement(ast.Exhale(expression)()) }
+        }
+        // update method
+        method.copy(
+          pres = Seq.empty,
+          posts = Seq.empty,
+          body = Some(instrumented)
+        )(method.pos, method.info, method.errT)
+      case _ =>
+        sys.error("Missing method body.")
+    }
   }
 
   /**
    * Instruments the given sequence.
    *
    * @param sequence   The sequence to instrument.
-   * @param hypothesis The current hypothesis.
+   * @param hypothesis The implicitly passed current hypothesis.
    * @return The instrumented sequence.
    */
-  private def instrumentSequence(sequence: ast.Seqn, hypothesis: Hypothesis): ast.Seqn = {
-    val statements = scoped {
-      sequence.ss.foreach { statement => instrumentStatement(statement, hypothesis) }
-    }
+  private def instrumentSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn = {
+    val statements = scoped(sequence.ss.foreach(instrumentStatement))
     sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
   }
 
@@ -105,17 +117,17 @@ trait QueryBuilder extends Builder {
    * Instruments the given statement.
    *
    * @param statement  The statement to instrument.
-   * @param hypothesis The current hypothesis.
+   * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def instrumentStatement(statement: ast.Stmt, hypothesis: Hypothesis): Unit =
+  private def instrumentStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
       case sequence: ast.Seqn =>
-        val instrumented = instrumentSequence(sequence, hypothesis)
+        val instrumented = instrumentSequence(sequence)
         emit(instrumented)
       case conditional: ast.If =>
         // instrument branches
-        val thenBranch = instrumentSequence(conditional.thn, hypothesis)
-        val elseBranch = instrumentSequence(conditional.els, hypothesis)
+        val thenBranch = instrumentSequence(conditional.thn)
+        val elseBranch = instrumentSequence(conditional.els)
         // update conditional
         val instrumented = conditional.copy(
           thn = thenBranch,
@@ -136,8 +148,8 @@ trait QueryBuilder extends Builder {
           .asInstance(access.args)
         // save snapshot
         saveSnapshot(instance)
-      case _ =>
-        emit(statement)
+      case other =>
+        emit(other)
     }
 
   /**
