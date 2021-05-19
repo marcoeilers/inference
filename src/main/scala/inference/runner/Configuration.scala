@@ -10,6 +10,8 @@ package inference.runner
 
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 
+import scala.util.Properties
+
 /**
  * A configuration obtained from parsing input arguments.
  *
@@ -19,7 +21,9 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val z3Exe: ScallopOption[String] =
     opt[String](
       name = "z3Exe",
-      descr = "The path to the z3 executable.")
+      descr = "The path to the z3 executable.",
+      default = Properties.envOrNone("Z3_EXE"),
+      required = true)
 
   val iterations: ScallopOption[Int] =
     opt[Int](

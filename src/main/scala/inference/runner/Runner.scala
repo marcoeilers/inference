@@ -122,3 +122,13 @@ trait PrintRunner extends Runner[Unit] {
   override def result(input: Input, hypothesis: Hypothesis): Unit =
     println(hypothesis)
 }
+
+/**
+ * An inference runner that verifiers the program annotated with the inferred specification.
+ */
+trait TestRunner extends Runner[Boolean] {
+  override def result(input: Input, hypothesis: Hypothesis): Boolean = {
+    // TODO: Implement me.
+    true
+  }
+}
