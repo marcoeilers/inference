@@ -77,6 +77,14 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
    */
   def placeholder: Placeholder =
     instance.placeholder
+
+  /**
+   * Returns the partitioned heap, i.e., sets of equal expressions.
+   *
+   * @return The partitions.
+   */
+  def partitions: Iterable[Set[ast.Exp]] =
+    reachability.map { case (_, set) => set }
 }
 
 /**

@@ -66,4 +66,9 @@ case class SnapshotAbstraction(snapshot: Snapshot) extends Abstraction {
     val value = snapshot.state.evaluateBoolean(actual)
     Some(value)
   }
+
+  override def toString: String =
+    snapshot
+      .partitions.map(_.mkString("{", ",", "}"))
+      .mkString("{", ",", "}")
 }
