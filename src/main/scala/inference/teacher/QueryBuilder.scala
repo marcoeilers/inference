@@ -134,20 +134,28 @@ trait QueryBuilder extends Builder {
           els = elseBranch
         )(conditional.pos, conditional.info, conditional.errT)
         emit(instrumented)
-      case ast.Inhale(ast.PredicateAccessPredicate(access, _)) =>
+      case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get instance
         val instance = input
-          .placeholders(access.predicateName)
-          .asInstance(access.args)
+          .placeholders(name)
+          .asInstance(arguments)
+        // inhale specification
+        // TODO: Inhale existing specification
+        val body = hypothesis.get(name)
+        emitInhale(body)
         // save snapshot
         saveSnapshot(instance)
-      case ast.Exhale(ast.PredicateAccessPredicate(access, _)) =>
+      case ast.Exhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get instance
         val instance = input
-          .placeholders(access.predicateName)
-          .asInstance(access.args)
+          .placeholders(name)
+          .asInstance(arguments)
         // save snapshot
         saveSnapshot(instance)
+        // exhale specification
+        // TODO: Exhale existing specification
+        val body = hypothesis.get(name)
+        emitExhale(body)
       case other =>
         emit(other)
     }

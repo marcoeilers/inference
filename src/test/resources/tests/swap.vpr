@@ -1,0 +1,9 @@
+field val: Int
+
+method swap(x: Ref, y: Ref)
+{
+    var t: Int
+    t := x.val
+    x.val := y.val
+    y.val := t
+}
