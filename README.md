@@ -16,3 +16,10 @@ This inference is work in progress. A description will be added once the work is
     * On Windows, run `mklink /D silver ..\silver`.
  * Switch to the inference directory and create symbolic links to the Silver and the Silicon repositories.
  * Compile by running `sbt compile`.
+
+## Running the Inference
+
+ * In order to avoid stack overflows it is recommended to run the inference with the VM option `-Xss128m`.
+ * Tell the inference where it can find the Z3 executable by either
+    1. setting the environment variable `Z3_EXE`, or
+    2. using the command line option `--z3Exe`. 
