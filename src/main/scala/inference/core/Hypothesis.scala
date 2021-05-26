@@ -35,4 +35,9 @@ case class Hypothesis(predicates: Seq[ast.Predicate]) {
       .get(name)
       .flatMap(_.body)
       .getOrElse(ast.TrueLit()())
+
+  def get(instance: Instance): ast.Exp = {
+    val expression = get(instance.name)
+    instance.instantiate(expression)
+  }
 }

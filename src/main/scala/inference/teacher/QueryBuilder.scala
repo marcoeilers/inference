@@ -86,9 +86,9 @@ trait QueryBuilder extends Builder {
     method.body match {
       case Some(body) =>
         val instrumented = makeScope {
-          method.pres.foreach { expression => instrumentStatement(ast.Inhale(expression)()) }
+          inhaleSpecifications(method.pres)
           instrumentStatement(body)
-          method.posts.foreach { expression => instrumentStatement(ast.Exhale(expression)()) }
+          exhaleSpecification(method.posts)
         }
         // update method
         method.copy(
@@ -156,8 +156,43 @@ trait QueryBuilder extends Builder {
         // TODO: Exhale existing specification
         val body = hypothesis.get(name)
         emitExhale(body)
+      case call@ast.MethodCall(name, arguments, _) =>
+        // get specification placeholders
+        val (pre, post) = input.methods(name)
+        // inline method precondition (method's precondition was replaced with true)
+        val precondition = hypothesis.get(pre.asInstance(arguments))
+        exhaleSpecification(Seq(precondition))
+        // emit method call (to havoc targets)
+        emit(call)
+        // exhale method postcondition (method's postcondition was replaced with true)
+        val postcondition = hypothesis.get(post.asInstance(arguments))
+        inhaleSpecifications(Seq(postcondition))
       case other =>
         emit(other)
+    }
+
+  /**
+   * Inhales the specification represented by the given expressions.
+   *
+   * @param expressions The expressions representing the specification.
+   * @param hypothesis  The implicitly passed current hypothesis.
+   */
+  private def inhaleSpecifications(expressions: Seq[ast.Exp])(implicit hypothesis: Hypothesis): Unit =
+    expressions.foreach { expression =>
+      val inhale = ast.Inhale(expression)()
+      instrumentStatement(inhale)
+    }
+
+  /**
+   * Exhales the specification represented by the given expressions.
+   *
+   * @param expressions The expressions representing the specification.
+   * @param hypothesis  The implicitly passed current hypothesis.
+   */
+  private def exhaleSpecification(expressions: Seq[ast.Exp])(implicit hypothesis: Hypothesis): Unit =
+    expressions.foreach { expression =>
+      val exhale = ast.Exhale(expression)()
+      instrumentStatement(exhale)
     }
 
   /**

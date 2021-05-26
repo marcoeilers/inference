@@ -45,7 +45,8 @@ object Input {
       .placeholders
       .map { placeholder => placeholder.name -> placeholder }
       .toMap
-    new Input(configuration, namespace, processed, placeholders)
+    val methods = builder.methods.toMap
+    new Input(configuration, namespace, processed, placeholders, methods)
   }
 
   /**
@@ -94,14 +95,22 @@ object Input {
  * @param namespace     The namespace.
  * @param program       The input program.
  * @param placeholders  A map containing all placeholders.
+ * @param methods       A map from method names to its specification placeholders.
  */
-class Input(val configuration: Configuration, val namespace: Namespace, val program: ast.Program, val placeholders: Map[String, Placeholder])
+class Input(val configuration: Configuration,
+            val namespace: Namespace,
+            val program: ast.Program,
+            val placeholders: Map[String, Placeholder],
+            val methods: Map[String, (Placeholder, Placeholder)])
 
 private class CheckBuilder extends Builder {
   /**
    * The buffer used to accumulate all specification placeholders.
    */
   val placeholders: mutable.Buffer[Placeholder] =
+    ListBuffer.empty
+
+  val methods: mutable.Buffer[(String, (Placeholder, Placeholder))] =
     ListBuffer.empty
 
   /**
@@ -171,6 +180,7 @@ private class CheckBuilder extends Builder {
         // create placeholder specifications
         val precondition = createPlaceholder(Names.precondition, method.formalArgs, method.pres)
         val postcondition = createPlaceholder(Names.postcondition, method.formalArgs ++ method.formalReturns, method.posts)
+        methods.append(method.name -> (precondition, postcondition))
         // process body
         val processed = processSequence(body, method.formalArgs ++ method.formalReturns)
         // update method
