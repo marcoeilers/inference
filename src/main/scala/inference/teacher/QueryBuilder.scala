@@ -11,6 +11,7 @@ package inference.teacher
 import inference.Names
 import inference.core.{Hypothesis, Instance}
 import inference.runner.Input
+import inference.util.ast.ValueInfo
 import inference.util.{Builder, Namespace}
 import viper.silver.ast
 
@@ -86,9 +87,18 @@ trait QueryBuilder extends Builder {
     method.body match {
       case Some(body) =>
         val instrumented = makeScope {
-          inhaleSpecifications(method.pres)
+          // inhale method precondition
+          method.pres.foreach { expression =>
+            val inhale = ast.Inhale(expression)()
+            instrumentStatement(inhale)
+          }
+          // instrument method body
           instrumentStatement(body)
-          exhaleSpecification(method.posts)
+          // exhale method postcondition
+          method.posts.foreach { expression =>
+            val exhale = ast.Exhale(expression)()
+            instrumentStatement(exhale)
+          }
         }
         // update method
         method.copy(
@@ -135,65 +145,60 @@ trait QueryBuilder extends Builder {
         )(conditional.pos, conditional.info, conditional.errT)
         emit(instrumented)
       case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
-        // get instance
+        // get and inhale instance
         val instance = input
           .placeholders(name)
           .asInstance(arguments)
-        // inhale specification
-        // TODO: Inhale existing specification
-        val body = hypothesis.get(name)
-        emitInhale(body)
-        // save snapshot
-        saveSnapshot(instance)
+        inhaleInstance(instance)
       case ast.Exhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
-        // get instance
+        // get  and exhale instance
         val instance = input
           .placeholders(name)
           .asInstance(arguments)
-        // save snapshot
-        saveSnapshot(instance)
-        // exhale specification
-        // TODO: Exhale existing specification
-        val body = hypothesis.get(name)
-        emitExhale(body)
+        exhaleInstance(instance)
       case call@ast.MethodCall(name, arguments, _) =>
         // get specification placeholders
-        val (pre, post) = input.methods(name)
-        // inline method precondition (method's precondition was replaced with true)
-        val precondition = hypothesis.get(pre.asInstance(arguments))
-        exhaleSpecification(Seq(precondition))
+        val (precondition, postcondition) = input.methods(name)
+        // exhale method precondition (method's precondition was replaced with true)
+        exhaleInstance(precondition.asInstance(arguments))
         // emit method call (to havoc targets)
         emit(call)
-        // exhale method postcondition (method's postcondition was replaced with true)
-        val postcondition = hypothesis.get(post.asInstance(arguments))
-        inhaleSpecifications(Seq(postcondition))
+        // inhale method postcondition (method's postcondition was replaced with true)
+        inhaleInstance(postcondition.asInstance(arguments))
       case other =>
         emit(other)
     }
 
   /**
-   * Inhales the specification represented by the given expressions.
+   * Inhales the given specification instance.
    *
-   * @param expressions The expressions representing the specification.
-   * @param hypothesis  The implicitly passed current hypothesis.
+   * @param instance   The instance.
+   * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def inhaleSpecifications(expressions: Seq[ast.Exp])(implicit hypothesis: Hypothesis): Unit =
-    expressions.foreach { expression =>
-      val inhale = ast.Inhale(expression)()
-      instrumentStatement(inhale)
-    }
+  private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
+    // inhale specification
+    // TODO: Inhale existing specification
+    val body = hypothesis.get(instance)
+    emitInhale(body)
+    // save snapshot
+    saveSnapshot(instance)
+  }
 
   /**
-   * Exhales the specification represented by the given expressions.
+   * Exhales the given specification instance.
    *
-   * @param expressions The expressions representing the specification.
-   * @param hypothesis  The implicitly passed current hypothesis.
+   * @param instance   The instance.
+   * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def exhaleSpecification(expressions: Seq[ast.Exp])(implicit hypothesis: Hypothesis): Unit =
-    expressions.foreach { expression =>
-      val exhale = ast.Exhale(expression)()
-      instrumentStatement(exhale)
-    }
+  private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
+    // save snapshot
+    saveSnapshot(instance)
+    // exhale specification
+    // TODO: Exhale existing specification
+    val body = hypothesis.get(instance)
+    val info = ValueInfo(instance)
+    emitExhale(body, info)
+  }
 
   /**
    * Saves a snapshot of the given instance.

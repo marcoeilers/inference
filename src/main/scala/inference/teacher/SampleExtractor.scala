@@ -8,9 +8,10 @@
 
 package inference.teacher
 
-import inference.core.{LowerBound, Record, Sample, SnapshotAbstraction}
+import inference.core.{Instance, LowerBound, Record, Sample, SnapshotAbstraction}
 import inference.runner.Input
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
+import inference.util.ast.Infos
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
@@ -40,7 +41,7 @@ trait SampleExtractor {
    */
   protected def extractSample(query: Query, error: VerificationError): Sample = {
     // extract counterexample and offending location
-    val (counter, offending) = extractInformation(error)
+    val (counter, offending, info) = extractInformation(error)
 
     // get silicon state and model
     val siliconState = counter.state
@@ -77,13 +78,13 @@ trait SampleExtractor {
   }
 
   /**
-   * Extracts information form the given verification error. The information consists of a counterexample and an
-   * offending location.
+   * Extracts information form the given verification error. The information consists of a counterexample, an offending
+   * location, and an optionally attached info value
    *
    * @param error The verification error.
    * @return The extracted information.
    */
-  private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess) = {
+  private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess, Option[Instance]) = {
     // extract counterexample
     val counter = error.counterexample match {
       case Some(value: Counter) => value
@@ -95,7 +96,12 @@ trait SampleExtractor {
       case InsufficientPermission(location) => location
       case reason => sys.error(s"Unexpected reason: $reason")
     }
+    // extract attached info value
+    val info = error.offendingNode match {
+      case node: ast.Infoed => Infos.valueOption[Instance](node)
+      case _ => None
+    }
     // return information
-    (counter, offending)
+    (counter, offending, info)
   }
 }
