@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.Names
-import inference.core.{LowerBound, Record, Sample}
+import inference.core.{Implication, LowerBound, Record, Sample}
 import inference.util.ast.Expressions
 import inference.util.collections.SeqMap
 import viper.silver.ast
@@ -107,6 +107,9 @@ trait GuardEncoder {
         val name = record.placeholder.name
         val guardMap = guardMaps(name)
         encodeRecord(record, guardMap)
+      case Implication(_, _) =>
+        // TODO: Implement me.
+        ???
     }
 
   /**

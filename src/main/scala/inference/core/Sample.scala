@@ -24,6 +24,14 @@ sealed trait Sample
 case class LowerBound(record: Record) extends Sample
 
 /**
+ * An implication sample.
+ *
+ * @param left  The left-hand side of the implication.
+ * @param right The right-hand side of the implication.
+ */
+case class Implication(left: LowerBound, right: LowerBound) extends Sample
+
+/**
  * A record representing a data point.
  *
  * @param placeholder The specification placeholder corresponding to this record.

@@ -8,7 +8,7 @@
 
 package inference.learner
 
-import inference.core.{LowerBound, Placeholder, Sample}
+import inference.core.{Implication, LowerBound, Placeholder, Sample}
 import inference.runner.Input
 import inference.util.collections.SetMap
 import viper.silver.ast
@@ -37,8 +37,9 @@ trait TemplateGenerator {
     implicit val id: AtomicInteger = new AtomicInteger()
 
     // extract records
-    val records = samples.map {
-      case LowerBound(record) => record
+    val records = samples.flatMap {
+      case LowerBound(record) => Seq(record)
+      case Implication(left, right) => Seq(left.record, right.record)
     }
 
     // map from placeholder names to locations

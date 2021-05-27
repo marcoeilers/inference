@@ -8,7 +8,7 @@
 
 package inference.teacher
 
-import inference.core.{Instance, LowerBound, Record, Sample, SnapshotAbstraction}
+import inference.core._
 import inference.runner.Input
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
 import inference.util.ast.Infos
@@ -50,31 +50,68 @@ trait SampleExtractor {
     // failing state
     val failState = StateEvaluator(None, siliconState, model)
 
-    // gather all encountered snapshots
-    val snapshots = query
-      .snapshots
-      .flatMap {
-        case (name, instance) if siliconState.oldHeaps.contains(name) =>
-          val state = StateEvaluator(Some(name), siliconState, model)
-          val snapshot = Snapshot(instance, state)
-          Some(snapshot)
-        case _ => None
-      }
+    // get state snapshots
+    val (currentSnapshot, otherSnapshots) = {
+      // gather all encountered snapshots
+      val snapshots = query
+        .snapshots
+        .flatMap {
+          case (name, instance) if siliconState.oldHeaps.contains(name) =>
+            val state = StateEvaluator(Some(name), siliconState, model)
+            val snapshot = Snapshot(instance, state)
+            Some(snapshot)
+          case _ => None
+        }
 
-    // create records
-    val records = snapshots.map { snapshot =>
+      // return current and other snapshots
+      if (info.isDefined) {
+        val current = snapshots.lastOption
+        val others = snapshots.init
+        (current, others)
+      } else {
+        val current = None
+        (current, snapshots)
+      }
+    }
+
+    /**
+     * Helper method that computes a record corresponding to the given snapshot.
+     *
+     * @param snapshot The snapshot.
+     * @return The record.
+     */
+    def recordify(snapshot: Snapshot): Record = {
+      // get placeholder and create abstraction
       val placeholder = snapshot.placeholder
       val abstraction = SnapshotAbstraction(snapshot)
+      // adapt locations
       val locations = {
         val adaptor = Adaptor(failState, snapshot)
         adaptor.adaptLocation(offending)
       }
+      // create record
       Record(placeholder, abstraction, locations)
     }
 
-    // return lower bound sample
-    assert(records.size == 1)
-    LowerBound(records.head)
+    // compute current record
+    val currentRecord = currentSnapshot.map(recordify)
+    // lazily compute all other records
+    lazy val otherRecords = otherSnapshots.map(recordify)
+    // TODO: Deal with cases with more than one other record.
+    lazy val otherRecord = {
+      assert(otherRecords.size == 1)
+      otherRecords.head
+    }
+
+    // create sample
+    currentRecord match {
+      case Some(record) =>
+        val left = LowerBound(record)
+        val right = LowerBound(otherRecord)
+        Implication(left, right)
+      case None =>
+        LowerBound(otherRecord)
+    }
   }
 
   /**
