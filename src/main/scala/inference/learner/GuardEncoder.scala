@@ -101,27 +101,31 @@ trait GuardEncoder {
    * @param guardMaps The effective guards.
    * @return The encoding.
    */
-  private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp =
+  private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp = {
     sample match {
       case LowerBound(record) =>
-        val name = record.placeholder.name
-        val guardMap = guardMaps(name)
-        encodeRecord(record, guardMap)
-      case Implication(_, _) =>
-        // TODO: Implement me.
-        ???
+        encodeRecord(record, guardMaps, default = false)
+      case Implication(left, right) =>
+        val encodedLeft = encodeRecord(left.record, guardMaps, default = true)
+        val encodedRight = encodeRecord(right.record, guardMaps, default = false)
+        ast.Implies(encodedLeft, encodedRight)()
     }
+  }
 
   /**
    * Encodes the given record under consideration of the given effective guards.
    *
-   * @param record   The record to encode.
-   * @param guardMap The effective guards.
+   * @param record    The record to encode.
+   * @param guardMaps The effective guards.
+   * @param default   The default value to assume for unknown predicate values (approximation).
    * @return The encoding.
    */
-  private def encodeRecord(record: Record, guardMap: GuardMap): ast.Exp = {
+  private def encodeRecord(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+    // get guard map and state abstraction
+    val name = record.placeholder.name
+    val guardMap = guardMaps(name)
     val abstraction = record.abstraction
-    val default = false
+    // encode record
     val options = record
       .locations
       .flatMap { location =>
