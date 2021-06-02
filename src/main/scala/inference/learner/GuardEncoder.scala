@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.Names
-import inference.core.{Implication, LowerBound, Record, Sample}
+import inference.core.{Implication, LowerBound, Record, Sample, UpperBound}
 import inference.util.ast.Expressions
 import inference.util.collections.SeqMap
 import viper.silver.ast
@@ -101,16 +101,21 @@ trait GuardEncoder {
    * @param guardMaps The effective guards.
    * @return The encoding.
    */
-  private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp = {
+  private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp =
     sample match {
-      case LowerBound(record) =>
+      case LowerBound(records) =>
+        // TODO: Handle cases with more than one record.
+        assert(records.size == 1)
+        val record = records.head
         encodeRecord(record, guardMaps, default = false)
+      case UpperBound(record) =>
+        // TODO: Implement me.
+        ???
       case Implication(left, right) =>
-        val encodedLeft = encodeRecord(left.record, guardMaps, default = true)
-        val encodedRight = encodeRecord(right.record, guardMaps, default = false)
+        val encodedLeft = encodeRecord(left, guardMaps, default = true)
+        val encodedRight = encodeSample(right, guardMaps)
         ast.Implies(encodedLeft, encodedRight)()
     }
-  }
 
   /**
    * Encodes the given record under consideration of the given effective guards.

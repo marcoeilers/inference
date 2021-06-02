@@ -14,14 +14,31 @@ import viper.silver.ast
 /**
  * A sample.
  */
-sealed trait Sample
+sealed trait Sample {
+  /**
+   * Returns the records mentioned by the sample.
+   *
+   * @return The records.
+   */
+  def records: Seq[Record]
+}
 
 /**
- * A lower bound sample.
+ * A sample imposing a lower bound.
+ *
+ * @param records The records.
+ */
+case class LowerBound(records: Seq[Record]) extends Sample
+
+/**
+ * A sample imposing an upper bound.
  *
  * @param record The record.
  */
-case class LowerBound(record: Record) extends Sample
+case class UpperBound(record: Record) extends Sample {
+  override def records: Seq[Record] =
+    Seq(record)
+}
 
 /**
  * An implication sample.
@@ -29,7 +46,10 @@ case class LowerBound(record: Record) extends Sample
  * @param left  The left-hand side of the implication.
  * @param right The right-hand side of the implication.
  */
-case class Implication(left: LowerBound, right: LowerBound) extends Sample
+case class Implication(left: Record, right: LowerBound) extends Sample {
+  override def records: Seq[Record] =
+    left +: right.records
+}
 
 /**
  * A record representing a data point.

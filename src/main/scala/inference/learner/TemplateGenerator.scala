@@ -8,7 +8,7 @@
 
 package inference.learner
 
-import inference.core.{Implication, LowerBound, Placeholder, Sample}
+import inference.core.{Placeholder, Sample}
 import inference.runner.Input
 import inference.util.collections.SetMap
 import viper.silver.ast
@@ -36,21 +36,17 @@ trait TemplateGenerator {
     // counter used to generate unique ids
     implicit val id: AtomicInteger = new AtomicInteger()
 
-    // extract records
-    val records = samples.flatMap {
-      case LowerBound(record) => Seq(record)
-      case Implication(left, right) => Seq(left.record, right.record)
-    }
-
     // map from placeholder names to locations
     val map = {
       val empty: Map[String, Set[ast.LocationAccess]] = Map.empty
-      records.foldLeft(empty) {
-        case (result, record) =>
-          val name = record.placeholder.name
-          val locations = record.locations
-          SetMap.addAll(result, name, locations)
-      }
+      samples
+        .flatMap(_.records)
+        .foldLeft(empty) {
+          case (result, record) =>
+            val name = record.placeholder.name
+            val locations = record.locations
+            SetMap.addAll(result, name, locations)
+        }
     }
 
     // generate templates

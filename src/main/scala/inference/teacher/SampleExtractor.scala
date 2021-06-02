@@ -50,8 +50,9 @@ trait SampleExtractor {
     // failing state
     val failState = StateEvaluator(None, siliconState, model)
 
+
     // get state snapshots
-    val (currentSnapshot, otherSnapshots) = {
+    val (failingSnapshot, otherSnapshots) = {
       // gather all encountered snapshots
       val snapshots = query
         .snapshots
@@ -93,24 +94,19 @@ trait SampleExtractor {
       Record(placeholder, abstraction, locations)
     }
 
-    // compute current record
-    val currentRecord = currentSnapshot.map(recordify)
-    // lazily compute all other records
+    // compute failing record
+    val failingRecord = failingSnapshot.map(recordify)
+    // lazily compute all encountered records
     lazy val otherRecords = otherSnapshots.map(recordify)
-    // TODO: Deal with cases with more than one other record.
-    lazy val otherRecord = {
-      assert(otherRecords.size == 1)
-      otherRecords.head
-    }
 
     // create sample
-    currentRecord match {
+    failingRecord match {
       case Some(record) =>
-        val left = LowerBound(record)
-        val right = LowerBound(otherRecord)
+        val left = record
+        val right = LowerBound(otherRecords)
         Implication(left, right)
       case None =>
-        LowerBound(otherRecord)
+        LowerBound(otherRecords)
     }
   }
 
