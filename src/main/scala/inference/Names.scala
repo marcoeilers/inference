@@ -25,6 +25,11 @@ object Names {
   val snapshot = "s"
 
   /**
+   * The prefix used to generate names for variables used to save permission values.
+   */
+  val permission = "p"
+
+  /**
    * Returns the variable name used for the activation of a clause.
    *
    * @param guardId     The guard id.

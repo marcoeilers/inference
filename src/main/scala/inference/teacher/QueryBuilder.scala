@@ -11,8 +11,8 @@ package inference.teacher
 import inference.Names
 import inference.core.{Hypothesis, Instance}
 import inference.runner.Input
-import inference.util.ast.ValueInfo
-import inference.util.{Builder, Namespace}
+import inference.util.ast.{Expressions, ValueInfo}
+import inference.util.{Builder, Folding, Namespace}
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -21,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * A query builder mixin.
  */
-trait QueryBuilder extends Builder {
+trait QueryBuilder extends Builder with Folding {
   /**
    * Returns the input to the inference.
    *
@@ -180,7 +180,7 @@ trait QueryBuilder extends Builder {
     // TODO: Inhale existing specification
     val body = hypothesis.get(instance)
     emitInhale(body)
-    // save snapshot
+    unfold(body)(maxDepth = 0, hypothesis)
     saveSnapshot(instance)
   }
 
@@ -192,25 +192,88 @@ trait QueryBuilder extends Builder {
    */
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
     // save snapshot
-    saveSnapshot(instance)
+    implicit val label: String = saveSnapshot(instance)
     // exhale specification
     // TODO: Exhale existing specification
     val body = hypothesis.get(instance)
     val info = ValueInfo(instance)
+    fold(body)(maxDepth = 0, hypothesis, savePermission)
     emitExhale(body, info)
+  }
+
+  /**
+   * Saves the permission value for the given expression if it a resource predicate.
+   *
+   * @param expression The expression.
+   * @param guards     The guards guarding the expression.
+   * @param label      The implicitly passed label of the current state snapshot.
+   */
+  private def savePermission(expression: ast.Exp, guards: Seq[ast.Exp])(implicit label: String): Unit =
+    expression match {
+      case ast.FieldAccessPredicate(access, _) =>
+        savePermission(access, guards)
+      case ast.PredicateAccessPredicate(access, _) =>
+        savePermission(access, guards)
+      case _ => // do nothing
+    }
+
+  /**
+   * Saves the permission value for the given access.
+   *
+   * @param access The access.
+   * @param guards The guards guarding the access.
+   * @param label  The implicitly passed label of the current state snapshot.
+   */
+  private def savePermission(access: ast.LocationAccess, guards: Seq[ast.Exp])(implicit label: String): Unit = {
+    /**
+     * Helper method that extracts the condition under which we have the permissions to talk about the given expression.
+     *
+     * @param expression The expression.
+     * @return The condition.
+     */
+    def extractCondition(expression: ast.Exp): Seq[ast.Exp] =
+      expression match {
+        case access: ast.FieldAccess =>
+          val name = query.name(label, access)
+          val variable = ast.LocalVar(name, ast.Perm)()
+          val comparison = ast.PermGtCmp(variable, ast.NoPerm()())()
+          Seq(comparison)
+        case _ =>
+          Seq.empty
+      }
+
+    // generate unique name
+    val name = namespace.uniqueIdentifier(Names.permission)
+    query.addName(label, name, access)
+
+    val condition = {
+      // compute conditions under which we have the permissions to talk about the given access
+      val conditions = access match {
+        case ast.FieldAccess(receiver, _) =>
+          extractCondition(receiver)
+        case ast.PredicateAccess(arguments, _) =>
+          arguments.flatMap(extractCondition)
+      }
+      // conjoin given guards and these conditions
+      Expressions.conjoin(guards ++ conditions)
+    }
+    val value = ast.CondExp(condition, ast.CurrentPerm(access)(), ast.NoPerm()())()
+    emitAssignment(name, value)
   }
 
   /**
    * Saves a snapshot of the given instance.
    *
    * @param instance The instance.
+   * @return The label of the state snapshot.
    */
-  private def saveSnapshot(instance: Instance): Unit = {
+  private def saveSnapshot(instance: Instance): String = {
     // generate unique snapshot label
-    val name = namespace.uniqueIdentifier(Names.snapshot)
-    query.addSnapshot(name, instance)
-    // emit label
-    emitLabel(name)
+    val label = namespace.uniqueIdentifier(Names.snapshot)
+    query.addSnapshot(label, instance)
+    // emit and return label
+    emitLabel(label)
+    label
   }
 }
 
@@ -225,13 +288,40 @@ private class PartialQuery {
     ListBuffer.empty
 
   /**
+   * The map used to remember the names of permission variables.
+   */
+  private var names: Map[String, Map[ast.Exp, String]] =
+    Map.empty
+
+  /**
    * Adds a snapshot, i.e., associates the given name with the given placeholder instance.
    *
-   * @param name     The name of the snapshot.
+   * @param label    The label of the snapshot.
    * @param instance The instance saved by the snapshot.
    */
-  def addSnapshot(name: String, instance: Instance): Unit =
-    snapshots.append(name -> instance)
+  def addSnapshot(label: String, instance: Instance): Unit =
+    snapshots.append(label -> instance)
+
+  /**
+   * Remembers the variable name storing the permission value for the given expression in the state snapshot with the
+   * given label.
+   *
+   * @param label      The label of the state snapshot.
+   * @param name       The name of the permission variable.
+   * @param expression The expression.
+   */
+  def addName(label: String, name: String, expression: ast.Exp): Unit = {
+    val added = names
+      .getOrElse(label, Map.empty)
+      .updated(expression, name)
+    names = names.updated(label, added)
+  }
+
+  /**
+   * @see [[Query.name]]
+   */
+  def name(label: String, expression: ast.Exp): String =
+    names(label)(expression)
 
   /**
    * Finalizes the query with the given program.
@@ -240,5 +330,5 @@ private class PartialQuery {
    * @return The finalized query.
    */
   def apply(program: ast.Program): Query =
-    Query(program, snapshots.toSeq)
+    Query(program, snapshots.toSeq, names)
 }
