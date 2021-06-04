@@ -124,9 +124,13 @@ trait Runner[R] extends Inference {
 /**
  * An inference runner that prints the inferred hypothesis.
  */
-trait PrintRunner extends Runner[Unit] {
-  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Unit =
-    println(hypothesis)
+trait PrintRunner extends Runner[Unit] with Extender {
+  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Unit = {
+    // extend input program
+    val extended = extend(input, hypothesis)
+    // print extended program
+    println(extended)
+  }
 }
 
 /**
