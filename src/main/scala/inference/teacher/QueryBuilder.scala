@@ -79,10 +79,26 @@ trait QueryBuilder extends Builder with Folding {
    * @return The instrumented program.
    */
   private def instrumentProgram(program: ast.Program, hypothesis: Hypothesis): ast.Program = {
+    // get predicates
+    val predicates =
+      if (configuration.noInlining()) {
+        val existing = program.predicates
+        val inferred = input
+          .placeholders
+          .map { placeholder => hypothesis.getPredicate(placeholder) }
+        existing ++ inferred
+      } else {
+        program.predicates
+      }
+    // instrument methods
     val methods = program
       .methods
       .map { method => instrumentMethod(method)(hypothesis) }
-    program.copy(methods = methods)(program.pos, program.info, program.errT)
+    // update program
+    program.copy(
+      predicates = predicates,
+      methods = methods
+    )(program.pos, program.info, program.errT)
   }
 
   /**
@@ -156,13 +172,13 @@ trait QueryBuilder extends Builder with Folding {
       case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get and inhale instance
         val instance = input
-          .placeholders(name)
+          .placeholder(name)
           .asInstance(arguments)
         inhaleInstance(instance)
       case ast.Exhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get  and exhale instance
         val instance = input
-          .placeholders(name)
+          .placeholder(name)
           .asInstance(arguments)
         exhaleInstance(instance)
       case call@ast.MethodCall(name, arguments, _) =>
@@ -186,7 +202,7 @@ trait QueryBuilder extends Builder with Folding {
    */
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
     // get body
-    val body = hypothesis.get(instance)
+    val body = hypothesis.getBody(instance)
     // inhale specification
     // TODO: Inhale existing specification
     if (configuration.noInlining()) {
@@ -209,7 +225,7 @@ trait QueryBuilder extends Builder with Folding {
    */
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
     // get body
-    val body = hypothesis.get(instance)
+    val body = hypothesis.getBody(instance)
     // save and fold
     implicit val label: String = saveSnapshot(instance)
     fold(body)(maxDepth = 0, hypothesis, savePermission)

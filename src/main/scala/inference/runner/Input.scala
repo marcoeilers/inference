@@ -42,10 +42,7 @@ object Input {
     println(processed)
     // return input
     val namespace = builder.namespace.copy()
-    val placeholders = builder
-      .placeholders
-      .map { placeholder => placeholder.name -> placeholder }
-      .toMap
+    val placeholders = builder.placeholders.toSeq
     val methods = builder.methods.toMap
     new Input(configuration, namespace, processed, placeholders, methods)
   }
@@ -95,14 +92,31 @@ object Input {
  * @param configuration The configuration.
  * @param namespace     The namespace.
  * @param program       The input program.
- * @param placeholders  A map containing all placeholders.
+ * @param placeholders  The placeholders.
  * @param methods       A map from method names to its specification placeholders.
  */
 class Input(val configuration: Configuration,
             val namespace: Namespace,
             val program: ast.Program,
-            val placeholders: Map[String, Placeholder],
-            val methods: Map[String, (Placeholder, Placeholder)])
+            val placeholders: Seq[Placeholder],
+            val methods: Map[String, (Placeholder, Placeholder)]) {
+  /**
+   * Lazily computed map from names to the corresponding placeholders.
+   */
+  private lazy val map =
+    placeholders
+      .map { placeholder => placeholder.name -> placeholder }
+      .toMap
+
+  /**
+   * Returns the placeholder with the given name.
+   *
+   * @param name The name of the placeholder.
+   * @return The placeholder.
+   */
+  def placeholder(name: String): Placeholder =
+    map(name)
+}
 
 private class CheckBuilder extends Builder {
   /**

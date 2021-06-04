@@ -53,7 +53,7 @@ trait TemplateGenerator {
     map
       .toSeq
       .map { case (name, resources) =>
-        val placeholder = input.placeholders(name)
+        val placeholder = input.placeholder(name)
         generateTemplate(placeholder, resources)
       }
   }

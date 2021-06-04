@@ -110,7 +110,7 @@ trait Extender extends Builder {
   private def instantiatePlaceholders(expression: ast.Exp)(implicit hypothesis: Hypothesis): ast.Exp =
     expression match {
       case ast.PredicateAccessPredicate(predicate, _) =>
-        hypothesis.get(predicate.predicateName)
+        hypothesis.getBody(predicate.predicateName)
       case other =>
         other
     }

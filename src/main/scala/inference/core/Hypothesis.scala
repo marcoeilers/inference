@@ -25,19 +25,32 @@ case class Hypothesis(predicates: Seq[ast.Predicate]) {
       .toMap
 
   /**
-   * Returns the inferred specification for the placeholder with the given name.
+   * Returns the inferred specification predicate corresponding to the given placeholder.
    *
-   * @param name The name.
+   * @param placeholder The placeholder.
+   * @return The predicate.
+   */
+  def getPredicate(placeholder: Placeholder): ast.Predicate = {
+    val name = placeholder.name
+    val parameters = placeholder.parameters
+    val body = getBody(name)
+    ast.Predicate(name, parameters, Some(body))()
+  }
+
+  /**
+   * Returns the inferred specification corresponding to the placeholder with the given name.
+   *
+   * @param name The name of the placeholder.
    * @return The inferred specification.
    */
-  def get(name: String): ast.Exp =
+  def getBody(name: String): ast.Exp =
     map
       .get(name)
       .flatMap(_.body)
       .getOrElse(ast.TrueLit()())
 
-  def get(instance: Instance): ast.Exp = {
-    val expression = get(instance.name)
+  def getBody(instance: Instance): ast.Exp = {
+    val expression = getBody(instance.name)
     instance.instantiate(expression)
   }
 }

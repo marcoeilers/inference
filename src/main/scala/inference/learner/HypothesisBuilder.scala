@@ -26,7 +26,7 @@ trait HypothesisBuilder {
    */
   def buildHypothesis(templates: Seq[Template], model: Map[String, Boolean]): Hypothesis = {
     // build predicates
-    val predicates = templates.map {
+    val predicates = templates.collect {
       case template: PredicateTemplate => buildPredicate(template, model)
     }
     // create hypothesis
