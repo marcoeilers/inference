@@ -8,6 +8,7 @@
 
 package inference.core
 
+import com.typesafe.scalalogging.Logger
 import inference.runner.Input
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier
@@ -18,6 +19,14 @@ import scala.annotation.tailrec
  * An abstract inference.
  */
 trait Inference {
+  /**
+   * Returns the logger.
+   *
+   * @return The logger.
+   */
+  protected def logger: Logger =
+    Logger("root")
+
   /**
    * Creates a teacher with the given input and verifier.
    *
@@ -60,6 +69,7 @@ trait Inference {
      */
     @tailrec
     def iterate(hypothesis: Hypothesis, iteration: Int = 1): Hypothesis = {
+      logger.info(s"iteration #$iteration")
       // check hypothesis
       val samples = teacher.check(hypothesis)
       // check if there are new samples

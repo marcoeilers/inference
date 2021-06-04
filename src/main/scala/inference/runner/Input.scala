@@ -39,7 +39,6 @@ object Input {
     // process program
     val builder = new CheckBuilder()
     val processed = builder.processProgram(program)
-    println(processed)
     // return input
     val namespace = builder.namespace.copy()
     val placeholders = builder.placeholders.toSeq
