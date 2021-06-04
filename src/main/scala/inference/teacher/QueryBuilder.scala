@@ -9,10 +9,11 @@
 package inference.teacher
 
 import inference.Names
+import inference.builder.{Builder, Folding}
 import inference.core.{Hypothesis, Instance}
-import inference.runner.Input
+import inference.runner.{Configuration, Input}
 import inference.util.ast.{Expressions, ValueInfo}
-import inference.util.{Builder, Folding, Namespace}
+import inference.util.Namespace
 import viper.silver.ast
 
 import scala.collection.mutable

@@ -10,9 +10,10 @@ package inference.runner
 
 import fastparse.Parsed
 import inference.Names
+import inference.builder.Builder
 import inference.core.Placeholder
 import inference.util.collections.Collections
-import inference.util.{Builder, Namespace}
+import inference.util.Namespace
 import viper.silver.ast
 import viper.silver.parser.{FastParser, PProgram, Resolver, Translator}
 

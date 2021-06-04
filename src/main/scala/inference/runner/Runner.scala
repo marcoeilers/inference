@@ -9,7 +9,7 @@
 package inference.runner
 
 import inference.core.{AbstractLearner, AbstractTeacher, Hypothesis, Inference}
-import inference.extender.Extender
+import inference.builder.Extender
 import inference.learner.Learner
 import inference.teacher.Teacher
 import inference.util.solver.{Solver, Z3Solver}

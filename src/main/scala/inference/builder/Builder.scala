@@ -6,7 +6,7 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-package inference.util
+package inference.builder
 
 import inference.core.Hypothesis
 import viper.silver.ast
@@ -83,6 +83,26 @@ trait Builder {
   }
 
   /**
+   * Emits a statement that unfolds the given resource.
+   *
+   * @param resource THe resource to unfold.
+   */
+  protected def emitUnfold(resource: ast.PredicateAccessPredicate): Unit = {
+    val unfold = ast.Unfold(resource)()
+    emit(unfold)
+  }
+
+  /**
+   * Emits a statement that folds the given resource.
+   *
+   * @param resource The resource to fold.
+   */
+  protected def emitFold(resource: ast.PredicateAccessPredicate): Unit = {
+    val fold = ast.Fold(resource)()
+    emit(fold)
+  }
+
+  /**
    * Emits an assignments that assigns the given value to a variable with the given name.
    *
    * @param name  The name of the variable.
@@ -113,61 +133,4 @@ trait Builder {
     val label = ast.Label(name, Seq.empty)()
     emit(label)
   }
-}
-
-/**
- * Mixin providing methods to fold and unfold specifications.
- */
-trait Folding extends Builder {
-  /**
-   * Unfolds the given expression up to the specified maximal depth.
-   *
-   * @param expression THe expression to unfold.
-   * @param guards     The guards collected so far.
-   * @param maxDepth   The maximal depth.
-   * @param hypothesis The current hypothesis.
-   * @param default    The default action applied to leaf expressions.
-   */
-  protected def unfold(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
-                      (implicit maxDepth: Int, hypothesis: Hypothesis,
-                       default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
-    expression match {
-      case ast.And(left, right) =>
-        unfold(left)
-        unfold(right)
-      case ast.Implies(guard, guarded) =>
-        unfold(guarded, guards :+ guard)
-      case ast.PredicateAccessPredicate(access, _) =>
-        // TODO: Implement me.
-        ???
-      case other =>
-        default(other, guards)
-    }
-
-  /**
-   * Folds the given expression starting from the specified maximal depth.
-   *
-   * NOTE: The default action is used by the query builder to save permissions.
-   *
-   * @param expression The expression to fold.
-   * @param guards     The guards collected so far.
-   * @param maxDepth   The maximal depth.
-   * @param hypothesis The current hypothesis.
-   * @param default    THe default action applied to leaf expressions.
-   */
-  protected def fold(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
-                    (implicit maxDepth: Int, hypothesis: Hypothesis,
-                     default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
-    expression match {
-      case ast.And(left, right) =>
-        fold(left)
-        fold(right)
-      case ast.Implies(guard, guarded) =>
-        fold(guarded, guards :+ guard)
-      case ast.PredicateAccessPredicate(access, _) =>
-        // TODO: Implement me.
-        ???
-      case other =>
-        default(other, guards)
-    }
 }

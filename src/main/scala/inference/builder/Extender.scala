@@ -6,11 +6,10 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-package inference.extender
+package inference.builder
 
 import inference.core.Hypothesis
 import inference.runner.Input
-import inference.util.Builder
 import viper.silver.ast
 
 /**
