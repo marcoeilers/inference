@@ -31,6 +31,14 @@ trait QueryBuilder extends Builder with Folding {
   protected def input: Input
 
   /**
+   * Returns the configuration.
+   *
+   * @return The configuration.
+   */
+  private def configuration: Configuration =
+    input.configuration
+
+  /**
    * The namespace used to generate unique identifiers.
    */
   private var namespace: Namespace = _
@@ -177,10 +185,18 @@ trait QueryBuilder extends Builder with Folding {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
+    // get body
+    val body = hypothesis.get(instance)
     // inhale specification
     // TODO: Inhale existing specification
-    val body = hypothesis.get(instance)
-    emitInhale(body)
+    if (configuration.noInlining()) {
+      val resource = instance.asResource()
+      emitInhale(resource)
+      emitUnfold(resource)
+    } else {
+      emitInhale(body)
+    }
+    // unfold and save
     unfold(body)(maxDepth = 0, hypothesis)
     saveSnapshot(instance)
   }
@@ -192,14 +208,21 @@ trait QueryBuilder extends Builder with Folding {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
-    // save snapshot
+    // get body
+    val body = hypothesis.get(instance)
+    // save and fold
     implicit val label: String = saveSnapshot(instance)
+    fold(body)(maxDepth = 0, hypothesis, savePermission)
     // exhale specification
     // TODO: Exhale existing specification
-    val body = hypothesis.get(instance)
-    val info = ValueInfo(instance)
-    fold(body)(maxDepth = 0, hypothesis, savePermission)
-    emitExhale(body, info)
+    if (configuration.noInlining()) {
+      val resource = instance.asResource()
+      emitFold(resource)
+      emitExhale(resource)
+    } else {
+      val info = ValueInfo(instance)
+      emitExhale(body, info)
+    }
   }
 
   /**

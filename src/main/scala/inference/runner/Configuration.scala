@@ -31,6 +31,12 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "The number of iterations after which the learner gets exhausted and gives up.",
       default = Some(10))
 
+  val noInlining: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "noInlining",
+      descr = "Disables specification inlining",
+      hidden = true)
+
   val file: ScallopOption[String] =
     trailArg[String](
       name = "file",

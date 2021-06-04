@@ -72,6 +72,22 @@ sealed trait Instance {
   def instantiate(expression: ast.Exp): ast.Exp
 
   /**
+   * Returns a predicate access corresponding to this instance.
+   *
+   * @return The predicate access.
+   */
+  def asPredicate(): ast.PredicateAccess =
+    ast.PredicateAccess(arguments, name)()
+
+  /**
+   * Returns a predicate access predicate corresponding to this instance.
+   *
+   * @return THe predicate access predicate.
+   */
+  def asResource(): ast.PredicateAccessPredicate =
+    ast.PredicateAccessPredicate(asPredicate(), ast.FullPerm()())()
+
+  /**
    * Returns a copy of the instance with the given arguments.
    *
    * @param arguments The arguments.

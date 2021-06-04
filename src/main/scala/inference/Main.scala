@@ -10,8 +10,33 @@ package inference
 
 import inference.runner.PrintRunner
 
+/**
+ * The main object with the main method.
+ */
 object Main extends PrintRunner {
+  /**
+   *
+   * The base options used if no arguments are specified.
+   */
+  val baseOptions: Seq[String] =
+    Seq(
+      "--z3Exe", "/usr/local/Viper/z3/bin/z3",
+      "--noInlining")
+
+  /**
+   * The input file used if no arguments are specified.
+   */
+  val file = "/Users/dohrau/Repositories/viper/inference/src/test/resources/example.vpr"
+
+  /**
+   * The main method, i.e., the entry point of the inference.
+   *
+   * @param arguments The arguments to the inference.
+   */
   def main(arguments: Array[String]): Unit = {
-    run(arguments)
+    // inject default options if no arguments are specified
+    val injected = if (arguments.nonEmpty) arguments.toSeq else baseOptions :+ file
+    // run inference
+    run(injected)
   }
 }
