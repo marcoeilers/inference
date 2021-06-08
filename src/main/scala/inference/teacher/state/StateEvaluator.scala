@@ -95,4 +95,16 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
         val receiverValue = evaluateReference(receiver)
         heap(receiverValue)(field)
     }
+
+  /**
+   * Evaluates the permission variable with the given name.
+   *
+   * @param name The name of the variable.
+   * @return The permission value.
+   */
+  def evaluatePermission(name: String): Double = {
+    val variable = ast.LocalVar(name, ast.Perm)()
+    val term = state.g(variable)
+    model.evaluatePermission(term)
+  }
 }

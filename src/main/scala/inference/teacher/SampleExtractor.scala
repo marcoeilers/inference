@@ -97,16 +97,32 @@ trait SampleExtractor {
     // compute failing record
     val failingRecord = failingSnapshot.map(recordify)
     // lazily compute all encountered records
-    lazy val otherRecords = otherSnapshots.map(recordify)
+    lazy val others = otherSnapshots.map(recordify)
 
     // create sample
-    failingRecord match {
-      case Some(record) =>
-        val left = record
-        val right = LowerBound(otherRecords)
-        Implication(left, right)
+    failingSnapshot match {
+      // if there is a failing snapshot the error was caused by some specification
+      case Some(snapshot) =>
+        // evaluate permission amount
+        val permission = {
+          val state = snapshot.state
+          val name = query.name(snapshot.label, offending)
+          state.evaluatePermission(name)
+        }
+        // we want to require the missing permission from an upstream specification,
+        // unless we previously already held some permission for the offending location
+        if (permission == 0) {
+          val failing = recordify(snapshot)
+          val others = otherSnapshots.map(recordify)
+          Implication(failing, LowerBound(others))
+        } else {
+          val failing = recordify(snapshot)
+          UpperBound(failing)
+        }
+      // if there is no failing snapshot the error was caused by some original program code
       case None =>
-        LowerBound(otherRecords)
+        val others = otherSnapshots.map(recordify)
+        LowerBound(others)
     }
   }
 

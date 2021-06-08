@@ -71,6 +71,14 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
   }
 
   /**
+   * Returns the label of the state snapshot.
+   *
+   * @return The label.
+   */
+  def label: String =
+    state.label.get
+
+  /**
    * Returns the placeholder corresponding to the snapshot.
    *
    * @return The placeholder.

@@ -52,6 +52,33 @@ case class ModelEvaluator(model: Model) {
           case sort =>
             sys.error(s"Comparison of unsupported sort: $sort")
         }
+      case other =>
+        sys.error(s"Unexpected boolean term: $other")
+    }
+
+  /**
+   * Evaluates the given term term to a permission value (represented as a double).
+   *
+   * @param term The term to evaluate.
+   * @return The permission value.
+   */
+  def evaluatePermission(term: Term): Double =
+    term match {
+      case terms.NoPerm() => 0.0
+      case terms.FullPerm() => 1.0
+      case terms.Var(identifier, _) =>
+        val value = getString(identifier.name)
+        value.toDouble
+      case terms.PermPlus(left, right) =>
+        val leftValue = evaluatePermission(left)
+        val rightValue = evaluatePermission(right)
+        leftValue + rightValue
+      case terms.Ite(condition, left, right) =>
+        val boolean = evaluateBoolean(condition)
+        if (boolean) evaluatePermission(left)
+        else evaluatePermission(right)
+      case other =>
+        sys.error(s"Unexpected permission term: $other")
     }
 
   /**
@@ -74,6 +101,8 @@ case class ModelEvaluator(model: Model) {
           case sort =>
             sys.error(s"Unexpected sort: $sort")
         }
+      case other =>
+        sys.error(s"Unexpected reference term: $other")
     }
 
   /**
@@ -99,7 +128,6 @@ case class ModelEvaluator(model: Model) {
           case entry => sys.error(s"Unexpected value entry: $entry")
         }
     }
-
 
   /**
    * Returns the model entry associated with the given key as a string value.
