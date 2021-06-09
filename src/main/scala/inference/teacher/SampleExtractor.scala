@@ -94,11 +94,6 @@ trait SampleExtractor {
       Record(placeholder, abstraction, locations)
     }
 
-    // compute failing record
-    val failingRecord = failingSnapshot.map(recordify)
-    // lazily compute all encountered records
-    lazy val others = otherSnapshots.map(recordify)
-
     // create sample
     failingSnapshot match {
       // if there is a failing snapshot the error was caused by some specification
