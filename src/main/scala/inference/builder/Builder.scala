@@ -8,7 +8,6 @@
 
 package inference.builder
 
-import inference.core.Hypothesis
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -96,9 +95,10 @@ trait Builder {
    * Emits a statement that folds the given resource.
    *
    * @param resource The resource to fold.
+   * @param info     The info to attach to the fold statement.
    */
-  protected def emitFold(resource: ast.PredicateAccessPredicate): Unit = {
-    val fold = ast.Fold(resource)()
+  protected def emitFold(resource: ast.PredicateAccessPredicate, info: ast.Info = ast.NoInfo): Unit = {
+    val fold = ast.Fold(resource)(info = info)
     emit(fold)
   }
 

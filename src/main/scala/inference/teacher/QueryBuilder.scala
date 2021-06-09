@@ -231,12 +231,12 @@ trait QueryBuilder extends Builder with Folding {
     fold(body)(maxDepth = 0, hypothesis, savePermission)
     // exhale specification
     // TODO: Exhale existing specification
+    val info = ValueInfo(instance)
     if (configuration.noInlining()) {
       val resource = instance.asResource()
-      emitFold(resource)
+      emitFold(resource, info)
       emitExhale(resource)
     } else {
-      val info = ValueInfo(instance)
       emitExhale(body, info)
     }
   }
