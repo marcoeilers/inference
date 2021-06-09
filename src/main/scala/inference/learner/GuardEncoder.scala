@@ -11,7 +11,7 @@ package inference.learner
 import inference.Names
 import inference.core.{Implication, LowerBound, Record, Sample, UpperBound}
 import inference.util.ast.Expressions
-import inference.util.collections.SeqMap
+import inference.util.collections.{Collections, SeqMap}
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -107,31 +107,60 @@ trait GuardEncoder {
         // TODO: Handle cases with more than one record.
         assert(records.size == 1)
         val record = records.head
-        encodeRecord(record, guardMaps, default = false)
+        encodeLowerBound(record, guardMaps, default = false)
       case UpperBound(record) =>
-        // TODO: Implement me.
-        ???
+        atMostOne(record, guardMaps, default = true)
       case Implication(left, right) =>
-        val encodedLeft = encodeRecord(left, guardMaps, default = true)
+        val encodedLeft = encodeLowerBound(left, guardMaps, default = true)
         val encodedRight = encodeSample(right, guardMaps)
         ast.Implies(encodedLeft, encodedRight)()
     }
 
   /**
-   * Encodes the given record under consideration of the given effective guards.
+   * Encodes a lower bound corresponding to the given record.
    *
    * @param record    The record to encode.
    * @param guardMaps The effective guards.
    * @param default   The default value to assume for unknown predicate values (approximation).
    * @return The encoding.
    */
-  private def encodeRecord(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+  private def encodeLowerBound(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+    val options = encodeOptions(record, guardMaps, default)
+    // encode that least one of the options should be true
+    Expressions.disjoin(options)
+  }
+
+  /**
+   * Encodes an upper bound corresponding to the given record.
+   *
+   * @param record    The record to encode.
+   * @param guardMaps The effective guards.
+   * @param default   The default value to assume for unknown predicate values (approximation).
+   * @return The encoding.
+   */
+  private def atMostOne(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+    val options = encodeOptions(record, guardMaps, default)
+    val constraints = Collections
+      .pairs(options)
+      .map { case (first, second) => ast.Not(ast.And(first, second)())() }
+    Expressions.conjoin(constraints)
+  }
+
+  /**
+   * Encodes all options corresponding to the given record.
+   *
+   * @param record    The record.
+   * @param guardMaps The effective guards.
+   * @param default   The default value to assume for unknown predicate values (approximation).
+   * @return The encoding.
+   */
+  private def encodeOptions(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): Iterable[ast.Exp] = {
     // get guard map and state abstraction
     val name = record.placeholder.name
     val guardMap = guardMaps(name)
     val abstraction = record.abstraction
-    // encode record
-    val options = record
+    // encode options
+    record
       .locations
       .flatMap { location =>
         val guards = guardMap(location)
@@ -145,7 +174,6 @@ trait GuardEncoder {
           Expressions.conjoin(conjuncts)
         }
       }
-    Expressions.disjoin(options)
   }
 
   /**
