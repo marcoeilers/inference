@@ -12,7 +12,7 @@ import inference.runner.TestRunner
 import org.scalatest.funsuite.AnyFunSuite
 import viper.silver.utility.Paths
 
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import scala.jdk.CollectionConverters._
 
 /**
@@ -33,15 +33,15 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   def runAll(): Unit = {
     // get files to test
     val files = {
-      val resource = getClass.getResource(directory)
-      val path = Paths.pathFromResource(resource)
-      Files.newDirectoryStream(path).asScala.toSeq.map(_.toString)
+      val path = getPath(directory)
+      collectFiles(path)
     }
 
     // run tests
     files.foreach { path =>
-      val arguments = Seq(path)
-      runTest(path, arguments)
+      val file = path.toString
+      val arguments = Seq(file)
+      runTest(file, arguments)
     }
   }
 
@@ -55,5 +55,33 @@ class InferenceTest extends AnyFunSuite with TestRunner {
     test(name) {
       val verified = run(arguments)
       assert(verified)
+    }
+
+  /**
+   * Takes a path represented as a string and converts it into a path object.
+   *
+   * @param name The path as a string.
+   * @return The path object.
+   */
+  private def getPath(name: String): Path = {
+    val resource = getClass.getResource(name)
+    Paths.pathFromResource(resource)
+  }
+
+  /**
+   * Collects all files contained in the directory with the given path.
+   *
+   * @param path The path to the directory.
+   * @return The files.
+   */
+  private def collectFiles(path: Path): Seq[Path] =
+    if (Files.isDirectory(path)) {
+      Files
+        .newDirectoryStream(path)
+        .asScala
+        .toSeq
+        .flatMap(collectFiles)
+    } else {
+      Seq(path)
     }
 }
