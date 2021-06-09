@@ -49,8 +49,28 @@ case class Hypothesis(predicates: Seq[ast.Predicate]) {
       .flatMap(_.body)
       .getOrElse(ast.TrueLit()())
 
+  /**
+   * Returns the inferred specification corresponding to the given placeholder instance.
+   *
+   * @param instance The placeholder instance.
+   * @return The inferred specification.
+   */
   def getBody(instance: Instance): ast.Exp = {
     val expression = getBody(instance.name)
     instance.instantiate(expression)
   }
+
+  override def toString: String =
+    if (predicates.isEmpty) "Hypothesis()"
+    else {
+      val string = predicates
+        .map { predicate =>
+          val name = predicate.name
+          val parameters = predicate.formalArgs.map(_.name).mkString(", ")
+          val body = predicate.body.get
+          s"  $name($parameters) = $body"
+        }
+        .mkString("\n")
+      s"Hypothesis(\n$string)"
+    }
 }
