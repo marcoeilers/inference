@@ -9,7 +9,7 @@
 package inference.teacher
 
 import inference.core._
-import inference.runner.Input
+import inference.runner.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
 import inference.util.ast.Infos
 import viper.silicon.interfaces.SiliconRawCounterexample
@@ -34,6 +34,14 @@ trait SampleExtractor {
   protected def input: Input
 
   /**
+   * Returns the configuration.
+   *
+   * @return The configuration.
+   */
+  private def configuration: Configuration =
+    input.configuration
+
+  /**
    * Extracts a sample from the given query and verification error.
    *
    * @param query The query that caused the error.
@@ -49,7 +57,6 @@ trait SampleExtractor {
 
     // failing state
     val failState = StateEvaluator(None, siliconState, model)
-
 
     // get state snapshots
     val (failingSnapshot, otherSnapshots) = {
@@ -145,7 +152,15 @@ trait SampleExtractor {
       case node: ast.Infoed => Infos.valueOption[Instance](node)
       case _ => None
     }
+    // instantiate offending location
+    val instantiated = info match {
+      case Some(instance) =>
+        if (configuration.noInlining()) instance.instantiate(offending)
+        else offending
+      case None =>
+        offending
+    }
     // return information
-    (counter, offending, info)
+    (counter, instantiated, info)
   }
 }

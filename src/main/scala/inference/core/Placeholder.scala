@@ -72,6 +72,22 @@ sealed trait Instance {
   def instantiate(expression: ast.Exp): ast.Exp
 
   /**
+   * Instantiates all occurrences of the parameters in the given location access with their corresponding arguments.
+   *
+   * @param access The location access to instantiate.
+   * @return The instantiated location access.
+   */
+  def instantiate(access: ast.LocationAccess): ast.LocationAccess =
+    access match {
+      case ast.FieldAccess(receiver, field) =>
+        val instantiated = instantiate(receiver)
+        ast.FieldAccess(instantiated, field)()
+      case ast.PredicateAccess(arguments, name) =>
+        val instantiated = arguments.map(instantiate)
+        ast.PredicateAccess(instantiated, name)()
+    }
+
+  /**
    * Returns a predicate access corresponding to this instance.
    *
    * @return The predicate access.
