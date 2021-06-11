@@ -6,7 +6,7 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-package inference.runner
+package inference.input
 
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 

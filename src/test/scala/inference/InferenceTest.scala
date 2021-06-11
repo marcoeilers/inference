@@ -8,7 +8,7 @@
 
 package inference
 
-import inference.runner.TestRunner
+import inference.core.TestRunner
 import org.scalatest.funsuite.AnyFunSuite
 import viper.silver.utility.Paths
 

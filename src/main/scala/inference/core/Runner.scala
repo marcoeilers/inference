@@ -6,10 +6,10 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-package inference.runner
+package inference.core
 
-import inference.core.{AbstractLearner, AbstractTeacher, Hypothesis, Inference}
 import inference.builder.Extender
+import inference.input.{Configuration, Input}
 import inference.learner.Learner
 import inference.teacher.Teacher
 import inference.util.solver.{Solver, Z3Solver}
@@ -82,7 +82,7 @@ trait Runner[R] extends Inference {
    */
   def run(configuration: Configuration): R = {
     // create input
-    val input = Input(configuration)
+    val input = Input.fromConfiguration(configuration)
     // create verifier and solver
     val verifier = createVerifier(configuration)
     val solver = createSolver(configuration)

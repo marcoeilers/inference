@@ -15,9 +15,14 @@ object Names {
   val precondition = "pre"
 
   /**
-   * The prefix used to generate names for postcondition placeholder.
+   * The prefix used to generate names for postcondition placeholders.
    */
   val postcondition = "post"
+
+  /**
+   * The prefix used to generate names for invariant placeholders.
+   */
+  val invariant = "inv"
 
   /**
    * The prefix used to generate names for snapshots.

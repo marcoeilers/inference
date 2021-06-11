@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.core.{Placeholder, Sample}
-import inference.runner.Input
+import inference.input.Input
 import inference.util.collections.SetMap
 import viper.silver.ast
 

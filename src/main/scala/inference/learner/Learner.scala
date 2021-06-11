@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.core.{AbstractLearner, Hypothesis, Sample}
-import inference.runner.Input
+import inference.input.Input
 import inference.util.solver.Solver
 
 /**

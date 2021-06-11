@@ -11,8 +11,8 @@ package inference.teacher
 import inference.Names
 import inference.builder.{Builder, Folding}
 import inference.core.{Hypothesis, Instance}
-import inference.runner.{Configuration, Input}
-import inference.util.ast.{Expressions, ValueInfo}
+import inference.input.{Check, Configuration, Cut, Input, LoopCheck, MethodCheck}
+import inference.util.ast.{Expressions, Statements, ValueInfo}
 import inference.util.Namespace
 import viper.silver.ast
 
@@ -57,8 +57,27 @@ trait QueryBuilder extends Builder with Folding {
   protected def buildQuery(hypothesis: Hypothesis): Query = {
     // reset
     reset()
-    // build program
-    val program = instrumentProgram(input.program, hypothesis)
+    // get original program and checks
+    val original = input.program
+    val checks = input.checks
+    // predicates
+    val predicates =
+      if (configuration.noInlining()) {
+        val existing = original.predicates
+        val inferred = input
+          .placeholders
+          .map { placeholder => hypothesis.getPredicate(placeholder) }
+        existing ++ inferred
+      } else {
+        original.predicates
+      }
+    // instrument methods
+    val methods = checks.map { check => buildMethod(check)(hypothesis) }
+    // instrument program
+    val program = original.copy(
+      predicates = predicates,
+      methods = methods
+    )(original.pos, original.info, original.errT)
     // finalize query
     query(program)
   }
@@ -67,74 +86,49 @@ trait QueryBuilder extends Builder with Folding {
    * Resets the query builder.
    */
   private def reset(): Unit = {
-    namespace = input.namespace.copy()
+    namespace = new Namespace()
     query = new PartialQuery
   }
 
   /**
-   * Instruments the given program.
+   * Builds a method corresponding to the given check.
    *
-   * @param program    The program to instrument.
+   * @param check      The check.
    * @param hypothesis The current hypothesis.
-   * @return The instrumented program.
+   * @return The built method.
    */
-  private def instrumentProgram(program: ast.Program, hypothesis: Hypothesis): ast.Program = {
-    // get predicates
-    val predicates =
-      if (configuration.noInlining()) {
-        val existing = program.predicates
-        val inferred = input
-          .placeholders
-          .map { placeholder => hypothesis.getPredicate(placeholder) }
-        existing ++ inferred
-      } else {
-        program.predicates
-      }
-    // instrument methods
-    val methods = program
-      .methods
-      .map { method => instrumentMethod(method)(hypothesis) }
-    // update program
-    program.copy(
-      predicates = predicates,
-      methods = methods
-    )(program.pos, program.info, program.errT)
-  }
-
-  /**
-   * Instruments the given method.
-   *
-   * @param method     The method to instrument.
-   * @param hypothesis The implicitly passed current hypothesis.
-   * @return The instrumented method.
-   */
-  private def instrumentMethod(method: ast.Method)(implicit hypothesis: Hypothesis): ast.Method = {
-    method.body match {
-      case Some(body) =>
+  private def buildMethod(check: Check)(implicit hypothesis: Hypothesis): ast.Method =
+    check match {
+      case MethodCheck(original, precondition, postcondition, body) =>
+        // instrument method
         val instrumented = makeScope {
-          // inhale method precondition
-          method.pres.foreach { expression =>
-            val inhale = ast.Inhale(expression)()
-            instrumentStatement(inhale)
-          }
-          // instrument method body
+          inhaleInstance(precondition.asInstance)
           instrumentStatement(body)
-          // exhale method postcondition
-          method.posts.foreach { expression =>
-            val exhale = ast.Exhale(expression)()
-            instrumentStatement(exhale)
-          }
+          exhaleInstance(postcondition.asInstance)
         }
-        // update method
-        method.copy(
+        // build method based on original
+        original.copy(
           pres = Seq.empty,
           posts = Seq.empty,
           body = Some(instrumented)
-        )(method.pos, method.info, method.errT)
-      case _ =>
-        sys.error("Missing method body.")
+        )(original.pos, original.info, original.errT)
+      case check@LoopCheck(original, name, invariant, body) =>
+        // instrument loop
+        val instrumented = {
+          val sequence = makeScope {
+            inhaleInstance(invariant.asInstance)
+            emitInhale(check.condition)
+            instrumentStatement(body)
+            exhaleInstance(invariant.asInstance)
+          }
+          val declarations = sequence
+            .undeclLocalVars
+            .map { x => ast.LocalVarDecl(x.name, x.typ)() }
+          sequence.copy(scopedDecls = declarations)(sequence.pos, sequence.info, sequence.errT)
+        }
+        // build method
+        ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
-  }
 
   /**
    * Instruments the given sequence.
@@ -181,15 +175,29 @@ trait QueryBuilder extends Builder with Folding {
           .placeholder(name)
           .asInstance(arguments)
         exhaleInstance(instance)
-      case call@ast.MethodCall(name, arguments, _) =>
-        // get specification placeholders
-        val (precondition, postcondition) = input.methods(name)
+      case call@ast.MethodCall(name, arguments, targets) =>
         // exhale method precondition (method's precondition was replaced with true)
-        exhaleInstance(precondition.asInstance(arguments))
+        val precondition = input
+          .precondition(name)
+          .asInstance(arguments)
+        exhaleInstance(precondition)
         // emit method call (to havoc targets)
         emit(call)
         // inhale method postcondition (method's postcondition was replaced with true)
-        inhaleInstance(postcondition.asInstance(arguments))
+        val postcondition = input
+          .postcondition(name)
+          .asInstance(arguments ++ targets)
+        inhaleInstance(postcondition)
+      case Cut(loop) =>
+        // exhale loop invariant
+        val invariant = loop.invariant.asInstance
+        exhaleInstance(invariant)
+        // havoc written variables
+        val havoc = Statements.havoc(loop.original.writtenVars)
+        emit(havoc)
+        // inhale loop invariant and negated loop condition
+        inhaleInstance(invariant)
+        emitInhale(ast.Not(loop.condition)())
       case other =>
         emit(other)
     }

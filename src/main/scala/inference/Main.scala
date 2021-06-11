@@ -8,7 +8,7 @@
 
 package inference
 
-import inference.runner.PrintRunner
+import inference.core.PrintRunner
 
 /**
  * The main object with the main method.

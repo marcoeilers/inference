@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.runner.Input
+import inference.input.Input
 import viper.silver.ast
 
 /**
@@ -23,13 +23,13 @@ trait Extender extends Builder {
    * @param hypothesis The inferred hypothesis.
    * @return The extended program.
    */
-  def extend(input: Input, hypothesis: Hypothesis): ast.Program = {
+  def extend(implicit input: Input, hypothesis: Hypothesis): ast.Program = {
     // get program
     val program = input.program
     // extend methods
     val methods = program
       .methods
-      .map { method => extendMethod(method)(hypothesis) }
+      .map(extendMethod)
     // update program
     program.copy(
       methods = methods
@@ -43,16 +43,18 @@ trait Extender extends Builder {
    * @param hypothesis The implicitly passed hypothesis.
    * @return The extended method.
    */
-  private def extendMethod(method: ast.Method)(implicit hypothesis: Hypothesis): ast.Method = {
-    // instantiate pre- and postconditions
-    val preconditions = method.pres.map(instantiatePlaceholders)
-    val postconditions = method.posts.map(instantiatePlaceholders)
+  private def extendMethod(method: ast.Method)(implicit input: Input, hypothesis: Hypothesis): ast.Method = {
+    // get method specification
+    val name = method.name
+    val precondition = hypothesis.getBody(input.precondition(name).asInstance)
+    val postcondition = hypothesis.getBody(input.postcondition(name).asInstance)
     // extend method body
+    // TODO: Extend check instead of loop body.
     val body = method.body.map(extendSequence)
     // update method
     method.copy(
-      pres = preconditions,
-      posts = postconditions,
+      pres = Seq(precondition),
+      posts = Seq(postcondition),
       body = body
     )(method.pos, method.info, method.errT)
   }
@@ -98,20 +100,5 @@ trait Extender extends Builder {
         ???
       case other =>
         emit(other)
-    }
-
-  /**
-   * Instantiates specification placeholders with the corresponding inferred specifications.
-   *
-   * @param expression The expression to instantiate.
-   * @param hypothesis The implicitly passed hypothesis.
-   * @return The instantiated expression.
-   */
-  private def instantiatePlaceholders(expression: ast.Exp)(implicit hypothesis: Hypothesis): ast.Exp =
-    expression match {
-      case ast.PredicateAccessPredicate(predicate, _) =>
-        hypothesis.getBody(predicate.predicateName)
-      case other =>
-        other
     }
 }

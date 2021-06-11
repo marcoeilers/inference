@@ -9,7 +9,7 @@
 package inference.teacher
 
 import inference.core._
-import inference.runner.{Configuration, Input}
+import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
 import inference.util.ast.Infos
 import viper.silicon.interfaces.SiliconRawCounterexample

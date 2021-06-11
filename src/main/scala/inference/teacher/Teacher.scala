@@ -9,7 +9,7 @@
 package inference.teacher
 
 import inference.core.{AbstractTeacher, Hypothesis, Sample}
-import inference.runner.Input
+import inference.input.Input
 import viper.silver.verifier.{Failure, Success, VerificationError, Verifier}
 
 /**
