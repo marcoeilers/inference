@@ -1,0 +1,11 @@
+field val: Int
+
+method main(a: Ref, n: Int)
+{
+    var i: Int
+    i := n
+    while (i > 0) {
+        a.val := a.val + 1
+        i := i - 1
+    }
+}

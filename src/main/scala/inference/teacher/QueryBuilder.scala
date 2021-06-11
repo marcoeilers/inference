@@ -176,16 +176,17 @@ trait QueryBuilder extends Builder with Folding {
           .asInstance(arguments)
         exhaleInstance(instance)
       case call@ast.MethodCall(name, arguments, targets) =>
+        val check = input.methodCheck(name)
         // exhale method precondition (method's precondition was replaced with true)
-        val precondition = input
-          .precondition(name)
+        val precondition = check
+          .precondition
           .asInstance(arguments)
         exhaleInstance(precondition)
         // emit method call (to havoc targets)
         emit(call)
         // inhale method postcondition (method's postcondition was replaced with true)
-        val postcondition = input
-          .postcondition(name)
+        val postcondition = check
+          .postcondition
           .asInstance(arguments ++ targets)
         inhaleInstance(postcondition)
       case Cut(loop) =>

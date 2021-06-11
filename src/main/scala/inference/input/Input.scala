@@ -127,26 +127,14 @@ class Input(val program: ast.Program, val configuration: Configuration, val chec
     placeholderMap(name)
 
   /**
-   * Returns the precondition placeholder corresponding to the method with the given name.
+   * Returns the method check corresponding to the method with the given name.
    *
    * @param name The name of the method.
-   * @return The precondition placeholder.
+   * @return The method check.
    */
-  def precondition(name: String): Placeholder =
+  def methodCheck(name: String): MethodCheck =
     map.get(name) match {
-      case Some(MethodCheck(_, precondition, _, _)) => precondition
-      case _ => sys.error(s"No method check with name $name")
-    }
-
-  /**
-   * Returns the postcondition placeholder corresponding to the method with the given name.
-   *
-   * @param name The name of the method.
-   * @return The postcondition placeholder.
-   */
-  def postcondition(name: String): Placeholder =
-    map.get(name) match {
-      case Some(MethodCheck(_, _, postcondition, _)) => postcondition
+      case Some(check: MethodCheck) => check
       case _ => sys.error(s"No method check with name $name")
     }
 }

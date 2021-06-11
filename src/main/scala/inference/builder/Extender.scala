@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.Input
+import inference.input.{Cut, Input}
 import viper.silver.ast
 
 /**
@@ -46,16 +46,16 @@ trait Extender extends Builder {
   private def extendMethod(method: ast.Method)(implicit input: Input, hypothesis: Hypothesis): ast.Method = {
     // get method specification
     val name = method.name
-    val precondition = hypothesis.getBody(input.precondition(name).asInstance)
-    val postcondition = hypothesis.getBody(input.postcondition(name).asInstance)
+    val check = input.methodCheck(name)
+    val precondition = hypothesis.getBody(check.precondition.asInstance)
+    val postcondition = hypothesis.getBody(check.postcondition.asInstance)
     // extend method body
-    // TODO: Extend check instead of loop body.
-    val body = method.body.map(extendSequence)
+    val body = extendSequence(check.body)
     // update method
     method.copy(
       pres = Seq(precondition),
       posts = Seq(postcondition),
-      body = body
+      body = Some(body)
     )(method.pos, method.info, method.errT)
   }
 
@@ -98,6 +98,18 @@ trait Extender extends Builder {
       case _: ast.Exhale =>
         // TODO: Implement me.
         ???
+      case Cut(loop) =>
+        // get loop specification
+        val invariant = hypothesis.getBody(loop.invariant.asInstance)
+        // extend body
+        val body = extendSequence(loop.body)
+        // extend loop
+        val original = loop.original
+        val extended = original.copy(
+          invs = Seq(invariant),
+          body = body
+        )(original.pos, original.info, original.errT)
+        emit(extended)
       case other =>
         emit(other)
     }
