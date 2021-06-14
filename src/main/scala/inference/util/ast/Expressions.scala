@@ -87,7 +87,7 @@ object Expressions {
       // simplify implication
       case ast.Implies(left, right) => (left, right) match {
         case (ast.TrueLit(), _) => right
-        case (_, ast.FalseLit()) => ast.TrueLit()()
+        case (ast.FalseLit(), _) => ast.TrueLit()()
         case _ => expression
       }
       // do nothing by default
