@@ -9,6 +9,7 @@
 package inference.util.ast
 
 import viper.silver.ast
+import viper.silver.ast.utility.rewriter.Traverse
 
 object Expressions {
   /**
@@ -32,4 +33,64 @@ object Expressions {
     expressions
       .reduceOption(ast.Or(_, _)())
       .getOrElse(ast.FalseLit()())
+
+  /**
+   * Simplifies the given expression.
+   *
+   * @param expression The expression to simplify.
+   * @return The simplified expression.
+   */
+  def simplify(expression: ast.Exp): ast.Exp =
+    expression.transform(term => simplification(term), Traverse.BottomUp)
+
+  /**
+   * Performs a simplification step.
+   *
+   * @param expression The expression to simplify.
+   * @return The simplified expression.
+   */
+  private def simplification(expression: ast.Node): ast.Node =
+    expression match {
+      // simplify equality
+      case ast.EqCmp(left, right) =>
+        if (left == right) ast.TrueLit()()
+        else expression
+      // simplify inequality
+      case ast.NeCmp(left, right) =>
+        if (left == right) ast.FalseLit()()
+        else expression
+      // simplify negations
+      case ast.Not(argument) => argument match {
+        case ast.TrueLit() => ast.FalseLit()()
+        case ast.FalseLit() => ast.TrueLit()()
+        case ast.Not(nested) => nested
+        case ast.EqCmp(left, right) => ast.NeCmp(left, right)()
+        case ast.NeCmp(left, right) => ast.EqCmp(left, right)()
+        case _ => expression
+      }
+      // simplify conjunction
+      case ast.And(left, right) => (left, right) match {
+        case (ast.TrueLit(), _) => right
+        case (_, ast.TrueLit()) => left
+        case (ast.FalseLit(), _) => ast.FalseLit()()
+        case (_, ast.FalseLit()) => ast.FalseLit()()
+        case _ => expression
+      }
+      // simplify disjunction
+      case ast.Or(left, right) => (left, right) match {
+        case (ast.TrueLit(), _) => ast.TrueLit()()
+        case (_, ast.TrueLit()) => ast.TrueLit()()
+        case (ast.FalseLit(), _) => right
+        case (_, ast.FalseLit()) => left
+        case _ => expression
+      }
+      // simplify implication
+      case ast.Implies(left, right) => (left, right) match {
+        case (ast.TrueLit(), _) => right
+        case (_, ast.FalseLit()) => ast.TrueLit()()
+        case _ => expression
+      }
+      // do nothing by default
+      case _ => expression
+    }
 }

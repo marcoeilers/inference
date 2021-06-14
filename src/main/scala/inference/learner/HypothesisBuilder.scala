@@ -48,8 +48,9 @@ trait HypothesisBuilder {
     val atoms = placeholder.atoms
     // build body
     val body = buildExpression(template.body, atoms, model)
+    val simplified = Expressions.simplify(body)
     // create predicate
-    ast.Predicate(name, parameters, Some(body))()
+    ast.Predicate(name, parameters, Some(simplified))()
   }
 
   /**
