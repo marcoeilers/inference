@@ -17,8 +17,9 @@ import viper.silver.ast
  *
  * @param instance The placeholder instance corresponding to the state snapshot.
  * @param state    The state evaluator.
+ * @param exhaled  The flag indicating whether the snapshot was exhaled or not.
  */
-case class Snapshot(instance: Instance, state: StateEvaluator) {
+case class Snapshot(instance: Instance, state: StateEvaluator, exhaled: Boolean) {
   /**
    * Lazily computed reachability map used to adapt expressions.
    */

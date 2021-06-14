@@ -18,7 +18,7 @@ import viper.silver.ast
  * @param snapshots A sequence containing labels and placeholder instances for all state snapshots.
  * @param names     The map used to remember the names of permission variables
  */
-case class Query(program: ast.Program, snapshots: Seq[(String, Instance)], names: Map[String, Map[ast.Exp, String]]) {
+case class Query(program: ast.Program, snapshots: Seq[(String, Instance, Boolean)], names: Map[String, Map[ast.Exp, String]]) {
   /**
    * Returns the name of the variable that saves the permission value of the given expression in the state snapshot with
    * the given label.

@@ -223,7 +223,7 @@ trait QueryBuilder extends Builder with Folding {
     }
     // unfold and save
     unfold(body)(maxDepth = 0, hypothesis)
-    saveSnapshot(instance)
+    saveSnapshot(instance, exhaled = false)
   }
 
   /**
@@ -236,7 +236,7 @@ trait QueryBuilder extends Builder with Folding {
     // get body
     val body = hypothesis.getBody(instance)
     // save and fold
-    implicit val label: String = saveSnapshot(instance)
+    implicit val label: String = saveSnapshot(instance, exhaled = true)
     fold(body)(maxDepth = 0, hypothesis, savePermission)
     // exhale specification
     // TODO: Exhale existing specification
@@ -314,12 +314,13 @@ trait QueryBuilder extends Builder with Folding {
    * Saves a snapshot of the given instance.
    *
    * @param instance The instance.
+   * @param exhaled  The flag indicating whether the snapshot was exhaled or not.
    * @return The label of the state snapshot.
    */
-  private def saveSnapshot(instance: Instance): String = {
+  private def saveSnapshot(instance: Instance, exhaled: Boolean): String = {
     // generate unique snapshot label
     val label = namespace.uniqueIdentifier(Names.snapshot)
-    query.addSnapshot(label, instance)
+    query.addSnapshot(label, instance, exhaled)
     // emit and return label
     emitLabel(label)
     label
@@ -333,7 +334,7 @@ private class PartialQuery {
   /**
    * The buffer used to accumulate the snapshots.
    */
-  private val snapshots: mutable.Buffer[(String, Instance)] =
+  private val snapshots: mutable.Buffer[(String, Instance, Boolean)] =
     ListBuffer.empty
 
   /**
@@ -347,9 +348,10 @@ private class PartialQuery {
    *
    * @param label    The label of the snapshot.
    * @param instance The instance saved by the snapshot.
+   * @param exhaled  The flag indicating whether the snapshot was exhaled or not.
    */
-  def addSnapshot(label: String, instance: Instance): Unit =
-    snapshots.append(label -> instance)
+  def addSnapshot(label: String, instance: Instance, exhaled: Boolean): Unit =
+    snapshots.append((label, instance, exhaled))
 
   /**
    * Remembers the variable name storing the permission value for the given expression in the state snapshot with the

@@ -64,9 +64,9 @@ trait SampleExtractor {
       val snapshots = query
         .snapshots
         .flatMap {
-          case (name, instance) if siliconState.oldHeaps.contains(name) =>
+          case (name, instance, exhaled) if siliconState.oldHeaps.contains(name) =>
             val state = StateEvaluator(Some(name), siliconState, model)
-            val snapshot = Snapshot(instance, state)
+            val snapshot = Snapshot(instance, state, exhaled)
             Some(snapshot)
           case _ => None
         }
