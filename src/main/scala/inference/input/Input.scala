@@ -31,9 +31,9 @@ object Input extends CheckBuilder {
     val file = configuration.file()
     val program = parse(file)
     // build checks
-    val checks = buildChecks(program)
+    val (placeholders, checks) = buildChecks(program)
     // return input
-    new Input(program, configuration, checks)
+    new Input(program, configuration, placeholders, checks)
   }
 
   /**
@@ -80,24 +80,19 @@ object Input extends CheckBuilder {
  *
  * @param program       The original input program.
  * @param configuration The configuration.
+ * @param placeholders  The placeholders.
  * @param checks        The checks.
  */
-class Input(val program: ast.Program, val configuration: Configuration, val checks: Seq[Check]) {
-  /**
-   * The list of all placeholders.
-   */
-  private val allPlaceholders =
-    checks
-      .flatMap {
-        case LoopCheck(_, _, invariant, _) => Seq(invariant)
-        case MethodCheck(_, precondition, postcondition, _) => Seq(precondition, postcondition)
-      }
+class Input(val program: ast.Program,
+            val configuration: Configuration,
+            val placeholders: Seq[Placeholder],
+            val checks: Seq[Check]) {
 
   /**
    * Map from names to the corresponding placeholder.
    */
   private val placeholderMap =
-    allPlaceholders
+    placeholders
       .map { placeholder => placeholder.name -> placeholder }
       .toMap
 
@@ -108,14 +103,6 @@ class Input(val program: ast.Program, val configuration: Configuration, val chec
     checks
       .map { check => check.name -> check }
       .toMap
-
-  /**
-   * Returns the list of all specification placeholders.
-   *
-   * @return The specification placeholders.
-   */
-  def placeholders: Seq[Placeholder] =
-    allPlaceholders
 
   /**
    * Returns the specification placeholder with the given name.

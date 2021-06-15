@@ -10,7 +10,7 @@ package inference.input
 
 import inference.Names
 import inference.builder.Builder
-import inference.core.{Instance, Placeholder}
+import inference.core.Placeholder
 import inference.util.Namespace
 import inference.util.collections.Collections
 import viper.silver.ast
@@ -28,16 +28,52 @@ trait CheckBuilder extends Builder {
   var namespace: Namespace = _
 
   /**
-   * Creates a specification placeholder with the given name, parameters, and existing specifications.
+   * Processes the given program.
    *
-   * @param name       The name (may change to ensure uniqueness).
-   * @param parameters The parameters.
-   * @param existing   The existing specifications.
+   * @param program The program to process.
+   * @return The checks.
+   */
+  def buildChecks(program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
+    // reset
+    namespace = new Namespace()
+    // initialize buffers
+    implicit val placeholders: mutable.Buffer[Placeholder] = ListBuffer.empty
+    implicit val checks: mutable.Buffer[Check] = ListBuffer.empty
+    // process predicates
+    program.predicates.foreach(processPredicate)
+    // process methods
+    program.methods.foreach(processMethod)
+    // return placeholders and checks
+    (placeholders.toSeq, checks.toSeq)
+  }
+
+  /**
+   * Creates a specification placeholder with the given name, parameters, and existing specifications. In addition the
+   * method may change the name in order to ensure its uniqueness.
+   *
+   * @param name         The name (may change to ensure uniqueness).
+   * @param parameters   The parameters.
+   * @param existing     The existing specifications.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @return The placeholder.
    */
-  private def createPlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
+  private def createUniquePlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp])(implicit placeholders: mutable.Buffer[Placeholder]): Placeholder = {
     // get unique name
     val unique = namespace.uniqueIdentifier(name)
+    // create placeholder
+    createPlaceholder(name, parameters, existing)
+  }
+
+  /**
+   * Creates a specification placeholder with the given name, parameters, and existing specifications.
+   *
+   * @param name         The name (may change to ensure uniqueness).
+   * @param parameters   The parameters.
+   * @param existing     The existing specifications.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @return The placeholder.
+   */
+  private def createPlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp])(implicit placeholders: mutable.Buffer[Placeholder]): Placeholder = {
     // create atomic predicates
     val atoms = {
       val references = parameters
@@ -49,39 +85,39 @@ trait CheckBuilder extends Builder {
         .toSeq
     }
     // create placeholder
-    Placeholder(unique, parameters, atoms, existing)
+    val placeholder = Placeholder(name, parameters, atoms, existing)
+    placeholders.append(placeholder)
+    placeholder
   }
 
   /**
-   * Processes the given program.
+   * Processes the given predicate.
    *
-   * @param program The program to process.
-   * @return The checks.
+   * @param predicate    The predicate to process.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    */
-  def buildChecks(program: ast.Program): Seq[Check] = {
-    // reset
-    namespace = new Namespace()
-    // process methods
-    implicit val checks: mutable.Buffer[Check] = ListBuffer.empty
-    program.methods.foreach(processMethod)
-    // return checks
-    checks.toSeq
+  private def processPredicate(predicate: ast.Predicate)(implicit placeholders: mutable.Buffer[Placeholder]): Unit = {
+    val name = predicate.name
+    val argument = predicate.formalArgs
+    val existing = predicate.body.toSeq
+    createPlaceholder(name, argument, existing)
   }
 
   /**
    * Processes the given method.
    *
-   * @param method The method to process.
-   * @param checks The implicitly passed buffer used to accumulate the checks.
+   * @param method       The method to process.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @param checks       The implicitly passed buffer used to accumulate the checks.
    */
-  private def processMethod(method: ast.Method)(implicit checks: mutable.Buffer[Check]): Unit =
+  private def processMethod(method: ast.Method)(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
     method.body match {
       case Some(body) =>
         // create placeholder specifications
         val arguments = method.formalArgs
         val declarations = arguments ++ method.formalReturns
-        val precondition = createPlaceholder(Names.precondition, arguments, method.pres)
-        val postcondition = createPlaceholder(Names.postcondition, declarations, method.posts)
+        val precondition = createUniquePlaceholder(Names.precondition, arguments, method.pres)
+        val postcondition = createUniquePlaceholder(Names.postcondition, declarations, method.posts)
         // process body
         val processed = processSequence(body, declarations)
         // create check corresponding to method
@@ -96,10 +132,11 @@ trait CheckBuilder extends Builder {
    *
    * @param sequence     The sequence to process.
    * @param declarations The declarations in scope.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @param checks       The implicitly passed buffer used to accumulate the checks.
    * @return The processed sequence.
    */
-  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])(implicit checks: mutable.Buffer[Check]): ast.Seqn = {
+  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): ast.Seqn = {
     // process statements
     val statements = scoped {
       val updated = declarations ++ sequence.scopedDecls.collect { case variable: ast.LocalVarDecl => variable }
@@ -114,9 +151,10 @@ trait CheckBuilder extends Builder {
    *
    * @param statement    The statement to process.
    * @param declarations The declarations in scope.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @param checks       The implicitly passed buffer used to accumulate the checks.
    */
-  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl])(implicit checks: mutable.Buffer[Check]): Unit =
+  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl])(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
     statement match {
       case sequence: ast.Seqn =>
         // process sequence
@@ -134,7 +172,7 @@ trait CheckBuilder extends Builder {
         emit(processed)
       case loop@ast.While(condition, existing, body) =>
         // create placeholder specification
-        val invariant = createPlaceholder(Names.invariant, declarations, existing)
+        val invariant = createUniquePlaceholder(Names.invariant, declarations, existing)
         // process body
         val processed = processSequence(body, declarations)
         // create check corresponding to loop
