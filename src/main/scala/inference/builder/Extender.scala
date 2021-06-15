@@ -26,12 +26,21 @@ trait Extender extends Builder {
   def extend(implicit input: Input, hypothesis: Hypothesis): ast.Program = {
     // get program
     val program = input.program
+    // extend predicates
+    val predicates = program
+      .predicates
+      .map { predicate =>
+        val name = predicate.name
+        val placeholder = input.placeholder(name)
+        hypothesis.getPredicate(placeholder)
+      }
     // extend methods
     val methods = program
       .methods
       .map(extendMethod)
     // update program
     program.copy(
+      predicates = predicates,
       methods = methods
     )(program.pos, program.info, program.errT)
   }

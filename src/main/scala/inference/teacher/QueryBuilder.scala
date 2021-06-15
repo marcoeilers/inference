@@ -62,15 +62,10 @@ trait QueryBuilder extends Builder with Folding {
     val checks = input.checks
     // predicates
     val predicates =
-      if (configuration.noInlining()) {
-        val existing = original.predicates
-        val inferred = input
-          .placeholders
-          .map { placeholder => hypothesis.getPredicate(placeholder) }
-        existing ++ inferred
-      } else {
-        original.predicates
-      }
+      if (configuration.noInlining()) input
+        .placeholders
+        .map { placeholder => hypothesis.getPredicate(placeholder) }
+      else Seq.empty
     // instrument methods
     val methods = checks.map { check => buildMethod(check)(hypothesis) }
     // instrument program
