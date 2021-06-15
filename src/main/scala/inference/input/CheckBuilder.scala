@@ -61,7 +61,7 @@ trait CheckBuilder extends Builder {
     // get unique name
     val unique = namespace.uniqueIdentifier(name)
     // create placeholder
-    createPlaceholder(name, parameters, existing)
+    createPlaceholder(unique, parameters, existing)
   }
 
   /**
