@@ -101,12 +101,12 @@ trait Extender extends Builder {
           els = elseBranch,
         )(conditional.pos, conditional.info, conditional.errT)
         emit(instrumented)
-      case _: ast.Inhale =>
-        // TODO: Implement me.
-        ???
-      case _: ast.Exhale =>
-        // TODO: Implement me.
-        ???
+      case ast.Inhale(predicate: ast.PredicateAccessPredicate) =>
+        emitInhale(predicate)
+        emitUnfold(predicate)
+      case ast.Exhale(predicate: ast.PredicateAccessPredicate) =>
+        emitFold(predicate)
+        emitExhale(predicate)
       case Cut(loop) =>
         // get loop specification
         val invariant = hypothesis.getBody(loop.invariant.asInstance)
