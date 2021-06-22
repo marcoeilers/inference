@@ -1,0 +1,10 @@
+field val: Int
+
+predicate p(x: Ref)
+
+method main()
+{
+    var x: Ref
+    inhale p(x)
+    x.val := 0
+}
