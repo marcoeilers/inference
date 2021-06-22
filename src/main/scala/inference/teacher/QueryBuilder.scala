@@ -376,5 +376,5 @@ private class PartialQuery {
    * @return The finalized query.
    */
   def apply(program: ast.Program): Query =
-    Query(program, snapshots.toSeq, names)
+    new Query(program, snapshots.toSeq, names)
 }

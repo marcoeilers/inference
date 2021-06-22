@@ -64,9 +64,9 @@ trait SampleExtractor {
       val snapshots = query
         .snapshots
         .flatMap {
-          case (name, instance, exhaled) if siliconState.oldHeaps.contains(name) =>
+          case (name, instance) if siliconState.oldHeaps.contains(name) =>
             val state = StateEvaluator(Some(name), siliconState, model)
-            val snapshot = Snapshot(instance, state, exhaled)
+            val snapshot = Snapshot(instance, state)
             Some(snapshot)
           case _ => None
         }
@@ -98,7 +98,9 @@ trait SampleExtractor {
         adaptor.adaptLocation(offending)
       }
       // create record
-      Record(placeholder, abstraction, locations)
+      val exhaled = query.isExhaled(snapshot.label)
+      if (exhaled) ExhaledRecord(placeholder, abstraction, locations)
+      else InhaledRecord(placeholder, abstraction, locations)
     }
 
     // create sample

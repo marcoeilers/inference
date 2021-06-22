@@ -53,12 +53,47 @@ case class Implication(left: Record, right: LowerBound) extends Sample {
 
 /**
  * A record representing a data point.
- *
- * @param placeholder The specification placeholder corresponding to this record.
- * @param abstraction The state abstraction.
- * @param locations   The set of locations that can be used to represent the resource in question.
  */
-case class Record(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess])
+sealed trait Record {
+  /**
+   * Returns the specification placeholder corresponding to this data point.
+   *
+   * @return The specification placeholder.
+   */
+  def placeholder: Placeholder
+
+  /**
+   * Returns the state abstraction.
+   *
+   * @return The state abstraction.
+   */
+  def abstraction: Abstraction
+
+  /**
+   * Returns the set of locations that can be used to represent the offending resource.
+   *
+   * @return The set of locations referring to the offending resource.
+   */
+  def locations: Set[ast.LocationAccess]
+}
+
+/**
+ * A record representing a data point corresponding to an inhaled state snapshot.
+ *
+ * @param placeholder See [[Record.placeholder]].
+ * @param abstraction See [[Record.abstraction]].
+ * @param locations   See [[Record.locations]].
+ */
+case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess]) extends Record
+
+/**
+ * A record representing a data point corresponding to an exhaled state snapshot.
+ *
+ * @param placeholder See [[Record.placeholder]].
+ * @param abstraction See [[Record.abstraction]].
+ * @param locations   See [[Record.locations]].
+ */
+case class ExhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess]) extends Record
 
 /**
  * A state abstraction.

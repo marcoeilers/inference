@@ -14,11 +14,38 @@ import viper.silver.ast
 /**
  * A query.
  *
- * @param program   The program representing the query.
- * @param snapshots A sequence containing labels and placeholder instances for all state snapshots.
- * @param names     The map used to remember the names of permission variables
+ * @param program  The program representing the query.
+ * @param sequence A sequence containing labels and placeholder instances for all state snapshots along with flags
+ *                 whether the snapshot was exhaled or not.
+ * @param names    The map used to remember the names of permission variables
  */
-case class Query(program: ast.Program, snapshots: Seq[(String, Instance, Boolean)], names: Map[String, Map[ast.Exp, String]]) {
+class Query(val program: ast.Program, sequence: Seq[(String, Instance, Boolean)], names: Map[String, Map[ast.Exp, String]]) {
+  /**
+   * The set containing the names of all exhaled state snapshots.
+   */
+  private val exhaled: Set[String] =
+    sequence
+      .filter(_._3)
+      .map(_._1)
+      .toSet
+
+  /**
+   * Returns a sequence containing labels and placeholder instances for all state snapshots.
+   *
+   * @return The sequence.
+   */
+  def snapshots: Seq[(String, Instance)] =
+    sequence.map { case (label, instance, _) => (label, instance) }
+
+  /**
+   * Returns whether the given label corresponds to an exhaled state snapshot.
+   *
+   * @param name The label of the snapshot.
+   * @return True if the label corresponds to an exhaled state snapshot.
+   */
+  def isExhaled(name: String): Boolean =
+    exhaled.contains(name)
+
   /**
    * Returns the name of the variable that saves the permission value of the given expression in the state snapshot with
    * the given label.

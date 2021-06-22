@@ -118,6 +118,7 @@ trait GuardEncoder {
 
   /**
    * Encodes a lower bound corresponding to the given record.
+   * TODO: Take into account that there are inhaled and exhaled records.
    *
    * @param record    The record to encode.
    * @param guardMaps The effective guards.
