@@ -74,7 +74,7 @@ trait QueryBuilder extends Builder with Folding {
       methods = methods
     )(original.pos, original.info, original.errT)
     // finalize query
-    query(program)
+    query(program, hypothesis)
   }
 
   /**
@@ -253,13 +253,14 @@ trait QueryBuilder extends Builder with Folding {
    * @param label      The implicitly passed label of the current state snapshot.
    */
   private def savePermission(expression: ast.Exp, guards: Seq[ast.Exp])(implicit label: String): Unit =
-    expression match {
-      case ast.FieldAccessPredicate(access, _) =>
-        savePermission(access, guards)
-      case ast.PredicateAccessPredicate(access, _) =>
-        savePermission(access, guards)
-      case _ => // do nothing
-    }
+    if (configuration.usePerm())
+      expression match {
+        case ast.FieldAccessPredicate(access, _) =>
+          savePermission(access, guards)
+        case ast.PredicateAccessPredicate(access, _) =>
+          savePermission(access, guards)
+        case _ => // do nothing
+      }
 
   /**
    * Saves the permission value for the given access.
@@ -372,9 +373,10 @@ private class PartialQuery {
   /**
    * Finalizes the query with the given program.
    *
-   * @param program The program.
+   * @param program    The program.
+   * @param hypothesis The current hypothesis.
    * @return The finalized query.
    */
-  def apply(program: ast.Program): Query =
-    new Query(program, snapshots.toSeq, names)
+  def apply(program: ast.Program, hypothesis: Hypothesis): Query =
+    new Query(program, hypothesis, snapshots.toSeq, names)
 }

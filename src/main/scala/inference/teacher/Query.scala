@@ -8,18 +8,23 @@
 
 package inference.teacher
 
-import inference.core.Instance
+import inference.core.{Hypothesis, Instance}
+import inference.teacher.state.Snapshot
 import viper.silver.ast
 
 /**
  * A query.
  *
- * @param program  The program representing the query.
- * @param sequence A sequence containing labels and placeholder instances for all state snapshots along with flags
- *                 whether the snapshot was exhaled or not.
- * @param names    The map used to remember the names of permission variables
+ * @param program    The program representing the query.
+ * @param hypothesis The current hypothesis.
+ * @param sequence   A sequence containing labels and placeholder instances for all state snapshots along with flags
+ *                   whether the snapshot was exhaled or not.
+ * @param names      The map used to remember the names of permission variables
  */
-class Query(val program: ast.Program, sequence: Seq[(String, Instance, Boolean)], names: Map[String, Map[ast.Exp, String]]) {
+class Query(val program: ast.Program,
+            val hypothesis: Hypothesis,
+            sequence: Seq[(String, Instance, Boolean)],
+            names: Map[String, Map[ast.Exp, String]]) {
   /**
    * The set containing the names of all exhaled state snapshots.
    */
@@ -56,4 +61,15 @@ class Query(val program: ast.Program, sequence: Seq[(String, Instance, Boolean)]
    */
   def name(label: String, expression: ast.Exp): String =
     names(label)(expression)
+
+  /**
+   * Returns the specification corresponding to the given state snapshot.
+   *
+   * @param snapshot The state snapshot.
+   * @return The specification.
+   */
+  def specification(snapshot: Snapshot): ast.Exp = {
+    val instance = snapshot.instance
+    hypothesis.getBody(instance)
+  }
 }

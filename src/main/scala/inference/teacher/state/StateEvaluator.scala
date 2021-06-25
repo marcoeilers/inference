@@ -107,4 +107,35 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
     val term = state.g(variable)
     model.evaluatePermission(term)
   }
+
+  /**
+   * Evaluates the permission amount for the given access represented by the given specification.
+   *
+   * @param access        The access.
+   * @param specification The specification.
+   * @return The permission amount.
+   */
+  def evaluatePermission(access: ast.LocationAccess, specification: ast.Exp): Int =
+    specification match {
+      case ast.TrueLit() => 0
+      case ast.And(left, right) =>
+        val leftValue = evaluatePermission(access, left)
+        val rightValue = evaluatePermission(access, right)
+        leftValue + rightValue
+      case ast.Implies(guard, guarded) =>
+        val condition = evaluateBoolean(guard)
+        if (condition) evaluatePermission(access, guarded) else 0
+      case ast.FieldAccessPredicate(x, _) =>
+        access match {
+          case ast.FieldAccess(receiver, field) =>
+            if (field == x.field) {
+              val comparison = ast.EqCmp(receiver, x.rcv)()
+              val condition = evaluateBoolean(comparison)
+              if (condition) 1 else 0
+            } else 0
+          case _ => 0
+        }
+      case _ =>
+        ???
+    }
 }

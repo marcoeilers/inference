@@ -37,6 +37,12 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Disables specification inlining",
       hidden = true)
 
+  val usePerm: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "usePerm",
+      descr = "Use perm expressions to reflect on permission amounts.",
+      hidden = true)
+
   val file: ScallopOption[String] =
     trailArg[String](
       name = "file",
