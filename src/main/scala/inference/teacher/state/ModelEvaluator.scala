@@ -57,18 +57,20 @@ case class ModelEvaluator(model: Model) {
     }
 
   /**
-   * Evaluates the given term term to a permission value (represented as a double).
+   * Evaluates the given term term to a permission value (represented as an integer).
    *
    * @param term The term to evaluate.
    * @return The permission value.
    */
-  def evaluatePermission(term: Term): Double =
+  def evaluatePermission(term: Term): Int =
     term match {
-      case terms.NoPerm() => 0.0
-      case terms.FullPerm() => 1.0
+      case terms.NoPerm() => 0
+      case terms.FullPerm() => 1
       case terms.Var(identifier, _) =>
         val value = getString(identifier.name)
-        value.toDouble
+        val double = value.toDouble
+        if (double.isWhole) double.toInt
+        else sys.error("Unexpected fractional permission.")
       case terms.PermPlus(left, right) =>
         val leftValue = evaluatePermission(left)
         val rightValue = evaluatePermission(right)

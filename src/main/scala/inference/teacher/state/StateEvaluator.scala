@@ -102,7 +102,7 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
    * @param name The name of the variable.
    * @return The permission value.
    */
-  def evaluatePermission(name: String): Double = {
+  def evaluatePermission(name: String): Int = {
     val variable = ast.LocalVar(name, ast.Perm)()
     val term = state.g(variable)
     model.evaluatePermission(term)
