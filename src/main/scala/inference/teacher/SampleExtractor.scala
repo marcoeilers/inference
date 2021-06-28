@@ -70,7 +70,6 @@ trait SampleExtractor {
             Some(snapshot)
           case _ => None
         }
-
       // return current and other snapshots
       if (info.isDefined) {
         val current = snapshots.lastOption
@@ -103,6 +102,30 @@ trait SampleExtractor {
       else InhaledRecord(placeholder, abstraction, locations)
     }
 
+    /**
+     * Helper method that evaluates the permission amount for the offending location contained in the specification
+     * corresponding to the given snapshot.
+     *
+     * @param snapshot The state snapshot.
+     * @return The permission amount.
+     */
+    def evaluatePermission(snapshot: Snapshot): Int = {
+      val state = snapshot.state
+      val specification = query.specification(snapshot)
+      state.evaluatePermission(offending, specification)
+    }
+
+    // lazily compute the total permission difference due to the current hypothesis
+    // TODO: Implement version with perms?
+    lazy val delta = otherSnapshots
+      .map { snapshot =>
+        val permission = evaluatePermission(snapshot)
+        val exhaled = query.isExhaled(snapshot.label)
+        if (exhaled) -permission else permission
+      }
+      .reduceOption(_ + _)
+      .getOrElse(0)
+
     // create sample
     failingSnapshot match {
       // if there is a failing snapshot the error was caused by some specification
@@ -120,9 +143,7 @@ trait SampleExtractor {
             permission <= 0
           } else {
             // evaluate permission amount represented by exhaled specification
-            val state = snapshot.state
-            val specification = query.specification(snapshot)
-            val permission = state.evaluatePermission(offending, specification)
+            val permission = evaluatePermission(snapshot)
             // require the permission form an upstream specification unless the permission failure was caused by an
             // unsatisfiable specification requiring more than one permission
             permission <= 1
@@ -131,15 +152,15 @@ trait SampleExtractor {
         if (fromUpstream) {
           val failing = recordify(snapshot)
           val others = otherSnapshots.map(recordify)
-          Implication(failing, LowerBound(others))
+          Implication(failing, LowerBound(others, 1 + delta))
         } else {
           val failing = recordify(snapshot)
-          UpperBound(failing)
+          UpperBound(failing, 1)
         }
       // if there is no failing snapshot the error was caused by some original program code
       case None =>
         val others = otherSnapshots.map(recordify)
-        LowerBound(others)
+        LowerBound(others, 1 + delta)
     }
   }
 

@@ -103,12 +103,14 @@ trait GuardEncoder {
    */
   private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp =
     sample match {
-      case LowerBound(records) =>
+      case LowerBound(records, _) =>
         // TODO: Handle cases with more than one record.
-        assert(records.size == 1)
-        val record = records.head
+        // TODO: Handle upper bound.
+        // assert(records.size == 1)
+        val record = records.last
         encodeLowerBound(record, guardMaps, default = false)
-      case UpperBound(record) =>
+      case UpperBound(record, bound) =>
+        assert(bound == 1)
         atMostOne(record, guardMaps, default = true)
       case Implication(left, right) =>
         val encodedLeft = encodeLowerBound(left, guardMaps, default = true)

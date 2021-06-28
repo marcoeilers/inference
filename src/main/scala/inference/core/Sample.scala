@@ -27,15 +27,17 @@ sealed trait Sample {
  * A sample imposing a lower bound.
  *
  * @param records The records.
+ * @param bound   The lower bound.
  */
-case class LowerBound(records: Seq[Record]) extends Sample
+case class LowerBound(records: Seq[Record], bound: Int) extends Sample
 
 /**
  * A sample imposing an upper bound.
  *
  * @param record The record.
+ * @param bound  The upper bound.
  */
-case class UpperBound(record: Record) extends Sample {
+case class UpperBound(record: Record, bound: Int) extends Sample {
   override def records: Seq[Record] =
     Seq(record)
 }

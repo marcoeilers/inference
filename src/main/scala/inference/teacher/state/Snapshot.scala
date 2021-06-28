@@ -93,6 +93,9 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
    */
   def partitions: Iterable[Set[ast.Exp]] =
     reachability.map { case (_, set) => set }
+
+  override def toString: String =
+    instance.toString
 }
 
 /**
