@@ -14,6 +14,8 @@ import viper.silver.verifier.{ConstantEntry, ModelParser}
 
 import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter, PrintWriter}
 import java.nio.file.Paths
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 /**
  * A solver.
@@ -25,12 +27,25 @@ trait Solver {
   def initialize()
 
   /**
-   * Solves the given constraints and returns a satisfying model.
+   * Adds the given constraint to the solver.
    *
-   * @param constraints The constraints to solve.
+   * @param constraint The constraint to add.
+   */
+  def addConstraint(constraint: ast.Exp): Unit
+
+  /**
+   * Adds the given comment.
+   *
+   * @param comment The comment to add.
+   */
+  def addComment(comment: String): Unit
+
+  /**
+   * Solves and clears the collected constraints.
+   *
    * @return The model.
    */
-  def solve(constraints: Seq[ast.Exp]): Map[String, Boolean]
+  def solve(): Map[String, Boolean]
 }
 
 /**
@@ -79,25 +94,43 @@ class Z3Solver(path: String) extends Solver {
     new PrintWriter(bufferedWriter, true)
   }
 
+  /**
+   * The buffer collecting the constraints and comments.
+   */
+  private val collected: mutable.Buffer[Either[ast.Exp, String]] =
+    ListBuffer.empty
+
   override def initialize(): Unit = {
     // set model format
     writeLine("(set-option :model.v2 true)")
   }
 
-  override def solve(constraints: Seq[ast.Exp]): Map[String, Boolean] = {
+  override def addConstraint(constraint: ast.Exp): Unit =
+    collected.append(Left(constraint))
+
+  override def addComment(comment: String): Unit =
+    collected.append(Right(comment))
+
+  override def solve(): Map[String, Boolean] = {
     // enter new scope
     writeLine("(push)")
 
     // declare variables
-    constraints
-      .flatMap(_.collect { case ast.LocalVar(name, _) => name })
+    collected
+      .flatMap {
+        case Left(value) => value.collect { case ast.LocalVar(name, _) => name }
+        case Right(_) => Seq.empty
+      }
       .distinct
       .foreach { name => writeLine(s"(declare-const $name Bool)") }
 
     // emit constraints
-    constraints.foreach { constraint =>
-      val converted = convert(constraint)
-      writeLine(s"(assert $converted)")
+    collected.foreach {
+      case Left(constraint) =>
+        val converted = convert(constraint)
+        writeLine(s"(assert $converted)")
+      case Right(comment) =>
+        ???
     }
 
     // solve constraints and process response
@@ -113,6 +146,7 @@ class Z3Solver(path: String) extends Solver {
 
     // leave scope
     writeLine("(pop)")
+
     // return model
     model
   }

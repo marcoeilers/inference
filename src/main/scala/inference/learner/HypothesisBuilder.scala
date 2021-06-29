@@ -14,7 +14,7 @@ import inference.util.ast.Expressions
 import viper.silver.ast
 
 /**
- * A hypothesis builder.
+ * A hypothesis builder that takes a model and builds a hypothesis.
  */
 trait HypothesisBuilder {
   /**

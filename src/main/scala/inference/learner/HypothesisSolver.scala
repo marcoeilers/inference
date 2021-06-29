@@ -12,16 +12,22 @@ import inference.Names
 import inference.core.{Implication, LowerBound, Record, Sample, UpperBound}
 import inference.util.ast.Expressions
 import inference.util.collections.{Collections, SeqMap}
+import inference.util.solver.Solver
 import viper.silver.ast
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
- * A guard encoder.
+ * A hypothesis solver that encodes samples and (hopefully) returns a suitable model.
  */
-trait GuardEncoder {
+trait HypothesisSolver {
   private type GuardMap = Map[ast.LocationAccess, Seq[Seq[Guard]]]
+
+  /**
+   * The solver.
+   */
+  protected val solver: Solver
 
   /**
    * Computes guard maps for the given templates.
@@ -83,15 +89,20 @@ trait GuardEncoder {
   }
 
   /**
-   * Encodes the given samples under consideration of the given templates.
+   * Encodes the given samples under consideration of the given templates and returns a suitable model.
    *
    * @param templates The templates.
    * @param samples   The samples to encode.
-   * @return The encoding.
+   * @return The model.
    */
-  def encodeSamples(templates: Seq[Template], samples: Seq[Sample]): Seq[ast.Exp] = {
+  def solve(templates: Seq[Template], samples: Seq[Sample]): Map[String, Boolean] = {
     val guardMaps = computeGuardMaps(templates)
-    samples.map { sample => encodeSample(sample, guardMaps) }
+    samples.foreach { sample =>
+      val encoding = encodeSample(sample, guardMaps)
+      solver.addConstraint(encoding)
+    }
+    // return model
+    solver.solve()
   }
 
   /**
@@ -220,6 +231,12 @@ trait GuardEncoder {
   private def variable(name: String): ast.Exp =
     ast.LocalVar(name, ast.Bool)()
 
+  /**
+   * The super trait for all guards (used to represent effective guards).
+   *
+   * TODO: Add truncation guard.
+   * TODO: Add choice guard.
+   */
   sealed trait Guard
 
   /**

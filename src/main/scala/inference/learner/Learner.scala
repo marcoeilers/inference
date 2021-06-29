@@ -22,7 +22,7 @@ import inference.util.solver.Solver
 class Learner(protected val input: Input, protected val solver: Solver)
   extends AbstractLearner
     with TemplateGenerator
-    with GuardEncoder
+    with HypothesisSolver
     with HypothesisBuilder {
   /**
    * The sequence of samples.
@@ -41,8 +41,7 @@ class Learner(protected val input: Input, protected val solver: Solver)
       // generate templates
       val templates = generateTemplates(samples)
       // encode guards and solve constraints
-      val constraints = encodeSamples(templates, samples)
-      val model = solver.solve(constraints)
+      val model = solve(templates, samples)
       // build hypothesis
       buildHypothesis(templates, model)
     }
