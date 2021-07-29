@@ -118,11 +118,16 @@ class Z3Solver(path: String) extends Solver {
     // declare variables
     collected
       .flatMap {
-        case Left(value) => value.collect { case ast.LocalVar(name, _) => name }
+        case Left(value) => value.collect { case variable: ast.LocalVar => variable }
         case Right(_) => Seq.empty
       }
       .distinct
-      .foreach { name => writeLine(s"(declare-const $name Bool)") }
+      .foreach { case ast.LocalVar(name, typ) =>
+        typ match {
+          case ast.Bool => writeLine(s"(declare-const $name Bool)")
+          case ast.Int => writeLine(s"(declare-const $name Int)")
+        }
+      }
 
     // emit constraints
     collected.foreach {
@@ -166,6 +171,11 @@ class Z3Solver(path: String) extends Solver {
       case ast.And(left, right) => s"(and ${convert(left)} ${convert(right)})"
       case ast.Or(left, right) => s"(or ${convert(left)} ${convert(right)})"
       case ast.Implies(left, right) => s"(=> ${convert(left)} ${convert(right)})"
+      case ast.IntLit(value) => if (value < 0) s"(- ${-value})" else value.toString
+      case ast.EqCmp(left, right) => s"(= ${convert(left)} ${convert(right)})"
+      case ast.GeCmp(left, right) => s"(>= ${convert(left)} ${convert(right)})"
+      case ast.CondExp(condition, left, right) => s"(ite ${convert(condition)} ${convert(left)} ${convert(right)})"
+      case ast.Add(left, right) => s"(+ ${convert(left)} ${convert(right)})"
       case _ => sys.error(s"Unexpected expression: $expression")
     }
 
@@ -174,8 +184,10 @@ class Z3Solver(path: String) extends Solver {
    *
    * @param line The input line.
    */
-  private def writeLine(line: String): Unit =
+  private def writeLine(line: String): Unit = {
+    println(line)
     writer.println(line)
+  }
 
   /**
    * Reads a line from Z3's output.
@@ -215,13 +227,11 @@ class Z3Solver(path: String) extends Solver {
       case Parsed.Success(model, _) =>
         model
           .entries
-          .view
-          .mapValues {
-            case ConstantEntry("true") => true
-            case ConstantEntry("false") => false
-            case entry => sys.error(s"Unexpected model entry: $entry")
+          .flatMap {
+            case (name, ConstantEntry("true")) => Some(name -> true)
+            case (name, ConstantEntry("false")) => Some(name -> false)
+            case _ => None
           }
-          .toMap
       case _ =>
         sys.error("Unable to parse model.")
     }

@@ -9,12 +9,13 @@
 package inference.learner
 
 import inference.Names
-import inference.core.{Implication, LowerBound, Record, Sample, UpperBound}
+import inference.core.{ExhaledRecord, Implication, InhaledRecord, LowerBound, Record, Sample, UpperBound}
 import inference.util.ast.Expressions
 import inference.util.collections.{Collections, SeqMap}
 import inference.util.solver.Solver
 import viper.silver.ast
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -23,11 +24,13 @@ import scala.collection.mutable.ListBuffer
  */
 trait HypothesisSolver {
   private type GuardMap = Map[ast.LocationAccess, Seq[Seq[Guard]]]
-
   /**
    * The solver.
    */
   protected val solver: Solver
+
+  private val id: AtomicInteger =
+    new AtomicInteger()
 
   /**
    * Computes guard maps for the given templates.
@@ -96,12 +99,16 @@ trait HypothesisSolver {
    * @return The model.
    */
   def solve(templates: Seq[Template], samples: Seq[Sample]): Map[String, Boolean] = {
+    // clear counters
+    id.set(0)
+    // compute effective guards for templates
     val guardMaps = computeGuardMaps(templates)
+    // encode samples
     samples.foreach { sample =>
       val encoding = encodeSample(sample, guardMaps)
       solver.addConstraint(encoding)
     }
-    // return model
+    // solve constraints and return model
     solver.solve()
   }
 
@@ -114,45 +121,73 @@ trait HypothesisSolver {
    */
   private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp =
     sample match {
-      case LowerBound(records, _) =>
-        // TODO: Handle cases with more than one record.
-        // TODO: Handle upper bound.
-        // assert(records.size == 1)
-        val record = records.last
-        encodeLowerBound(record, guardMaps, default = false)
-      case UpperBound(record, bound) =>
-        assert(bound == 1)
-        atMostOne(record, guardMaps, default = true)
+      case LowerBound(records, bound) =>
+        val difference = encodeDifference(records, guardMaps)
+        ast.GeCmp(difference, ast.IntLit(bound)())()
       case Implication(left, right) =>
-        val encodedLeft = encodeLowerBound(left, guardMaps, default = true)
+        val encodedLeft = encodeAtLeast(left, guardMaps, default = true)
         val encodedRight = encodeSample(right, guardMaps)
         ast.Implies(encodedLeft, encodedRight)()
+      case UpperBound(record, bound) =>
+        assert(bound == 1)
+        encodeAtMost(record, guardMaps, default = true)
     }
 
   /**
-   * Encodes a lower bound corresponding to the given record.
-   * TODO: Take into account that there are inhaled and exhaled records.
+   * Encodes the under-approximate permission difference corresponding to the given records.
    *
-   * @param record    The record to encode.
+   * @param records   The records.
+   * @param guardMaps The effective guards.
+   * @return The permission difference.
+   */
+  private def encodeDifference(records: Seq[Record], guardMaps: Map[String, GuardMap]): ast.Exp = {
+    val deltas = records
+      .map { record =>
+        // auxiliary variable
+        val variable = {
+          val name = s"d-${id.getAndIncrement()}"
+          ast.LocalVar(name, ast.Int)()
+        }
+        // permission difference
+        val delta = record match {
+          case inhaledRecord: InhaledRecord =>
+            val condition = encodeAtLeast(inhaledRecord, guardMaps, default = false)
+            ast.CondExp(condition, ast.IntLit(1)(), ast.IntLit(0)())()
+          case exhaledRecord: ExhaledRecord =>
+            val condition = encodeAtLeast(exhaledRecord, guardMaps, default = true)
+            ast.CondExp(condition, ast.IntLit(-1)(), ast.IntLit(0)())()
+        }
+        // constrain variable to difference
+        val constraint = ast.EqCmp(variable, delta)()
+        solver.addConstraint(constraint)
+        // map function returns variable holding difference
+        variable: ast.Exp
+      }
+    Expressions.sum(deltas)
+  }
+
+  /**
+   * Encodes that at least one of the options providing permissions for the given record should be picked.
+   *
+   * @param record    The record.
    * @param guardMaps The effective guards.
    * @param default   The default value to assume for unknown predicate values (approximation).
    * @return The encoding.
    */
-  private def encodeLowerBound(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+  private def encodeAtLeast(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
     val options = encodeOptions(record, guardMaps, default)
-    // encode that least one of the options should be true
     Expressions.disjoin(options)
   }
 
   /**
-   * Encodes an upper bound corresponding to the given record.
+   * Encodes that at most one of the options providing permissions for the given record should be picked.
    *
-   * @param record    The record to encode.
+   * @param record    The record.
    * @param guardMaps The effective guards.
    * @param default   The default value to assume for unknown predicate values (approximation).
    * @return The encoding.
    */
-  private def atMostOne(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
+  private def encodeAtMost(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
     val options = encodeOptions(record, guardMaps, default)
     val constraints = Collections
       .pairs(options)
@@ -184,6 +219,12 @@ trait HypothesisSolver {
               case ResourceGuard(guardId, atoms) =>
                 val values = abstraction.evaluate(atoms)
                 encodeState(guardId, values, default)
+              case ChoiceGuard(_, _) =>
+                // TODO: Implement me.
+                ???
+              case TruncationGuard(_) =>
+                // TODO: Implement me.
+                ???
             }
           Expressions.conjoin(conjuncts)
         }
@@ -233,9 +274,6 @@ trait HypothesisSolver {
 
   /**
    * The super trait for all guards (used to represent effective guards).
-   *
-   * TODO: Add truncation guard.
-   * TODO: Add choice guard.
    */
   sealed trait Guard
 
@@ -248,5 +286,26 @@ trait HypothesisSolver {
   case class ResourceGuard(guardId: Int, atoms: Seq[ast.Exp]) extends Guard {
     override def toString: String =
       s"phi_$guardId[${atoms.mkString(", ")}]"
+  }
+
+  /**
+   * A choice guard.
+   *
+   * @param choiceId The choice id.
+   * @param index    The index of the selected choice.
+   */
+  case class ChoiceGuard(choiceId: Int, index: Int) extends Guard {
+    override def toString: String =
+      s"c_$choiceId=$index"
+  }
+
+  /**
+   * A truncation guard.
+   *
+   * @param condition The truncation condition.
+   */
+  case class TruncationGuard(condition: ast.Exp) extends Guard {
+    override def toString: String =
+      condition.toString()
   }
 }

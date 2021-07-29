@@ -35,6 +35,17 @@ object Expressions {
       .getOrElse(ast.FalseLit()())
 
   /**
+   * Returns the sum of the given expressions.
+   *
+   * @param expressions The expressions to add up.
+   * @return The sum.
+   */
+  def sum(expressions: Iterable[ast.Exp]): ast.Exp =
+    expressions
+      .reduceOption(ast.Add(_, _)())
+      .getOrElse(ast.IntLit(0)())
+
+  /**
    * Simplifies the given expression.
    *
    * @param expression The expression to simplify.
