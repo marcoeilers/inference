@@ -317,6 +317,16 @@ trait QueryBuilder extends Builder with Folding {
     // generate unique snapshot label
     val label = namespace.uniqueIdentifier(Names.snapshot)
     query.addSnapshot(label, instance, exhaled)
+    // save values of variables
+    instance
+      .arguments
+      .foreach {
+        case variable: ast.LocalVar =>
+          val name = s"${label}_${variable.name}"
+          emitAssignment(name, variable)
+        case other =>
+          sys.error(s"Unexpected argument to instance: $other")
+      }
     // emit and return label
     emitLabel(label)
     label

@@ -23,6 +23,29 @@ import viper.silicon.state.{BasicChunk, State}
  */
 case class StateEvaluator(label: Option[String], state: State, model: ModelEvaluator) {
   /**
+   * Returns the value associated with the given variable.
+   *
+   * @param variable The variable to look up.
+   * @return The value.
+   */
+  private def store(variable: ast.LocalVar): String = {
+    // adapt variable to state (if necessary)
+    val adapted = label match {
+      case Some(label) =>
+        // adapt variable
+        val name = s"${label}_${variable.name}"
+        val typ = variable.typ
+        ast.LocalVar(name, typ)()
+      case _ =>
+        // no adaptation needed
+        variable
+    }
+    // evaluate variable
+    val term = state.g(adapted)
+    model.evaluateReference(term)
+  }
+
+  /**
    * The precomputed heap map.
    */
   private[state] val heap = label
@@ -89,8 +112,7 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
       case ast.NullLit() =>
         model.evaluateReference(terms.Null())
       case variable: ast.LocalVar =>
-        val term = state.g(variable)
-        model.evaluateReference(term)
+        store(variable)
       case ast.FieldAccess(receiver, ast.Field(field, _)) =>
         val receiverValue = evaluateReference(receiver)
         heap(receiverValue)(field)
