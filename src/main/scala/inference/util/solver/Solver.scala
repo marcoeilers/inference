@@ -45,7 +45,7 @@ trait Solver {
    *
    * @return The model.
    */
-  def solve(): Map[String, Boolean]
+  def solve(): Option[Map[String, Boolean]]
 }
 
 /**
@@ -111,7 +111,7 @@ class Z3Solver(path: String) extends Solver {
   override def addComment(comment: String): Unit =
     collected.append(Right(comment))
 
-  override def solve(): Map[String, Boolean] = {
+  override def solve(): Option[Map[String, Boolean]] = {
     // enter new scope
     writeLine("(push)")
 
@@ -145,7 +145,10 @@ class Z3Solver(path: String) extends Solver {
       case "sat" =>
         // get model
         writeLine("(get-model)")
-        readModel()
+        val model = readModel()
+        Some(model)
+      case "unsat" =>
+        None
       case _ => sys.error(s"Unexpected response: $response")
     }
 

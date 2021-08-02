@@ -53,7 +53,7 @@ trait Inference {
    * @param solver   The solver used by the learner to generate hypotheses.
    * @return The inferred hypothesis.
    */
-  def infer(input: Input)(verifier: Verifier, solver: Solver): Hypothesis = {
+  def infer(input: Input)(verifier: Verifier, solver: Solver): Option[Hypothesis] = {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
@@ -67,25 +67,27 @@ trait Inference {
      * @param iteration  The current iteration number.
      * @return The final hypothesis
      */
-    @tailrec
-    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Hypothesis = {
+    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Option[Hypothesis] = {
       logger.info(s"iteration #$iteration")
       // check hypothesis
       val samples = teacher.check(hypothesis)
       // check if there are new samples
-      if (samples.isEmpty || iteration >= max) hypothesis
-      else {
+      if (samples.isEmpty || iteration >= max) {
+        Some(hypothesis)
+      } else {
         // add samples to learner
         learner.addSamples(samples)
         // compute updated hypothesis and iterate
-        val updated = learner.hypothesis
-        iterate(updated, iteration + 1)
+        learner
+          .hypothesis
+          .flatMap { updated => iterate(updated, iteration + 1) }
       }
     }
 
     // compute initial hypothesis and iterate
-    val initial = learner.hypothesis
-    iterate(initial)
+    learner
+      .hypothesis
+      .flatMap { initial => iterate(initial) }
   }
 }
 
@@ -133,5 +135,5 @@ trait AbstractLearner {
    *
    * @return The hypothesis.
    */
-  def hypothesis: Hypothesis
+  def hypothesis: Option[Hypothesis]
 }

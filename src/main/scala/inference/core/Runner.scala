@@ -69,7 +69,7 @@ trait Runner[R] extends Inference {
    * @param arguments The arguments.
    * @return The result.
    */
-  def run(arguments: Seq[String]): R = {
+  def run(arguments: Seq[String]): Option[R] = {
     val configuration = new Configuration(arguments)
     run(configuration)
   }
@@ -80,7 +80,7 @@ trait Runner[R] extends Inference {
    * @param configuration The configuration.
    * @return The result.
    */
-  def run(configuration: Configuration): R = {
+  def run(configuration: Configuration): Option[R] = {
     // create input
     val input = Input.fromConfiguration(configuration)
     // create verifier and solver
@@ -104,10 +104,9 @@ trait Runner[R] extends Inference {
    * @param solver   The solver.
    * @return The result.
    */
-  def run(input: Input)(verifier: Verifier, solver: Solver): R = {
-    val hypothesis = infer(input)(verifier, solver)
-    result(input, hypothesis)(verifier, solver)
-  }
+  def run(input: Input)(verifier: Verifier, solver: Solver): Option[R] =
+    infer(input)(verifier, solver)
+      .map { hypothesis => result(input, hypothesis)(verifier, solver) }
 
   /**
    * Computes the result from the given input and inferred hypothesis.

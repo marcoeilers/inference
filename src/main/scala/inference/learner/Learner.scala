@@ -25,17 +25,17 @@ class Learner(protected val input: Input, protected val solver: Solver)
     with HypothesisSolver
     with HypothesisBuilder {
 
-  override def hypothesis: Hypothesis = {
+  override def hypothesis: Option[Hypothesis] = {
     if (samples.isEmpty) {
       // return empty hypothesis
-      Hypothesis(Seq.empty)
+      val initial = Hypothesis(Seq.empty)
+      Some(initial)
     } else {
       // generate templates
       val templates = generateTemplates()
-      // encode guards and solve constraints
-      val model = solve(templates)
-      // build hypothesis
-      buildHypothesis(templates, model)
+      // encode guards, solve constraints and build hypothesis
+      solve(templates)
+        .map { model => buildHypothesis(templates, model) }
     }
   }
 }

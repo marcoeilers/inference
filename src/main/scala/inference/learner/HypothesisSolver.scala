@@ -138,7 +138,7 @@ trait HypothesisSolver {
    * @param templates The templates.
    * @return The model.
    */
-  def solve(templates: Seq[Template]): Map[String, Boolean] = {
+  def solve(templates: Seq[Template]): Option[Map[String, Boolean]] = {
     // clear counters
     id.set(0)
     // compute effective guards for templates

@@ -53,7 +53,7 @@ class InferenceTest extends AnyFunSuite with TestRunner {
    */
   def runTest(name: String, arguments: Seq[String]): Unit =
     test(name) {
-      val verified = run(arguments)
+      val verified = run(arguments).getOrElse(false)
       assert(verified)
     }
 
