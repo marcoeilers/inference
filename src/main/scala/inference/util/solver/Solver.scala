@@ -184,10 +184,8 @@ class Z3Solver(path: String) extends Solver {
    *
    * @param line The input line.
    */
-  private def writeLine(line: String): Unit = {
-    println(line)
+  private def writeLine(line: String): Unit =
     writer.println(line)
-  }
 
   /**
    * Reads a line from Z3's output.
