@@ -1,10 +1,13 @@
 field val: Int
 
 predicate p(x: Ref)
+predicate q(x: Ref)
 
 method main()
 {
     var x: Ref
     inhale p(x)
+    inhale q(x)
+    exhale acc(x.val)
     x.val := 0
 }
