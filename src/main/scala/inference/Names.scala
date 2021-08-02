@@ -35,6 +35,11 @@ object Names {
   val permission = "p"
 
   /**
+   * The name used for the recursive predicate.
+   */
+  val recursive = "P"
+
+  /**
    * Returns the variable name used for the activation of a clause.
    *
    * @param guardId     The guard id.

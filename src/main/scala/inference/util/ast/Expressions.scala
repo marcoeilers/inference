@@ -13,12 +13,35 @@ import viper.silver.ast.utility.rewriter.Traverse
 
 object Expressions {
   /**
+   * Returns the length of the given access path.
+   *
+   * @param path The access path.
+   * @return The length.
+   */
+  def getLength(path: ast.Exp): Int =
+    getDepth(path) + 1
+
+  /**
+   * Returns the depth of the given access path.
+   *
+   * @param path The access path.
+   * @return The depth.
+   */
+  def getDepth(path: ast.Exp): Int =
+    path match {
+      case _: ast.NullLit => 0
+      case _: ast.LocalVar => 0
+      case ast.FieldAccess(receiver, _) => getDepth(receiver) + 1
+      case _ => sys.error(s"Expression $path is not an access path.")
+    }
+
+  /**
    * Returns the conjunction of the given expressions.
    *
    * @param expressions The expressions to conjoin.
    * @return The conjunction.
    */
-  def conjoin(expressions: Iterable[ast.Exp]): ast.Exp =
+  def bigAnd(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.And(_, _)())
       .getOrElse(ast.TrueLit()())
@@ -29,7 +52,7 @@ object Expressions {
    * @param expressions The expressions to disjoin.
    * @return The disjunction.
    */
-  def disjoin(expressions: Iterable[ast.Exp]): ast.Exp =
+  def bigOr(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.Or(_, _)())
       .getOrElse(ast.FalseLit()())
@@ -40,7 +63,7 @@ object Expressions {
    * @param expressions The expressions to add up.
    * @return The sum.
    */
-  def sum(expressions: Iterable[ast.Exp]): ast.Exp =
+  def bigSum(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.Add(_, _)())
       .getOrElse(ast.IntLit(0)())

@@ -29,6 +29,8 @@ trait HypothesisSolver {
    */
   protected val solver: Solver
 
+  protected def samples: Seq[Sample]
+
   private val id: AtomicInteger =
     new AtomicInteger()
 
@@ -92,13 +94,12 @@ trait HypothesisSolver {
   }
 
   /**
-   * Encodes the given samples under consideration of the given templates and returns a suitable model.
+   * Encodes the currently accumulated samples under consideration of the given templates and returns a suitable model.
    *
    * @param templates The templates.
-   * @param samples   The samples to encode.
    * @return The model.
    */
-  def solve(templates: Seq[Template], samples: Seq[Sample]): Map[String, Boolean] = {
+  def solve(templates: Seq[Template]): Map[String, Boolean] = {
     // clear counters
     id.set(0)
     // compute effective guards for templates
@@ -163,7 +164,7 @@ trait HypothesisSolver {
         // map function returns variable holding difference
         variable: ast.Exp
       }
-    Expressions.sum(deltas)
+    Expressions.bigSum(deltas)
   }
 
   /**
@@ -176,7 +177,7 @@ trait HypothesisSolver {
    */
   private def encodeAtLeast(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
     val options = encodeOptions(record, guardMaps, default)
-    Expressions.disjoin(options)
+    Expressions.bigOr(options)
   }
 
   /**
@@ -192,7 +193,7 @@ trait HypothesisSolver {
     val constraints = Collections
       .pairs(options)
       .map { case (first, second) => ast.Not(ast.And(first, second)())() }
-    Expressions.conjoin(constraints)
+    Expressions.bigAnd(constraints)
   }
 
   /**
@@ -226,7 +227,7 @@ trait HypothesisSolver {
                 // TODO: Implement me.
                 ???
             }
-          Expressions.conjoin(conjuncts)
+          Expressions.bigAnd(conjuncts)
         }
       }
   }
@@ -260,12 +261,12 @@ trait HypothesisSolver {
             ast.Implies(literalActivation, literalEncoding)()
           }
         // conjoin literals
-        Expressions.conjoin(literals)
+        Expressions.bigAnd(literals)
       }
       ast.And(clauseActivation, clauseEncoding)()
     }
     // disjoin clauses
-    Expressions.disjoin(clauses)
+    Expressions.bigOr(clauses)
   }
 
   @inline

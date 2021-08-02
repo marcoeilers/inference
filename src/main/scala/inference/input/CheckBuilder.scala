@@ -33,7 +33,7 @@ trait CheckBuilder extends Builder {
    * @param program The program to process.
    * @return The checks.
    */
-  def buildChecks(program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
+  def buildChecks(configuration: Configuration, program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
     // reset
     namespace = new Namespace()
     // initialize buffers
@@ -43,6 +43,13 @@ trait CheckBuilder extends Builder {
     program.predicates.foreach(processPredicate)
     // process methods
     program.methods.foreach(processMethod)
+    // recursive predicate placeholder
+    if (configuration.useRecursion()) {
+      val name = Names.recursive
+      val names = if (configuration.useSegments()) Seq("x", "y") else Seq("x")
+      val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())
+      createPlaceholder(name, parameters, Seq.empty)
+    }
     // return placeholders and checks
     (placeholders.toSeq, checks.toSeq)
   }

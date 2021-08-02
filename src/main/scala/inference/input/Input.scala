@@ -31,7 +31,7 @@ object Input extends CheckBuilder {
     val file = configuration.file()
     val program = parse(file)
     // build checks
-    val (placeholders, checks) = buildChecks(program)
+    val (placeholders, checks) = buildChecks(configuration, program)
     // return input
     new Input(program, configuration, placeholders, checks)
   }

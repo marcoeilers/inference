@@ -31,6 +31,25 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "The number of iterations after which the learner gets exhausted and gives up.",
       default = Some(10))
 
+  val maxLength: ScallopOption[Int] =
+    opt[Int](
+      name = "maxLength",
+      descr = "The maximal length of access paths that may appear in specifications",
+      default = Some(2))
+
+  val noRecursion: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "noPredicates",
+      descr = "Disables the use of recursive predicates.")
+
+  val useRecursion: ScallopOption[Boolean] =
+    noRecursion.map(!_)
+
+  val useSegments: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "useSegments",
+      descr = "Enables the use of predicate segments.")
+
   val noInlining: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noInlining",
@@ -47,6 +66,8 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
     trailArg[String](
       name = "file",
       descr = "The path to the input file.")
+
+  mutuallyExclusive(useSegments, noRecursion)
 
   verify()
 }

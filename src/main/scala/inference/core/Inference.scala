@@ -107,11 +107,18 @@ trait AbstractTeacher {
  */
 trait AbstractLearner {
   /**
+   * The sequence of samples.
+   */
+  protected var samples: Seq[Sample] =
+    Seq.empty
+
+  /**
    * Adds the given sample.
    *
    * @param sample The sample to add.
    */
-  def addSample(sample: Sample): Unit
+  def addSample(sample: Sample): Unit =
+    samples = samples :+ sample
 
   /**
    * Adds the given samples.

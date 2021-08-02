@@ -24,7 +24,7 @@ trait HypothesisBuilder {
    * @param model     The model.
    * @return The hypothesis.
    */
-  def buildHypothesis(templates: Seq[Template], model: Map[String, Boolean]): Hypothesis = {
+  protected def buildHypothesis(templates: Seq[Template], model: Map[String, Boolean]): Hypothesis = {
     // build predicates
     val predicates = templates.collect {
       case template: PredicateTemplate => buildPredicate(template, model)
@@ -67,7 +67,7 @@ trait HypothesisBuilder {
         expression
       case Conjunction(conjuncts) =>
         val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms, model) }
-        Expressions.conjoin(mapped)
+        Expressions.bigAnd(mapped)
       case Guarded(guardId, body) =>
         val guard = buildGuard(guardId, atoms, model)
         val guarded = buildExpression(body, atoms, model)
@@ -101,10 +101,10 @@ trait HypothesisBuilder {
             .getOrElse(ast.TrueLit()())
           }
         // conjoin literals
-        Expressions.conjoin(literals)
+        Expressions.bigAnd(literals)
       } else ast.FalseLit()()
     }
     // disjoin clauses
-    Expressions.disjoin(clauses)
+    Expressions.bigOr(clauses)
   }
 }

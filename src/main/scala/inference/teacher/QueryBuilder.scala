@@ -300,7 +300,7 @@ trait QueryBuilder extends Builder with Folding {
           arguments.flatMap(extractCondition)
       }
       // conjoin given guards and these conditions
-      Expressions.conjoin(guards ++ conditions)
+      Expressions.bigAnd(guards ++ conditions)
     }
     val value = ast.CondExp(condition, ast.CurrentPerm(access)(), ast.NoPerm()())()
     emitAssignment(name, value)

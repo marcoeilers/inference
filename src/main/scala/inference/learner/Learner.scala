@@ -24,14 +24,6 @@ class Learner(protected val input: Input, protected val solver: Solver)
     with TemplateGenerator
     with HypothesisSolver
     with HypothesisBuilder {
-  /**
-   * The sequence of samples.
-   */
-  private var samples: Seq[Sample] =
-    Seq.empty
-
-  override def addSample(sample: Sample): Unit =
-    samples = samples :+ sample
 
   override def hypothesis: Hypothesis = {
     if (samples.isEmpty) {
@@ -39,9 +31,9 @@ class Learner(protected val input: Input, protected val solver: Solver)
       Hypothesis(Seq.empty)
     } else {
       // generate templates
-      val templates = generateTemplates(samples)
+      val templates = generateTemplates()
       // encode guards and solve constraints
-      val model = solve(templates, samples)
+      val model = solve(templates)
       // build hypothesis
       buildHypothesis(templates, model)
     }
