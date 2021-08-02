@@ -40,57 +40,96 @@ trait HypothesisSolver {
    * @param templates The templates.
    * @return The guard maps.
    */
-  private def computeGuardMaps(templates: Seq[Template]): Map[String, GuardMap] =
+  private def computeGuardMaps(templates: Seq[Template]): Map[String, GuardMap] = {
+    // collect all predicate templates
+    val predicates =
+      templates
+        .flatMap {
+          case template: PredicateTemplate => Some(template.name -> template)
+          case _ => None
+        }
+        .toMap
+
+    // buffer used to accumulate options
+    val options: mutable.Buffer[(ast.LocationAccess, Seq[Guard])] = ListBuffer.empty
+
+    /**
+     * Processes the given template.
+     *
+     * @param template The template to process.
+     * @param depth    The current depth.
+     * @param view     The current view.
+     * @param guards   The current guards.
+     */
+    def processTemplate(template: PredicateTemplate, depth: Int, view: View = View.empty, guards: Seq[Guard] = Seq.empty): Unit =
+      if (depth > 0) {
+        // get and adapt atoms
+        val atoms = template
+          .placeholder
+          .atoms
+          .map(view.adapt)
+        // process template body
+        val body = template.body
+        processExpression(body, view, guards)(depth, atoms)
+      }
+
+    /**
+     * Helper method that processes the given template expression.
+     *
+     * @param expression The template expression to process
+     * @param view       The current view.
+     * @param guards     The current guards.
+     * @param depth      The implicitly passed depth.
+     * @param atoms      The implicitly passed atoms.
+     */
+    def processExpression(expression: TemplateExpression, view: View, guards: Seq[Guard])
+                         (implicit depth: Int, atoms: Seq[ast.Exp]): Unit =
+      expression match {
+        case Wrapped(wrapped) =>
+          wrapped match {
+            case ast.FieldAccessPredicate(ast.FieldAccess(receiver, field), _) =>
+              // add guards for field access
+              val adapted = view.adapt(receiver)
+              val access = ast.FieldAccess(adapted, field)()
+              options.append(access -> guards)
+            case ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _) =>
+              // add guards for predicate access
+              val adapted = arguments.map(view.adapt)
+              val access = ast.PredicateAccess(adapted, name)()
+              options.append(access -> guards)
+              // recursively process template
+              val innerTemplate = predicates(name)
+              val innerView = View.create(innerTemplate, adapted)
+              processTemplate(innerTemplate, depth - 1, innerView, guards)
+            case _ =>
+              sys.error(s"Unexpected wrapped expression in template: $wrapped")
+          }
+        case Conjunction(conjuncts) =>
+          conjuncts.foreach { conjunct => processExpression(conjunct, view, guards) }
+        case Guarded(guardId, body) =>
+          val resourceGuard = ResourceGuard(guardId, atoms)
+          processExpression(body, view, guards :+ resourceGuard)
+      }
+
+    // compute effective guards for all predicate templates
     templates
       .flatMap {
         case template: PredicateTemplate =>
+          // process template
+          options.clear()
+          processTemplate(template, depth = 3)
+          // build guard map
+          val map = options.foldLeft(Map.empty: GuardMap) {
+            case (map, (location, guards)) =>
+              SeqMap.add(map, location, guards)
+          }
+          // add map
           val name = template.name
-          val map = computeGuardMap(template)
           Some(name -> map)
         case _ =>
           None
       }
       .toMap
-
-  /**
-   * Computes the guard map for the given template.
-   *
-   * @param template The template.
-   * @return The guard map.
-   */
-  private def computeGuardMap(template: PredicateTemplate): GuardMap = {
-    val buffer: mutable.Buffer[(ast.LocationAccess, Seq[Guard])] = ListBuffer.empty
-    val atoms = template.placeholder.atoms
-
-    /**
-     * Helper method that processes the given template expression.
-     *
-     * @param expression The template expression.
-     * @param guards     The guards guarding the template expression.
-     */
-    def process(expression: TemplateExpression, guards: Seq[Guard]): Unit =
-      expression match {
-        case Wrapped(wrapped) =>
-          wrapped match {
-            case ast.FieldAccessPredicate(location, _) =>
-              buffer.append(location -> guards)
-            case _ =>
-              sys.error(s"Unexpected wrapped expression in template: $wrapped")
-          }
-        case Conjunction(conjuncts) =>
-          conjuncts.foreach { conjunct => process(conjunct, guards) }
-        case Guarded(guardId, body) =>
-          val resourceGuard = ResourceGuard(guardId, atoms)
-          process(body, guards :+ resourceGuard)
-      }
-
-    // process template body
-    process(template.body, Seq.empty)
-    // build guard map
-    buffer.foldLeft(Map.empty: GuardMap) {
-      case (map, (location, guards)) =>
-        SeqMap.add(map, location, guards)
-    }
   }
 
   /**
@@ -308,5 +347,73 @@ trait HypothesisSolver {
   case class TruncationGuard(condition: ast.Exp) extends Guard {
     override def toString: String =
       condition.toString()
+  }
+
+  /**
+   * The companion object for views.
+   */
+  object View {
+    /**
+     * Returns the empty view that does not associated any variable with any expression.
+     *
+     * @return The empty view.
+     */
+    def empty: View =
+      View(Map.empty)
+
+    /**
+     * Creates the view for the given template with the given arguments.
+     *
+     * @param template  The template.
+     * @param arguments The arguments.
+     * @return The view.
+     */
+    def create(template: Template, arguments: Seq[ast.Exp]): View = {
+      val map = template
+        .placeholder
+        .parameters
+        .map(_.name)
+        .zip(arguments)
+        .toMap
+      View(map)
+    }
+  }
+
+  /**
+   * A view mapping variable names ot the expressions with which they are instantiated.
+   *
+   * @param map The map.
+   */
+  case class View(map: Map[String, ast.Exp]) {
+    /**
+     * Returns whether the view is empty.
+     *
+     * @return True if the view is empty.
+     */
+    def isEmpty: Boolean =
+      map.isEmpty
+
+    /**
+     * Adapts the expression according to the view.
+     *
+     * @param expression The expression to adapt.
+     * @return The adapted expression.
+     */
+    def adapt(expression: ast.Exp): ast.Exp =
+      if (isEmpty) expression
+      else expression.transform {
+        case variable@ast.LocalVar(name, _) =>
+          map.getOrElse(name, variable)
+      }
+
+    /**
+     * Returns the updated view where the variable with the given name is associated with the given expression.
+     *
+     * @param name       The name of the variable.
+     * @param expression The expression.
+     * @return The updated view.
+     */
+    def updated(name: String, expression: ast.Exp): View =
+      View(map.updated(name, expression))
   }
 }
