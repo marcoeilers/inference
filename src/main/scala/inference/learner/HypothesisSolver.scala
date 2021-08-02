@@ -246,7 +246,7 @@ trait HypothesisSolver {
   private def encodeOptions(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): Iterable[ast.Exp] = {
     // get guard map and state abstraction
     val name = record.placeholder.name
-    val guardMap = guardMaps(name)
+    val guardMap = guardMaps.getOrElse(name, Map.empty)
     val abstraction = record.abstraction
     // encode options
     record
