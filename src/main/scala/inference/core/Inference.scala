@@ -53,7 +53,7 @@ trait Inference {
    * @param solver   The solver used by the learner to generate hypotheses.
    * @return The inferred hypothesis.
    */
-  def infer(input: Input)(verifier: Verifier, solver: Solver): Option[Hypothesis] = {
+  def infer(input: Input)(implicit verifier: Verifier, solver: Solver): Option[Hypothesis] = {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)

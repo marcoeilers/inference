@@ -84,12 +84,12 @@ trait Runner[R] extends Inference {
     // create input
     val input = Input.fromConfiguration(configuration)
     // create verifier and solver
-    val verifier = createVerifier(configuration)
-    val solver = createSolver(configuration)
+    implicit val verifier: Verifier = createVerifier(configuration)
+    implicit val solver: Solver = createSolver(configuration)
     // before
     verifier.start()
     // run
-    val result = run(input)(verifier, solver)
+    val result = run(input)
     // after
     verifier.stop()
     // return result
@@ -104,9 +104,10 @@ trait Runner[R] extends Inference {
    * @param solver   The solver.
    * @return The result.
    */
-  def run(input: Input)(verifier: Verifier, solver: Solver): Option[R] =
-    infer(input)(verifier, solver)
-      .map { hypothesis => result(input, hypothesis)(verifier, solver) }
+  def run(input: Input)(implicit verifier: Verifier, solver: Solver): Option[R] = {
+    val hypothesis = infer(input)
+    result(input, hypothesis)
+  }
 
   /**
    * Computes the result from the given input and inferred hypothesis.
@@ -117,18 +118,25 @@ trait Runner[R] extends Inference {
    * @param solver     The solver.
    * @return The result.
    */
-  def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): R
+  def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[R]
 }
 
 /**
  * An inference runner that prints the inferred hypothesis.
  */
 trait PrintRunner extends Runner[Unit] with Extender {
-  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Unit = {
-    // extend input program
-    val extended = extend(input, hypothesis)
-    // print extended program
-    println(extended)
+  override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Unit] = {
+    hypothesis match {
+      case Some(hypothesis) =>
+        // extend input program
+        val extended = extend(input, hypothesis)
+        // print extended program
+        println(extended)
+        Some()
+      case None =>
+        println("Unable to infer specifications.")
+        None
+    }
   }
 }
 
@@ -136,12 +144,13 @@ trait PrintRunner extends Runner[Unit] with Extender {
  * An inference runner that verifiers the program annotated with the inferred specification.
  */
 trait TestRunner extends Runner[Boolean] with Extender {
-  override def result(input: Input, hypothesis: Hypothesis)(verifier: Verifier, solver: Solver): Boolean = {
-    // extend input program
-    val extended = extend(input, hypothesis)
-    // verify extended program
-    doesVerify(extended)(verifier)
-  }
+  override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Boolean] =
+    hypothesis.map { hypothesis =>
+      // extend input program
+      val extended = extend(input, hypothesis)
+      // verify extended program
+      doesVerify(extended)
+    }
 
   /**
    * Returns whether the given program verifies.
@@ -150,7 +159,7 @@ trait TestRunner extends Runner[Boolean] with Extender {
    * @param verifier The verifier.
    * @return True if the program verifies.
    */
-  private def doesVerify(program: ast.Program)(verifier: Verifier): Boolean = {
+  private def doesVerify(program: ast.Program)(implicit verifier: Verifier): Boolean = {
     // verify program
     val result = verifier.verify(program)
     // process result
