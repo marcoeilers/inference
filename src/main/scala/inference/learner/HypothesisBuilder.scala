@@ -8,6 +8,7 @@
 
 package inference.learner
 
+import com.typesafe.scalalogging.Logger
 import inference.Names
 import inference.core.Hypothesis
 import inference.util.ast.Expressions
@@ -17,6 +18,13 @@ import viper.silver.ast
  * A hypothesis builder that takes a model and builds a hypothesis.
  */
 trait HypothesisBuilder {
+  /**
+   * Returns the logger.
+   *
+   * @return The logger.
+   */
+  protected def logger: Logger
+
   /**
    * Builds a hypothesis corresponding to the given templates under the given model.
    *
@@ -29,8 +37,13 @@ trait HypothesisBuilder {
     val predicates = templates.collect {
       case template: PredicateTemplate => buildPredicate(template, model)
     }
+
     // create hypothesis
-    Hypothesis(predicates)
+    val hypothesis = Hypothesis(predicates)
+
+    // return hypothesis
+    logger.info(hypothesis.toString)
+    hypothesis
   }
 
   /**

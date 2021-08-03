@@ -8,6 +8,7 @@
 
 package inference.teacher
 
+import com.typesafe.scalalogging.Logger
 import inference.core._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
@@ -25,6 +26,13 @@ trait SampleExtractor {
    * Type shorthand for counter examples.
    */
   private type Counter = SiliconRawCounterexample
+
+  /**
+   * Returns the logger.
+   *
+   * @return The logger.
+   */
+  protected def logger: Logger
 
   /**
    * Returns the input to the inference.
@@ -127,7 +135,7 @@ trait SampleExtractor {
       .getOrElse(0)
 
     // create sample
-    failingSnapshot match {
+    val sample = failingSnapshot match {
       // if there is a failing snapshot the error was caused by some specification
       case Some(snapshot) =>
         // try to figure out whether we want to require the missing permission from an upstream specification or whether
@@ -162,6 +170,10 @@ trait SampleExtractor {
         val others = otherSnapshots.map(recordify)
         LowerBound(others, 1 + delta)
     }
+
+    // return sample
+    logger.info(sample.toString)
+    sample
   }
 
   /**

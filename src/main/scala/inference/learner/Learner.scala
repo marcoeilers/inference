@@ -8,7 +8,8 @@
 
 package inference.learner
 
-import inference.core.{AbstractLearner, Hypothesis, Sample}
+import com.typesafe.scalalogging.Logger
+import inference.core.{AbstractLearner, Hypothesis}
 import inference.input.Input
 import inference.util.solver.Solver
 
@@ -24,7 +25,6 @@ class Learner(protected val input: Input, protected val solver: Solver)
     with TemplateGenerator
     with HypothesisSolver
     with HypothesisBuilder {
-
   override def hypothesis: Option[Hypothesis] = {
     if (samples.isEmpty) {
       // return empty hypothesis
@@ -34,8 +34,8 @@ class Learner(protected val input: Input, protected val solver: Solver)
       // generate templates
       val templates = generateTemplates()
       // encode guards, solve constraints and build hypothesis
-      solve(templates)
-        .map { model => buildHypothesis(templates, model) }
+      val model = solve(templates)
+      model.map { model => buildHypothesis(templates, model) }
     }
   }
 }

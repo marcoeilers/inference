@@ -96,6 +96,14 @@ trait Inference {
  */
 trait AbstractTeacher {
   /**
+   * Returns the logger.
+   *
+   * @return The logger.
+   */
+  protected def logger: Logger =
+    Logger("root.teacher")
+
+  /**
    * Checks the given hypothesis.
    *
    * @param hypothesis The hypothesis to check.
@@ -108,6 +116,14 @@ trait AbstractTeacher {
  * An abstract learner of an inference.
  */
 trait AbstractLearner {
+  /**
+   * Returns the logger.
+   *
+   * @return The logger.
+   */
+  protected def logger: Logger =
+    Logger("root.learner")
+
   /**
    * The sequence of samples.
    */
