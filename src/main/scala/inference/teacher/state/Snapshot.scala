@@ -116,8 +116,8 @@ case class Adaptor(source: StateEvaluator, target: Snapshot) {
       case ast.FieldAccess(receiver, field) =>
         val adapted = adaptReference(receiver)
         adapted.map { expression => ast.FieldAccess(expression, field)() }
-      case location =>
-        sys.error(s"Unexpected location: $location")
+      case other =>
+        sys.error(s"Unexpected location: $other")
     }
 
   /**

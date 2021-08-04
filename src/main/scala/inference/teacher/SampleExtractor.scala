@@ -96,70 +96,52 @@ trait SampleExtractor {
      * @return The record.
      */
     def recordify(snapshot: Snapshot): Record = {
-      // get placeholder and create abstraction
-      val placeholder = snapshot.placeholder
-      val abstraction = SnapshotAbstraction(snapshot)
       // adapt locations
       val locations = {
         val adaptor = Adaptor(failState, snapshot)
         adaptor.adaptLocation(offending)
       }
+      // permission difference
+      val amount = locations
+        .headOption
+        .map { formal =>
+          val state = snapshot.state
+          val actual = snapshot.instance.instantiate(formal)
+          val specification = query.specification(snapshot)
+          state.evaluatePermission(actual, specification)
+        }
+        .getOrElse(0)
+      // get placeholder and create abstraction
+      val placeholder = snapshot.placeholder
+      val abstraction = SnapshotAbstraction(snapshot)
       // create record
-      val exhaled = query.isExhaled(snapshot.label)
-      if (exhaled) ExhaledRecord(placeholder, abstraction, locations)
-      else InhaledRecord(placeholder, abstraction, locations)
-    }
-
-    /**
-     * Helper method that evaluates the permission amount for the offending location contained in the specification
-     * corresponding to the given snapshot.
-     *
-     * @param snapshot The state snapshot.
-     * @return The permission amount.
-     */
-    def evaluatePermission(snapshot: Snapshot): Int = {
-      val state = snapshot.state
-      val specification = query.specification(snapshot)
-      state.evaluatePermission(offending, specification)
-    }
-
-    // lazily compute the total permission difference due to the current hypothesis
-    // TODO: Implement version with perms?
-    lazy val delta = otherSnapshots
-      .map { snapshot =>
-        val permission = evaluatePermission(snapshot)
-        val exhaled = query.isExhaled(snapshot.label)
-        if (exhaled) -permission else permission
+      if (query.isExhaled(snapshot.label)) {
+        ExhaledRecord(placeholder, abstraction, locations, amount)
+      } else {
+        InhaledRecord(placeholder, abstraction, locations, amount)
       }
-      .reduceOption(_ + _)
-      .getOrElse(0)
+    }
 
     // create sample
     val sample = failingSnapshot match {
       // if there is a failing snapshot the error was caused by some specification
       case Some(snapshot) =>
-        // try to figure out whether we want to require the missing permission from an upstream specification or whether
-        // the permission required by the offending specification should be bounded from above
-        val fromUpstream = {
-          // evaluate permission amount represented by exhaled specification
-          val permission = evaluatePermission(snapshot)
-          // require the permission form an upstream specification unless the permission failure was caused by an
-          // unsatisfiable specification requiring more than one permission
-          permission <= 1
-        }
-        // create implication or upper bound sample
-        if (fromUpstream) {
-          val failing = recordify(snapshot)
-          val others = otherSnapshots.map(recordify)
-          Implication(failing, LowerBound(others, 1 + delta))
+        // compute record corresponding to failing specification
+        val failing = recordify(snapshot)
+        // if the failing specification exhales more than one permission we want to impose an upper bound, otherwise we
+        // want to require the missing permission from an upstream specification
+        if (failing.delta < -1) {
+          // create upper bound sample
+          UpperBound(failing)
         } else {
-          val failing = recordify(snapshot)
-          UpperBound(failing, 1)
+          // create implication sample
+          val others = otherSnapshots.map(recordify)
+          Implication(failing, LowerBound(others))
         }
       // if there is no failing snapshot the error was caused by some original program code
       case None =>
         val others = otherSnapshots.map(recordify)
-        LowerBound(others, 1 + delta)
+        LowerBound(others)
     }
 
     // return sample

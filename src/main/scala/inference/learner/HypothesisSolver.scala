@@ -171,15 +171,15 @@ trait HypothesisSolver {
    */
   private def encodeSample(sample: Sample, guardMaps: Map[String, GuardMap]): ast.Exp =
     sample match {
-      case LowerBound(records, bound) =>
+      case sample@LowerBound(records) =>
         val difference = encodeDifference(records, guardMaps)
-        ast.GeCmp(difference, ast.IntLit(bound)())()
+        val bound = ast.IntLit(sample.bound)()
+        ast.GtCmp(difference, bound)()
       case Implication(left, right) =>
         val encodedLeft = encodeAtLeast(left, guardMaps, default = true)
         val encodedRight = encodeSample(right, guardMaps)
         ast.Implies(encodedLeft, encodedRight)()
-      case UpperBound(record, bound) =>
-        assert(bound == 1)
+      case UpperBound(record) =>
         encodeAtMost(record, guardMaps, default = true)
     }
 

@@ -24,20 +24,28 @@ sealed trait Sample {
 }
 
 /**
- * A sample imposing a lower bound.
+ * A sample imposing a bound.
+ */
+sealed trait Bound extends Sample {
+  def bound: Int =
+    records
+      .map(_.delta)
+      .sum
+}
+
+/**
+ * A sample imposing a strict lower bound.
  *
  * @param records The records.
- * @param bound   The lower bound.
  */
-case class LowerBound(records: Seq[Record], bound: Int) extends Sample
+case class LowerBound(records: Seq[Record]) extends Bound
 
 /**
  * A sample imposing an upper bound.
  *
  * @param record The record.
- * @param bound  The upper bound.
  */
-case class UpperBound(record: Record, bound: Int) extends Sample {
+case class UpperBound(record: Record) extends Bound {
   override def records: Seq[Record] =
     Seq(record)
 }
@@ -77,6 +85,13 @@ sealed trait Record {
    * @return The set of locations referring to the offending resource.
    */
   def locations: Set[ast.LocationAccess]
+
+  /**
+   * Returns the permission difference.
+   *
+   * @return The permission difference.
+   */
+  def delta: Int
 }
 
 /**
@@ -85,8 +100,12 @@ sealed trait Record {
  * @param placeholder See [[Record.placeholder]].
  * @param abstraction See [[Record.abstraction]].
  * @param locations   See [[Record.locations]].
+ * @param amount      The permission amount (i.e. absolute value of permission difference).
  */
-case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess]) extends Record
+case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
+  override def delta: Int =
+    amount
+}
 
 /**
  * A record representing a data point corresponding to an exhaled state snapshot.
@@ -94,8 +113,12 @@ case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, loc
  * @param placeholder See [[Record.placeholder]].
  * @param abstraction See [[Record.abstraction]].
  * @param locations   See [[Record.locations]].
+ * @param amount      The permission amount (i.e. absolute value of permission difference).
  */
-case class ExhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess]) extends Record
+case class ExhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
+  override def delta: Int =
+    -amount
+}
 
 /**
  * A state abstraction.

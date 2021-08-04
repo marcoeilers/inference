@@ -180,6 +180,7 @@ class Z3Solver(path: String) extends Solver {
       case ast.IntLit(value) => if (value < 0) s"(- ${-value})" else value.toString
       case ast.EqCmp(left, right) => s"(= ${convert(left)} ${convert(right)})"
       case ast.GeCmp(left, right) => s"(>= ${convert(left)} ${convert(right)})"
+      case ast.GtCmp(left, right) => s"(> ${convert(left)} ${convert(right)})"
       case ast.CondExp(condition, left, right) => s"(ite ${convert(condition)} ${convert(left)} ${convert(right)})"
       case ast.Add(left, right) => s"(+ ${convert(left)} ${convert(right)})"
       case _ => sys.error(s"Unexpected expression: $expression")
