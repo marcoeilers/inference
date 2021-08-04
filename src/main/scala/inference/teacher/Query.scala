@@ -19,12 +19,10 @@ import viper.silver.ast
  * @param hypothesis The current hypothesis.
  * @param sequence   A sequence containing labels and placeholder instances for all state snapshots along with flags
  *                   whether the snapshot was exhaled or not.
- * @param names      The map used to remember the names of permission variables
  */
 class Query(val program: ast.Program,
             val hypothesis: Hypothesis,
-            sequence: Seq[(String, Instance, Boolean)],
-            names: Map[String, Map[ast.Exp, String]]) {
+            sequence: Seq[(String, Instance, Boolean)]) {
   /**
    * The set containing the names of all exhaled state snapshots.
    */
@@ -50,17 +48,6 @@ class Query(val program: ast.Program,
    */
   def isExhaled(name: String): Boolean =
     exhaled.contains(name)
-
-  /**
-   * Returns the name of the variable that saves the permission value of the given expression in the state snapshot with
-   * the given label.
-   *
-   * @param label      The label of the state snapshot.
-   * @param expression The expression.
-   * @return The name of the variable.
-   */
-  def name(label: String, expression: ast.Exp): String =
-    names(label)(expression)
 
   /**
    * Returns the specification corresponding to the given state snapshot.

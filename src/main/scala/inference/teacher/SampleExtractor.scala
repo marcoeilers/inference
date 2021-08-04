@@ -140,22 +140,13 @@ trait SampleExtractor {
       case Some(snapshot) =>
         // try to figure out whether we want to require the missing permission from an upstream specification or whether
         // the permission required by the offending specification should be bounded from above
-        val fromUpstream =
-          if (configuration.usePerm()) {
-            // evaluate permission amount held before exhale
-            val state = snapshot.state
-            val name = query.name(snapshot.label, offending)
-            val permission = state.evaluatePermission(name)
-            // require the permission from an upstream specification unless we previously already held some permission
-            // for the offending location (meaning the specification is requiring the permission more than once)
-            permission <= 0
-          } else {
-            // evaluate permission amount represented by exhaled specification
-            val permission = evaluatePermission(snapshot)
-            // require the permission form an upstream specification unless the permission failure was caused by an
-            // unsatisfiable specification requiring more than one permission
-            permission <= 1
-          }
+        val fromUpstream = {
+          // evaluate permission amount represented by exhaled specification
+          val permission = evaluatePermission(snapshot)
+          // require the permission form an upstream specification unless the permission failure was caused by an
+          // unsatisfiable specification requiring more than one permission
+          permission <= 1
+        }
         // create implication or upper bound sample
         if (fromUpstream) {
           val failing = recordify(snapshot)
