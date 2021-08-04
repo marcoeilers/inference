@@ -96,7 +96,7 @@ trait QueryBuilder extends Builder with Folding {
     check match {
       case MethodCheck(original, precondition, postcondition, body) =>
         // instrument method
-        val instrumented = makeScope {
+        val instrumented = makeDeclaredScope {
           inhaleInstance(precondition.asInstance)
           instrumentStatement(body)
           exhaleInstance(postcondition.asInstance)
@@ -109,17 +109,11 @@ trait QueryBuilder extends Builder with Folding {
         )(original.pos, original.info, original.errT)
       case check@LoopCheck(original, name, invariant, body) =>
         // instrument loop
-        val instrumented = {
-          val sequence = makeScope {
-            inhaleInstance(invariant.asInstance)
-            emitInhale(check.condition)
-            instrumentStatement(body)
-            exhaleInstance(invariant.asInstance)
-          }
-          val declarations = sequence
-            .undeclLocalVars
-            .map { x => ast.LocalVarDecl(x.name, x.typ)() }
-          sequence.copy(scopedDecls = declarations)(sequence.pos, sequence.info, sequence.errT)
+        val instrumented = makeDeclaredScope {
+          inhaleInstance(invariant.asInstance)
+          emitInhale(check.condition)
+          instrumentStatement(body)
+          exhaleInstance(invariant.asInstance)
         }
         // build method
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()

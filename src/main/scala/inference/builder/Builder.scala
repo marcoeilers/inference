@@ -41,6 +41,25 @@ trait Builder {
   }
 
   /**
+   * Returns a sequence containing the statements emitted by the given expression. Moreover, this method makes sure that
+   * all local variables are declared.
+   *
+   * @param emitter The statement emitting function.
+   * @return The sequence.
+   */
+  protected def makeDeclaredScope(emitter: => Unit): ast.Seqn = {
+    // create sequence
+    val scope = makeScope(emitter)
+    // collect undeclared variables
+    val undeclared = scope
+      .undeclLocalVars
+      .map { variable => ast.LocalVarDecl(variable.name, variable.typ)() }
+    // declare undeclared variables
+    val declarations = scope.scopedDecls ++ undeclared
+    scope.copy(scopedDecls = declarations)(scope.pos, scope.info, scope.errT)
+  }
+
+  /**
    * Returns a sequence containing the statements emitted by the given expression.
    *
    * @param emitter The statement emitting expression.
