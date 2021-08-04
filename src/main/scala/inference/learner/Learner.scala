@@ -8,7 +8,6 @@
 
 package inference.learner
 
-import com.typesafe.scalalogging.Logger
 import inference.core.{AbstractLearner, Hypothesis}
 import inference.input.Input
 import inference.util.solver.Solver
@@ -18,7 +17,6 @@ import inference.util.solver.Solver
  *
  * @param input  The input to the inference.
  * @param solver The solver used to generate hypotheses.
- *
  */
 class Learner(protected val input: Input, protected val solver: Solver)
   extends AbstractLearner

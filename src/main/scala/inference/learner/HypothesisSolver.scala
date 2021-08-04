@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.Names
-import inference.core.{ExhaledRecord, Implication, InhaledRecord, LowerBound, Record, Sample, UpperBound}
+import inference.core._
 import inference.util.ast.Expressions
 import inference.util.collections.{Collections, SeqMap}
 import inference.util.solver.Solver
@@ -29,8 +29,16 @@ trait HypothesisSolver {
    */
   protected val solver: Solver
 
+  /**
+   * Returns the samples.
+   *
+   * @return The samples.
+   */
   protected def samples: Seq[Sample]
 
+  /**
+   * The id used to generate unique names.
+   */
   private val id: AtomicInteger =
     new AtomicInteger()
 
@@ -141,10 +149,12 @@ trait HypothesisSolver {
   def solve(templates: Seq[Template]): Option[Map[String, Boolean]] = {
     // clear counters
     id.set(0)
+
     // compute effective guards for templates
     val guardMaps = computeGuardMaps(templates)
     // encode samples
     samples.foreach { sample =>
+      solver.addComment(sample.toString)
       val encoding = encodeSample(sample, guardMaps)
       solver.addConstraint(encoding)
     }

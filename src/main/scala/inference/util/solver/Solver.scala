@@ -24,7 +24,7 @@ trait Solver {
   /**
    * Initializes the solver.
    */
-  def initialize()
+  def initialize(): Unit
 
   /**
    * Adds the given constraint to the solver.
@@ -129,14 +129,17 @@ class Z3Solver(path: String) extends Solver {
         }
       }
 
-    // emit constraints
+    // emit constraints and comments
     collected.foreach {
       case Left(constraint) =>
         val converted = convert(constraint)
         writeLine(s"(assert $converted)")
       case Right(comment) =>
-        ???
+        writeLine(s"; $comment")
     }
+
+    // clear collected constraints and comments
+    collected.clear()
 
     // solve constraints and process response
     writeLine("(check-sat)")
