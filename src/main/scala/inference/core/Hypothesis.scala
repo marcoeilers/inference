@@ -56,8 +56,8 @@ case class Hypothesis(predicates: Seq[ast.Predicate]) {
    * @return The inferred specification.
    */
   def getBody(instance: Instance): ast.Exp = {
-    val expression = getBody(instance.name)
-    instance.instantiate(expression)
+    val body = getBody(instance.name)
+    instance.instantiate(body)
   }
 
   override def toString: String =
