@@ -2,7 +2,7 @@ package inference.builder
 
 import inference.core.Hypothesis
 import inference.input.Input
-import inference.util.ast.Expressions
+import inference.util.ast.{Expressions, ValueInfo}
 import viper.silver.ast
 
 /**
@@ -87,7 +87,8 @@ trait Folding extends Builder {
             val body = hypothesis.getBody(instance)
             fold(body)
             // fold predicate
-            emitFold(resource)
+            val info = ValueInfo(instance)
+            emitFold(resource, info)
           }
           // conditionally fold
           emitConditional(guards, folds)
