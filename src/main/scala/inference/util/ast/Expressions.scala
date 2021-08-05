@@ -41,7 +41,7 @@ object Expressions {
    * @param expressions The expressions to conjoin.
    * @return The conjunction.
    */
-  def bigAnd(expressions: Iterable[ast.Exp]): ast.Exp =
+  def makeAnd(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.And(_, _)())
       .getOrElse(ast.TrueLit()())
@@ -52,7 +52,7 @@ object Expressions {
    * @param expressions The expressions to disjoin.
    * @return The disjunction.
    */
-  def bigOr(expressions: Iterable[ast.Exp]): ast.Exp =
+  def makeOr(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.Or(_, _)())
       .getOrElse(ast.FalseLit()())
@@ -63,7 +63,7 @@ object Expressions {
    * @param expressions The expressions to add up.
    * @return The sum.
    */
-  def bigSum(expressions: Iterable[ast.Exp]): ast.Exp =
+  def makeSum(expressions: Iterable[ast.Exp]): ast.Exp =
     expressions
       .reduceOption(ast.Add(_, _)())
       .getOrElse(ast.IntLit(0)())

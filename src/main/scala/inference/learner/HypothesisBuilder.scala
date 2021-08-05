@@ -80,7 +80,7 @@ trait HypothesisBuilder {
         expression
       case Conjunction(conjuncts) =>
         val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms, model) }
-        Expressions.bigAnd(mapped)
+        Expressions.makeAnd(mapped)
       case Guarded(guardId, body) =>
         val guard = buildGuard(guardId, atoms, model)
         val guarded = buildExpression(body, atoms, model)
@@ -114,10 +114,10 @@ trait HypothesisBuilder {
             .getOrElse(ast.TrueLit()())
           }
         // conjoin literals
-        Expressions.bigAnd(literals)
+        Expressions.makeAnd(literals)
       } else ast.FalseLit()()
     }
     // disjoin clauses
-    Expressions.bigOr(clauses)
+    Expressions.makeOr(clauses)
   }
 }

@@ -114,6 +114,28 @@ class Input(val program: ast.Program,
     placeholderMap(name)
 
   /**
+   * Returns an instance of a specification placeholder with the given name and arguments.
+   *
+   * @param name      The name of the specification placeholder.
+   * @param arguments The arguments.
+   * @return The instance.
+   */
+  def instance(name: String, arguments: Seq[ast.Exp]): Instance =
+    placeholder(name).asInstance(arguments)
+
+  /**
+   * Returns an instance of a specification placeholder corresponding to the given predicate.
+   *
+   * @param predicate The predicate.
+   * @return The instance.
+   */
+  def instance(predicate: ast.PredicateAccess): Instance = {
+    val name = predicate.predicateName
+    val arguments = predicate.args
+    instance(name, arguments)
+  }
+
+  /**
    * Returns the method check corresponding to the method with the given name.
    *
    * @param name The name of the method.

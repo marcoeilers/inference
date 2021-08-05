@@ -17,10 +17,41 @@ object Statements {
    * @param variables The variables to havoc.
    * @return The statement.
    */
-  def havoc(variables: Seq[ast.LocalVar]): ast.Stmt = {
+  def makeHavoc(variables: Seq[ast.LocalVar]): ast.Stmt = {
     val condition = ast.FalseLit()()
     val assignments = variables.map { variable => ast.LocalVarAssign(variable, variable)() }
     val body = ast.Seqn(assignments, Seq.empty)()
     ast.While(condition, Seq.empty, body)()
   }
+
+  /**
+   * Returns a skip statement.
+   *
+   * @return The skip statement.
+   */
+  @inline
+  def makeSkip: ast.Seqn =
+    makeSequence(Seq.empty)
+
+  /**
+   * Returns the given statement as a sequence.
+   *
+   * @param statement The statement.
+   * @return The sequence.
+   */
+  def makeSequence(statement: ast.Stmt): ast.Seqn =
+    statement match {
+      case sequence: ast.Seqn => sequence
+      case other => makeSequence(Seq(other))
+    }
+
+  /**
+   * Returns a sequence with the given statements.
+   *
+   * @param statements The statements.
+   * @return The sequence.
+   */
+  @inline
+  def makeSequence(statements: Seq[ast.Stmt]): ast.Seqn =
+    ast.Seqn(statements, Seq.empty)()
 }

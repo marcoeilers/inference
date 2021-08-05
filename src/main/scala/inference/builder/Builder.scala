@@ -8,6 +8,7 @@
 
 package inference.builder
 
+import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -103,11 +104,35 @@ trait Builder {
   /**
    * Emits a statement that unfolds the given resource.
    *
-   * @param resource THe resource to unfold.
+   * @param resource The resource to unfold.
    */
   protected def emitUnfold(resource: ast.PredicateAccessPredicate): Unit = {
     val unfold = ast.Unfold(resource)()
     emit(unfold)
+  }
+
+  /**
+   * Emits a statement that conditionally executes the given body under the given conditions.
+   *
+   * @param conditions The conditions.
+   * @param body       The body.
+   */
+  protected def emitConditional(conditions: Seq[ast.Exp], body: ast.Stmt): Unit = {
+    val condition = Expressions.makeAnd(conditions)
+    emitConditional(condition, body)
+  }
+
+  /**
+   * Emits a statement that conditionally executes the given body under the given condition.
+   *
+   * @param condition The condition.
+   * @param body      The body.
+   */
+  protected def emitConditional(condition: ast.Exp, body: ast.Stmt): Unit = {
+    val sequence = Statements.makeSequence(body)
+    val skip = Statements.makeSkip
+    val conditional = ast.If(condition, sequence, skip)()
+    emit(conditional)
   }
 
   /**

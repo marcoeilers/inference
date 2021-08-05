@@ -183,7 +183,7 @@ trait QueryBuilder extends Builder with Folding {
         val invariant = loop.invariant.asInstance
         exhaleInstance(invariant)
         // havoc written variables
-        val havoc = Statements.havoc(loop.original.writtenVars)
+        val havoc = Statements.makeHavoc(loop.original.writtenVars)
         emit(havoc)
         // inhale loop invariant and negated loop condition
         inhaleInstance(invariant)
@@ -211,7 +211,7 @@ trait QueryBuilder extends Builder with Folding {
       emitInhale(body)
     }
     // unfold and save
-    unfold(body)(maxDepth = 0, hypothesis)
+    unfold(body)(maxDepth = 1, hypothesis)
     saveSnapshot(instance, exhaled = false)
   }
 
@@ -226,7 +226,7 @@ trait QueryBuilder extends Builder with Folding {
     val body = hypothesis.getBody(instance)
     // save and fold
     implicit val label: String = saveSnapshot(instance, exhaled = true)
-    fold(body)(maxDepth = 0, hypothesis)
+    fold(body)(maxDepth = 1, hypothesis)
     // exhale specification
     // TODO: Exhale existing specification
     val info = ValueInfo(instance)

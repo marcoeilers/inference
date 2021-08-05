@@ -213,7 +213,7 @@ trait HypothesisSolver {
         // map function returns variable holding difference
         variable: ast.Exp
       }
-    Expressions.bigSum(deltas)
+    Expressions.makeSum(deltas)
   }
 
   /**
@@ -226,7 +226,7 @@ trait HypothesisSolver {
    */
   private def encodeAtLeast(record: Record, guardMaps: Map[String, GuardMap], default: Boolean): ast.Exp = {
     val options = encodeOptions(record, guardMaps, default)
-    Expressions.bigOr(options)
+    Expressions.makeOr(options)
   }
 
   /**
@@ -242,7 +242,7 @@ trait HypothesisSolver {
     val constraints = Collections
       .pairs(options)
       .map { case (first, second) => ast.Not(ast.And(first, second)())() }
-    Expressions.bigAnd(constraints)
+    Expressions.makeAnd(constraints)
   }
 
   /**
@@ -276,7 +276,7 @@ trait HypothesisSolver {
                 // TODO: Implement me.
                 ???
             }
-          Expressions.bigAnd(conjuncts)
+          Expressions.makeAnd(conjuncts)
         }
       }
   }
@@ -310,12 +310,12 @@ trait HypothesisSolver {
             ast.Implies(literalActivation, literalEncoding)()
           }
         // conjoin literals
-        Expressions.bigAnd(literals)
+        Expressions.makeAnd(literals)
       }
       ast.And(clauseActivation, clauseEncoding)()
     }
     // disjoin clauses
-    Expressions.bigOr(clauses)
+    Expressions.makeOr(clauses)
   }
 
   @inline
