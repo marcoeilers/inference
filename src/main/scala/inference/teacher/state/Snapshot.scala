@@ -9,7 +9,7 @@
 package inference.teacher.state
 
 import inference.core.{Instance, Placeholder}
-import inference.util.collections.SetMap
+import inference.util.collections.{Collections, SetMap}
 import viper.silver.ast
 
 /**
@@ -116,6 +116,11 @@ case class Adaptor(source: StateEvaluator, target: Snapshot) {
       case ast.FieldAccess(receiver, field) =>
         val adapted = adaptReference(receiver)
         adapted.map { expression => ast.FieldAccess(expression, field)() }
+      case ast.PredicateAccess(arguments, name) =>
+        val sets = arguments.map(adaptReference)
+        Collections
+          .product(sets)
+          .map { adapted => ast.PredicateAccess(adapted, name)() }
       case other =>
         sys.error(s"Unexpected location: $other")
     }
