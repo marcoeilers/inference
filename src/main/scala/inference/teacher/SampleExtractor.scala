@@ -198,9 +198,11 @@ trait SampleExtractor {
    */
   def evaluatePermission(offending: ast.LocationAccess, instance: Instance, state: StateEvaluator, hypothesis: Hypothesis): Int = {
 
-    val maxDepth = Expressions.getDepth(offending)
+    lazy val maxDepth = Expressions.getDepth(offending)
 
     /**
+     * TODO: Properly implement me.
+     *
      * Helper method that evaluates the permission amount for the offending location represented by the given
      * specification expression.
      *
@@ -226,19 +228,25 @@ trait SampleExtractor {
                 if (condition) 1 else 0
               } else 0
             case _ =>
-              ???
+              0
           }
         case ast.PredicateAccessPredicate(access, _) =>
           offending match {
-            case offending: ast.FieldAccess =>
+            case _: ast.FieldAccess =>
               val depth = Expressions.getDepth(access.args.head)
               if (depth < maxDepth) {
                 val instance = input.instance(access)
                 val body = hypothesis.getBody(instance)
                 evaluate(body)
               } else 0
-            case _ =>
-              ???
+            case ast.PredicateAccess(arguments, name) =>
+              if (name == access.predicateName) {
+                val condition = arguments
+                  .zip(access.args)
+                  .map { case (left, right) => ast.EqCmp(left, right)() }
+                  .forall(state.evaluateBoolean)
+                if (condition) 1 else 0
+              } else 0
           }
         case other =>
           sys.error(s"Unexpected expression: $other")
