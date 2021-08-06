@@ -8,6 +8,7 @@
 
 package inference.core
 
+import inference.Names
 import viper.silver.ast
 
 /**
@@ -24,6 +25,14 @@ case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], atoms: S
    */
   lazy val variables: Seq[ast.LocalVar] =
     parameters.map(_.localVar)
+
+  /**
+   * Returns whether this specification placeholder corresponds to the recursive predicate.
+   *
+   * @return True if the specification placeholder corresponds to the recursive predicate.
+   */
+  def isRecursive: Boolean =
+    name == Names.recursive
 
   /**
    * Returns an instance of the placeholder specification.

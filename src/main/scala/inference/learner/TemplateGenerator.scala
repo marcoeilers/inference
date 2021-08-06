@@ -113,9 +113,13 @@ trait TemplateGenerator extends AbstractLearner {
             addLocation(placeholder, nested)
           case _ => // do nothing
         }
-      case ast.PredicateAccess(_, _) =>
-        // TODO: Implement me.
-        ???
+      case ast.PredicateAccess(first +: rest, _) =>
+        first match {
+          case ast.FieldAccess(_, _) if !placeholder.isRecursive =>
+            // TODO: Implement me.
+            logger.warn("Not implemented!")
+          case _ => // do nothing
+        }
     }
 
     // add location access
