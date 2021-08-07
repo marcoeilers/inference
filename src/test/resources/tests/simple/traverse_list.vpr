@@ -1,0 +1,11 @@
+field val: Int
+field next: Ref
+
+method traverse(x: Ref)
+{
+    var c: Ref
+    c := x
+    while (c != null) {
+        c := c.next
+    }
+}

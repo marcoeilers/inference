@@ -63,9 +63,6 @@ trait SampleExtractor {
     val siliconState = counter.state
     val model = ModelEvaluator(counter.model)
 
-    // failing state
-    val failState = StateEvaluator(None, siliconState, model)
-
     // get state snapshots
     val (failingSnapshot, otherSnapshots) = {
       // gather all encountered snapshots
@@ -87,6 +84,12 @@ trait SampleExtractor {
         val current = None
         (current, snapshots)
       }
+    }
+
+    // failing state
+    val failState = failingSnapshot match {
+      case Some(snapshot) => snapshot.state
+      case None => StateEvaluator(None, siliconState, model)
     }
 
     /**
