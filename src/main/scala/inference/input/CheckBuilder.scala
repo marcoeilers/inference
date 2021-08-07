@@ -121,10 +121,11 @@ trait CheckBuilder extends Builder {
     method.body match {
       case Some(body) =>
         // create placeholder specifications
+        val name = method.name
         val arguments = method.formalArgs
         val declarations = arguments ++ method.formalReturns
-        val precondition = createUniquePlaceholder(Names.precondition, arguments, method.pres)
-        val postcondition = createUniquePlaceholder(Names.postcondition, declarations, method.posts)
+        val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
+        val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
         // process body
         val processed = processSequence(body, declarations)
         // create check corresponding to method
