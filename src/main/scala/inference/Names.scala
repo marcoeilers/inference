@@ -40,6 +40,33 @@ object Names {
   val recursive = "P"
 
   /**
+   * The name of the down annotation.
+   */
+  val downAnnotation = "__down__"
+
+  /**
+   * The name of the up annotation.
+   */
+  val upAnnotation = "__up__"
+
+  /**
+   * All annotation names.
+   */
+  val annotations = Seq(
+    downAnnotation,
+    upAnnotation
+  )
+
+  /**
+   * Returns whether the given name corresponds to an annotation.
+   *
+   * @param name The name to check.
+   * @return True if the name corresponds to an annotation.
+   */
+  def isAnnotation(name: String): Boolean =
+    annotations.contains(name)
+
+  /**
    * Returns the variable name used for the activation of a clause.
    *
    * @param guardId     The guard id.

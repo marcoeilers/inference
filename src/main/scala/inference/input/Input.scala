@@ -9,9 +9,10 @@
 package inference.input
 
 import fastparse.Parsed
+import inference.Names
 import inference.core.{Instance, Placeholder}
 import viper.silver.ast
-import viper.silver.parser.{FastParser, PProgram, Resolver, Translator}
+import viper.silver.parser._
 
 import java.nio.file.{Files, Paths}
 import scala.io.Source
@@ -70,8 +71,46 @@ object Input extends CheckBuilder {
     }
     // resolve and translate program
     program
-      .flatMap { parsed => Resolver(parsed).run }
+      .flatMap { parsed => Resolver(beforeResolving(parsed)).run }
       .flatMap { resolved => Translator(resolved).translate }
+      .map { translated => afterTranslating(translated) }
+  }
+
+  /**
+   * Input transformation performed before the resolver is run.
+   *
+   * @param input The input.
+   * @return The transformed input.
+   */
+  private def beforeResolving(input: PProgram): PProgram = {
+    val methods = {
+      // create dummy method for each annotation
+      val dummies = Names
+        .annotations
+        .map { annotation =>
+          val name = PIdnDef(annotation)()
+          val arguments = Seq(PFormalArgDecl(PIdnDef("x")(), TypeHelper.Ref)())
+          PMethod(name, arguments, Seq.empty, Seq.empty, Seq.empty, None)()
+        }
+      input.methods ++ dummies
+    }
+    // update input program
+    input.copy(methods = methods)(input.pos)
+  }
+
+  /**
+   * Input transformation performed after the translator is run.
+   *
+   * @param input The input.
+   * @return The transformed input.
+   */
+  private def afterTranslating(input: ast.Program): ast.Program = {
+    // filter out dummy methods
+    val methods = input
+      .methods
+      .filterNot { method => Names.isAnnotation(method.name) }
+    // update input program
+    input.copy(methods = methods)(input.pos, input.info, input.errT)
   }
 }
 
