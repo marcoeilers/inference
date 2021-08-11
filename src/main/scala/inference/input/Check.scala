@@ -8,7 +8,8 @@
 
 package inference.input
 
-import inference.core.Placeholder
+import inference.analysis.DepthAnalysis
+import inference.core.{Hypothesis, Placeholder}
 import viper.silver.ast
 import viper.silver.ast.Node
 import viper.silver.ast.pretty.FastPrettyPrinter._
@@ -18,6 +19,12 @@ import viper.silver.ast.pretty.PrettyPrintPrimitives
  * A check.
  */
 sealed trait Check {
+  /**
+   * The depth function.
+   */
+  private lazy val depthFunction =
+    DepthAnalysis.analyze(body)
+
   /**
    * Returns the name of the check.
    *
@@ -38,6 +45,15 @@ sealed trait Check {
    * @return The body.
    */
   def body: ast.Seqn
+
+  /**
+   * Returns the depth up to which predicates should be folded and unfolded.
+   *
+   * @param hypothesis The current hypothesis.
+   * @return The depth.
+   */
+  def depth(hypothesis: Hypothesis): Int =
+    depthFunction(hypothesis)
 }
 
 /**

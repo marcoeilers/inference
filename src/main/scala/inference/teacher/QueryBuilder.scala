@@ -177,7 +177,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
       emitInhale(body)
     }
     // unfold and save
-    unfold(body)(maxDepth = 1, hypothesis)
+    val maxDepth = check.depth(hypothesis)
+    unfold(body)(maxDepth, hypothesis)
     saveSnapshot(instance, exhaled = false)
   }
 
@@ -192,7 +193,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     val body = hypothesis.getBody(instance)
     // save and fold
     implicit val label: String = saveSnapshot(instance, exhaled = true)
-    fold(body)(maxDepth = 1, hypothesis)
+    val maxDepth = check.depth(hypothesis)
+    fold(body)(maxDepth, hypothesis)
     // exhale specification
     // TODO: Exhale existing specification
     val info = ValueInfo(instance)

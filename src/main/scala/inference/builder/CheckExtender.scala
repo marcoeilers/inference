@@ -24,13 +24,21 @@ trait CheckExtender[R] extends Builder {
   private var current: Check = _
 
   /**
+   * Returns the current check.
+   *
+   * @return The current check.
+   */
+  protected def check: Check =
+    current
+
+  /**
    * Extends the given check.
    *
    * @param check      The check to extend.
    * @param hypothesis THe implicitly passed current hypothesis.
    * @return The extended check.
    */
-  final protected def extendCheck(check: Check)(implicit hypothesis: Hypothesis): R = {
+  protected def extendCheck(check: Check)(implicit hypothesis: Hypothesis): R = {
     // save and update current check
     val outer = current
     current = check
