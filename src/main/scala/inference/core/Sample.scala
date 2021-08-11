@@ -105,6 +105,9 @@ sealed trait Record {
 case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
   override def delta: Int =
     amount
+
+  override def toString: String =
+    s"inhale@${placeholder.name}: $abstraction -> ${locations.mkString("{", ",", "}")}"
 }
 
 /**
@@ -118,6 +121,9 @@ case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, loc
 case class ExhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
   override def delta: Int =
     -amount
+
+  override def toString: String =
+    s"exhale@${placeholder.name}: $abstraction -> ${locations.mkString("{", ",", "}")}"
 }
 
 /**
@@ -157,6 +163,6 @@ case class SnapshotAbstraction(snapshot: Snapshot) extends Abstraction {
 
   override def toString: String =
     snapshot
-      .partitions.map(_.mkString("{", ",", "}"))
-      .mkString("{", ",", "}")
+      .partitions.map(_.mkString("="))
+      .mkString("≠")
 }
