@@ -8,7 +8,7 @@
 
 package inference.core
 
-import inference.builder.Extender
+import inference.builder.ProgramExtender
 import inference.input.{Configuration, Input}
 import inference.learner.Learner
 import inference.teacher.Teacher
@@ -124,7 +124,7 @@ trait Runner[R] extends Inference {
 /**
  * An inference runner that prints the inferred hypothesis.
  */
-trait PrintRunner extends Runner[Unit] with Extender {
+trait PrintRunner extends Runner[Unit] with ProgramExtender {
   override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Unit] = {
     hypothesis match {
       case Some(hypothesis) =>
@@ -143,7 +143,7 @@ trait PrintRunner extends Runner[Unit] with Extender {
 /**
  * An inference runner that verifiers the program annotated with the inferred specification.
  */
-trait TestRunner extends Runner[Boolean] with Extender {
+trait TestRunner extends Runner[Boolean] with ProgramExtender {
   override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Boolean] =
     hypothesis.map { hypothesis =>
       // extend input program

@@ -13,9 +13,9 @@ import inference.input.{Cut, Input}
 import viper.silver.ast
 
 /**
- * An extender.
+ * A program extender.
  */
-trait Extender extends Builder {
+trait ProgramExtender extends Builder {
   /**
    * Extends the program given by the input with specifications corresponding to the given hypothesis.
    *
