@@ -9,7 +9,7 @@
 package inference.teacher
 
 import inference.Names
-import inference.builder.{Builder, Folding}
+import inference.builder.{CheckExtender, Folding}
 import inference.core.{Hypothesis, Instance}
 import inference.input.{Check, Configuration, Cut, Input, LoopCheck, MethodCheck}
 import inference.util.ast.{Statements, ValueInfo}
@@ -22,7 +22,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * A query builder mixin.
  */
-trait QueryBuilder extends Builder with Folding {
+trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
   /**
    * Returns the input to the inference.
    *
@@ -70,7 +70,8 @@ trait QueryBuilder extends Builder with Folding {
       placeholders.map(hypothesis.getPredicate)
     }
     // instrument methods
-    val methods = checks.map { check => buildMethod(check)(hypothesis) }
+    implicit val current: Hypothesis = hypothesis
+    val methods = checks.map(extendCheck)
     // instrument program
     val program = original.copy(
       predicates = predicates,
@@ -88,20 +89,13 @@ trait QueryBuilder extends Builder with Folding {
     query = new PartialQuery
   }
 
-  /**
-   * Builds a method corresponding to the given check.
-   *
-   * @param check      The check.
-   * @param hypothesis The current hypothesis.
-   * @return The built method.
-   */
-  private def buildMethod(check: Check)(implicit hypothesis: Hypothesis): ast.Method =
+  override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Method =
     check match {
       case MethodCheck(original, precondition, postcondition, body) =>
-        // instrument method
+        // instrument body
         val instrumented = makeDeclaredScope {
           inhaleInstance(precondition.asInstance)
-          instrumentStatement(body)
+          extendStatement(body)
           exhaleInstance(postcondition.asInstance)
         }
         // build method based on original
@@ -110,51 +104,20 @@ trait QueryBuilder extends Builder with Folding {
           posts = Seq.empty,
           body = Some(instrumented)
         )(original.pos, original.info, original.errT)
-      case check@LoopCheck(original, name, invariant, body) =>
+      case check@LoopCheck(_, name, invariant, body) =>
         // instrument loop
         val instrumented = makeDeclaredScope {
           inhaleInstance(invariant.asInstance)
           emitInhale(check.condition)
-          instrumentStatement(body)
+          extendStatement(body)
           exhaleInstance(invariant.asInstance)
         }
         // build method
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
 
-  /**
-   * Instruments the given sequence.
-   *
-   * @param sequence   The sequence to instrument.
-   * @param hypothesis The implicitly passed current hypothesis.
-   * @return The instrumented sequence.
-   */
-  private def instrumentSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn = {
-    val statements = scoped(sequence.ss.foreach(instrumentStatement))
-    sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
-  }
-
-  /**
-   * Instruments the given statement.
-   *
-   * @param statement  The statement to instrument.
-   * @param hypothesis The implicitly passed current hypothesis.
-   */
-  private def instrumentStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
-      case sequence: ast.Seqn =>
-        val instrumented = instrumentSequence(sequence)
-        emit(instrumented)
-      case conditional: ast.If =>
-        // instrument branches
-        val thenBranch = instrumentSequence(conditional.thn)
-        val elseBranch = instrumentSequence(conditional.els)
-        // update conditional
-        val instrumented = conditional.copy(
-          thn = thenBranch,
-          els = elseBranch
-        )(conditional.pos, conditional.info, conditional.errT)
-        emit(instrumented)
       case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get and inhale instance
         val instance = input
@@ -192,7 +155,7 @@ trait QueryBuilder extends Builder with Folding {
         inhaleInstance(invariant)
         emitInhale(ast.Not(loop.condition)())
       case other =>
-        emit(other)
+        super.extendStatement(other)
     }
 
   /**

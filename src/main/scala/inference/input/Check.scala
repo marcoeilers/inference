@@ -31,6 +31,13 @@ sealed trait Check {
    * @return The original node.
    */
   def original: ast.Node
+
+  /**
+   * Returns the body of the check.
+   *
+   * @return The body.
+   */
+  def body: ast.Seqn
 }
 
 /**

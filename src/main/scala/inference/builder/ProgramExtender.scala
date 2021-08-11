@@ -9,13 +9,13 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Cut, Input}
+import inference.input.{Check, Cut, Input}
 import viper.silver.ast
 
 /**
  * A program extender.
  */
-trait ProgramExtender extends Builder {
+trait ProgramExtender extends CheckExtender[ast.Seqn] {
   /**
    * Extends the program given by the input with specifications corresponding to the given hypothesis.
    *
@@ -59,7 +59,7 @@ trait ProgramExtender extends Builder {
     val precondition = hypothesis.getBody(check.precondition.asInstance)
     val postcondition = hypothesis.getBody(check.postcondition.asInstance)
     // extend method body
-    val body = extendSequence(check.body)
+    val body = extendCheck(check)
     // update method
     method.copy(
       pres = Seq(precondition),
@@ -68,39 +68,11 @@ trait ProgramExtender extends Builder {
     )(method.pos, method.info, method.errT)
   }
 
-  /**
-   * Extends the givens sequence.
-   *
-   * @param sequence   The sequence to extend.
-   * @param hypothesis The implicitly passed hypothesis.
-   * @return The extended sequence.
-   */
-  private def extendSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn = {
-    val statements = scoped(sequence.ss.foreach(extendStatement))
-    sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
-  }
+  override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Seqn =
+    extendSequence(check.body)
 
-  /**
-   * Extends the given statement.
-   *
-   * @param statement  The statement to extend.
-   * @param hypothesis The implicitly passed hypothesis.
-   */
-  private def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
-      case sequence: ast.Seqn =>
-        val extended = extendSequence(sequence)
-        emit(extended)
-      case conditional: ast.If =>
-        // extend branches
-        val thenBranch = extendSequence(conditional.thn)
-        val elseBranch = extendSequence(conditional.els)
-        // update conditional
-        val instrumented = conditional.copy(
-          thn = thenBranch,
-          els = elseBranch,
-        )(conditional.pos, conditional.info, conditional.errT)
-        emit(instrumented)
       case ast.Inhale(predicate: ast.PredicateAccessPredicate) =>
         emitInhale(predicate)
         emitUnfold(predicate)
@@ -110,16 +82,19 @@ trait ProgramExtender extends Builder {
       case Cut(loop) =>
         // get loop specification
         val invariant = hypothesis.getBody(loop.invariant.asInstance)
-        // extend body
-        val body = extendSequence(loop.body)
-        // extend loop
-        val original = loop.original
-        val extended = original.copy(
-          invs = Seq(invariant),
-          body = body
-        )(original.pos, original.info, original.errT)
+        // extend loop body
+        val body = extendCheck(loop)
+        // update loop
+        val extended = {
+          val original = loop.original
+          loop
+            .original.copy(
+            invs = Seq(invariant),
+            body = body
+          )(original.pos, original.info, original.errT)
+        }
         emit(extended)
       case other =>
-        emit(other)
+        super.extendStatement(other)
     }
 }
