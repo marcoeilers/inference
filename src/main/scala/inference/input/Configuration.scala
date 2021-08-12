@@ -37,6 +37,17 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "The maximal length of access paths that may appear in specifications",
       default = Some(2))
 
+  val useHeuristics: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "useHeuristics",
+      descr = "Explicitly forbids the us of annotations")
+
+  val heuristicsFoldDepth: ScallopOption[Int] =
+    opt[Int](
+      name = "heuristicsFoldDepth",
+      descr = "The depth up to which predicates are statically folded when the heuristics is enabled",
+      default = Some(1))
+
   val noRecursion: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noPredicates",

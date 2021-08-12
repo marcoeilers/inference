@@ -19,6 +19,12 @@ import scala.collection.mutable.ListBuffer
  */
 trait Builder {
   /**
+   * The magic field that enables the fold heuristics.
+   */
+  protected val magic: ast.Field =
+    ast.Field("__CONFIG_HEURISTICS", ast.Bool)()
+
+  /**
    * The buffer used to accumulate the statements of the current scope.
    */
   private var scope: mutable.Buffer[ast.Stmt] = _

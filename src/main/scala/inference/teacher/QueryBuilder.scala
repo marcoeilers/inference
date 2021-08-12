@@ -60,6 +60,11 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     // get original program and checks
     val original = input.program
     val checks = input.checks
+    // fields
+    val fields = {
+      val extra = if (configuration.useHeuristics()) Seq(magic) else Seq.empty
+      original.fields ++ extra
+    }
     // predicates
     val predicates = {
       // get placeholders
@@ -74,6 +79,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     val methods = checks.map(extendCheck)
     // instrument program
     val program = original.copy(
+      fields = fields,
       predicates = predicates,
       methods = methods
     )(original.pos, original.info, original.errT)
@@ -177,8 +183,14 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
       emitInhale(body)
     }
     // unfold and save
-    val maxDepth = check.depth(hypothesis)
-    unfold(body)(maxDepth, hypothesis)
+    if (configuration.useHeuristics()) {
+      val maxDepth = 0
+      unfold(body)(maxDepth, hypothesis)
+    } else {
+      // TODO: Use hints
+      val maxDepth = check.depth(hypothesis)
+      unfold(body)(maxDepth, hypothesis)
+    }
     saveSnapshot(instance, exhaled = false)
   }
 
@@ -192,9 +204,15 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     // get body
     val body = hypothesis.getBody(instance)
     // save and fold
-    implicit val label: String = saveSnapshot(instance, exhaled = true)
-    val maxDepth = check.depth(hypothesis)
-    fold(body)(maxDepth, hypothesis)
+    saveSnapshot(instance, exhaled = true)
+    if (configuration.useHeuristics()) {
+      val maxDepth = configuration.heuristicsFoldDepth()
+      fold(body)(maxDepth, hypothesis)
+    } else {
+      // TODO: Use hints
+      val maxDepth = check.depth(hypothesis)
+      fold(body)(maxDepth, hypothesis)
+    }
     // exhale specification
     // TODO: Exhale existing specification
     val info = ValueInfo(instance)
@@ -212,9 +230,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
    *
    * @param instance The instance.
    * @param exhaled  The flag indicating whether the snapshot was exhaled or not.
-   * @return The label of the state snapshot.
    */
-  private def saveSnapshot(instance: Instance, exhaled: Boolean): String = {
+  private def saveSnapshot(instance: Instance, exhaled: Boolean): Unit = {
     // generate unique snapshot label
     val label = namespace.uniqueIdentifier(Names.snapshot)
     query.addSnapshot(label, instance, exhaled)
@@ -228,9 +245,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
         case other =>
           sys.error(s"Unexpected argument to instance: $other")
       }
-    // emit and return label
+    // emit label
     emitLabel(label)
-    label
   }
 }
 

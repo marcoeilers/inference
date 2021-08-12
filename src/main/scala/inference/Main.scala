@@ -20,7 +20,8 @@ object Main extends PrintRunner {
    */
   val baseOptions: Seq[String] =
     Seq(
-      "--z3Exe", "/usr/local/Viper/z3/bin/z3")
+      "--z3Exe", "/usr/local/Viper/z3/bin/z3",
+      "--useHeuristics")
 
   /**
    * The input file used if no arguments are specified.
