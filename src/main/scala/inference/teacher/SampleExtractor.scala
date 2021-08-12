@@ -9,7 +9,6 @@
 package inference.teacher
 
 import com.typesafe.scalalogging.Logger
-import inference.Names
 import inference.core._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
