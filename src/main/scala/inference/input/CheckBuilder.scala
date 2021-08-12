@@ -28,6 +28,11 @@ trait CheckBuilder extends Builder {
   var namespace: Namespace = _
 
   /**
+   * The list used to accumulate hints.
+   */
+  var hints: Seq[Hint] = _
+
+  /**
    * Processes the given program.
    *
    * @param program The program to process.
@@ -127,7 +132,7 @@ trait CheckBuilder extends Builder {
         val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
         val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
         // process body
-        val processed = processSequence(body, declarations)
+        val (processed, _) = processSequence(body, declarations)
         // create check corresponding to method
         val check = MethodCheck(method, precondition, postcondition, processed)
         checks.append(check)
@@ -142,16 +147,25 @@ trait CheckBuilder extends Builder {
    * @param declarations The declarations in scope.
    * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @param checks       The implicitly passed buffer used to accumulate the checks.
-   * @return The processed sequence.
+   * @return The processed sequence and the collected hints.
    */
-  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): ast.Seqn = {
+  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])
+                             (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): (ast.Seqn, Seq[Hint]) = {
+    // save and reset hints
+    val savedHints = this.hints
+    this.hints = Seq.empty
     // process statements
     val statements = scoped {
       val updated = declarations ++ sequence.scopedDecls.collect { case variable: ast.LocalVarDecl => variable }
       sequence.ss.foreach { statement => processStatement(statement, updated) }
     }
     // update sequence
-    sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
+    val processed = sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
+    // extract and restore hints
+    val hints = this.hints
+    this.hints = savedHints
+    // return result
+    (processed, hints)
   }
 
   /**
@@ -166,23 +180,26 @@ trait CheckBuilder extends Builder {
     statement match {
       case sequence: ast.Seqn =>
         // process sequence
-        val processed = processSequence(sequence, declarations)
+        val (processed, nestedHints) = processSequence(sequence, declarations)
         emit(processed)
-      case conditional@ast.If(_, thenBranch, elseBranch) =>
+        nestedHints.foreach(addHint)
+      case conditional@ast.If(condition, thenBranch, elseBranch) =>
         // process branches
-        val thenProcessed = processSequence(thenBranch, declarations)
-        val elseProcessed = processSequence(elseBranch, declarations)
+        val (thenProcessed, thenHints) = processSequence(thenBranch, declarations)
+        val (elseProcessed, elseHints) = processSequence(elseBranch, declarations)
         // update conditional
         val processed = conditional.copy(
           thn = thenProcessed,
           els = elseProcessed
         )(conditional.pos, conditional.info, conditional.errT)
         emit(processed)
-      case loop@ast.While(condition, existing, body) =>
+        thenHints.foreach { hint => addHint(hint.withCondition(condition)) }
+        elseHints.foreach { hint => addHint(hint.withCondition(ast.Not(condition)())) }
+      case loop@ast.While(_, existing, body) =>
         // create placeholder specification
         val invariant = createUniquePlaceholder(Names.invariant, declarations, existing)
         // process body
-        val processed = processSequence(body, declarations)
+        val (processed, _) = processSequence(body, declarations)
         // create check corresponding to loop
         val name = namespace.uniqueIdentifier("loop")
         val check = LoopCheck(loop, name, invariant, processed)
@@ -190,7 +207,19 @@ trait CheckBuilder extends Builder {
         // cut loop
         val cut = Cut(check)
         emit(cut)
+      case ast.MethodCall(name, arguments, _) if Names.isAnnotation(name) =>
+        val argument = arguments.head
+        val hint = Hint(name, argument)
+        addHint(hint)
       case _ =>
         emit(statement)
     }
+
+  /**
+   * Adds the given hint.
+   *
+   * @param hint The hint to add.
+   */
+  private def addHint(hint: Hint): Unit =
+    hints = hints :+ hint
 }
