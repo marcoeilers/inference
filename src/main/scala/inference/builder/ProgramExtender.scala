@@ -71,7 +71,7 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
   override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Seqn =
     extendSequence(check.body)
 
-  override protected def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
       case ast.Inhale(predicate: ast.PredicateAccessPredicate) =>
         emitInhale(predicate)
@@ -95,6 +95,6 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
         }
         emit(extended)
       case other =>
-        super.extendStatement(other)
+        emit(other)
     }
 }

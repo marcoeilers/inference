@@ -93,6 +93,14 @@ trait CheckExtender[R] extends Builder {
         )(conditional.pos, conditional.info, conditional.errT)
         emit(extended)
       case other =>
-        emit(other)
+        extendNonControlStatement(other)
     }
+
+  /**
+   * Extends the given non-control statement.
+   *
+   * @param statement  The statement to extend.
+   * @param hypothesis The implicitly passed hypothesis.
+   */
+  protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit
 }

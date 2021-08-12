@@ -116,7 +116,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
 
-  override protected def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
       case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
         // get and inhale instance
@@ -155,7 +155,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
         inhaleInstance(invariant)
         emitInhale(ast.Not(loop.condition)())
       case other =>
-        super.extendStatement(other)
+        emit(other)
     }
 
   /**
