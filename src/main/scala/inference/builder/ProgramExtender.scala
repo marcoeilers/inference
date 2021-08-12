@@ -24,10 +24,16 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
    * @return The extended program.
    */
   def extend(implicit input: Input, hypothesis: Hypothesis): ast.Program = {
-    // get program
-    val program = input.program
+    // get configuration and original input program
+    val configuration = input.configuration
+    val original = input.program
+    // fields
+    val fields = {
+      val extra = if (configuration.useHeuristics()) Seq(magic) else Seq.empty
+      original.fields ++ extra
+    }
     // extend predicates
-    val predicates = program
+    val predicates = original
       .predicates
       .map { predicate =>
         val name = predicate.name
@@ -35,14 +41,15 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
         hypothesis.getPredicate(placeholder)
       }
     // extend methods
-    val methods = program
+    val methods = original
       .methods
       .map(extendMethod)
     // update program
-    program.copy(
+    original.copy(
+      fields = fields,
       predicates = predicates,
       methods = methods
-    )(program.pos, program.info, program.errT)
+    )(original.pos, original.info, original.errT)
   }
 
   /**
