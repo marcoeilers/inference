@@ -9,6 +9,7 @@
 package inference.teacher
 
 import com.typesafe.scalalogging.Logger
+import inference.Names
 import inference.core._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
@@ -180,7 +181,7 @@ trait SampleExtractor {
     // instantiate offending location
     val instantiated = info match {
       case Some(instance) =>
-        if (configuration.noInlining()) instance.instantiate(offending)
+        if (configuration.noInlining() || instance.placeholder.isRecursive) instance.instantiate(offending)
         else offending
       case None =>
         offending
