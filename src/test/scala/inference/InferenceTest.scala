@@ -22,7 +22,17 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   /**
    * The path to the tests.
    */
-  val directory = "/tests"
+  val directory: String = "/tests"
+
+  /**
+   * The path to the tests meant to be executed with heuristics.
+   */
+  val heuristicsDirectory: String = s"$directory/heuristics"
+
+  /**
+   * The path to the tests meant to be executed with annotations.
+   */
+  val annotationsDirectory: String = s"$directory/annotations"
 
   // run all tests
   runAll()
@@ -31,18 +41,35 @@ class InferenceTest extends AnyFunSuite with TestRunner {
    * Runs all tests.
    */
   def runAll(): Unit = {
-    // get files to test
-    val files = {
-      val path = getPath(directory)
-      collectFiles(path)
-    }
+    // tests with heuristics
+    val heuristicsFiles = collectFiles(heuristicsDirectory)
+    heuristicsFiles.foreach(runTestWithHeuristics)
 
-    // run tests
-    files.foreach { path =>
-      val file = path.toString
-      val arguments = Seq(file)
-      runTest(file, arguments)
-    }
+    // tests with annotations
+    val annotationFiles = heuristicsFiles ++ collectFiles(annotationsDirectory)
+    annotationFiles.foreach(runTestWithAnnotations)
+  }
+
+  /**
+   * Tests the given file with heuristics.
+   *
+   * @param file The file to test.
+   */
+  def runTestWithHeuristics(file: String): Unit = {
+    val name = s"test with heuristics: $file"
+    val arguments = Main.heuristicsOptions ++ Seq(file)
+    runTest(name, arguments)
+  }
+
+  /**
+   * Tests the given file with annotations.
+   *
+   * @param file The file to test.
+   */
+  def runTestWithAnnotations(file: String): Unit = {
+    val name = s"test with annotations: $file"
+    val arguments = Main.annotationsOptions ++ Seq(file)
+    runTest(name, arguments)
   }
 
   /**
@@ -58,14 +85,16 @@ class InferenceTest extends AnyFunSuite with TestRunner {
     }
 
   /**
-   * Takes a path represented as a string and converts it into a path object.
+   * Collects all files contained in the directory with the given name.
    *
-   * @param name The path as a string.
-   * @return The path object.
+   * @param name The name of the directory.
+   * @return The files.
    */
-  private def getPath(name: String): Path = {
+  private def collectFiles(name: String): Seq[String] = {
     val resource = getClass.getResource(name)
-    Paths.pathFromResource(resource)
+    val path = Paths.pathFromResource(resource)
+    val files = collectFiles(path)
+    files.map(_.toString)
   }
 
   /**

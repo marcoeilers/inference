@@ -19,9 +19,19 @@ object Main extends PrintRunner {
    * The base options used if no arguments are specified.
    */
   val baseOptions: Seq[String] =
-    Seq(
-      "--z3Exe", "/usr/local/Viper/z3/bin/z3",
-      "--useHeuristics")
+    Seq("--z3Exe", "/usr/local/Viper/z3/bin/z3")
+
+  /**
+   * The options for an inference with heuristics.
+   */
+  val heuristicsOptions: Seq[String] =
+    baseOptions ++ Seq("--useHeuristics")
+
+  /**
+   * The options for an inference with annotations.
+   */
+  val annotationsOptions: Seq[String] =
+    baseOptions
 
   /**
    * The input file used if no arguments are specified.
