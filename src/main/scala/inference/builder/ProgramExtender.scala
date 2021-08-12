@@ -8,6 +8,7 @@
 
 package inference.builder
 
+import inference.Names
 import inference.core.Hypothesis
 import inference.input.{Check, Cut, Input}
 import viper.silver.ast
@@ -29,18 +30,36 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
     val original = input.program
     // fields
     val fields = {
-      val extra = if (configuration.useHeuristics()) Seq(magic) else Seq.empty
+      val extra =
+        if (configuration.useHeuristics()) Seq(magic)
+        else Seq.empty
       original.fields ++ extra
     }
-    // extend predicates
-    val predicates = original
-      .predicates
-      .map { predicate =>
-        val name = predicate.name
-        val placeholder = input.placeholder(name)
-        hypothesis.getPredicate(placeholder)
-      }
-    // extend methods
+    // predicates
+    val predicates = {
+      // extend existing predicates
+      val extended = original
+        .predicates
+        .map { predicate =>
+          val body = predicate.body
+          if (body.isDefined) predicate
+          else {
+            val name = predicate.name
+            val placeholder = input.placeholder(name)
+            hypothesis.getPredicate(placeholder)
+          }
+        }
+      // get recursive predicate
+      val recursive =
+        if (configuration.useRecursion()) {
+          val placeholder = input.placeholder(Names.recursive)
+          val predicate = hypothesis.getPredicate(placeholder)
+          Seq(predicate)
+        } else Seq.empty
+      // combine predicates
+      extended ++ recursive
+    }
+    // methods
     val methods = original
       .methods
       .map(extendMethod)
