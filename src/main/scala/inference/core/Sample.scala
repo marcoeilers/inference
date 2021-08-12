@@ -38,7 +38,10 @@ sealed trait Bound extends Sample {
  *
  * @param records The records.
  */
-case class LowerBound(records: Seq[Record]) extends Bound
+case class LowerBound(records: Seq[Record]) extends Bound {
+  override def toString: String =
+    s"$bound < ${records.mkString(" + ")}"
+}
 
 /**
  * A sample imposing an upper bound.
@@ -48,6 +51,9 @@ case class LowerBound(records: Seq[Record]) extends Bound
 case class UpperBound(record: Record) extends Bound {
   override def records: Seq[Record] =
     Seq(record)
+
+  override def toString: String =
+    s"$record <= 1"
 }
 
 /**
@@ -59,6 +65,9 @@ case class UpperBound(record: Record) extends Bound {
 case class Implication(left: Record, right: LowerBound) extends Sample {
   override def records: Seq[Record] =
     left +: right.records
+
+  override def toString: String =
+    s"$left => $right"
 }
 
 /**
