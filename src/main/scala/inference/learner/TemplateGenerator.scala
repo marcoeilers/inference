@@ -94,6 +94,8 @@ trait TemplateGenerator extends AbstractLearner {
       case ast.FieldAccess(receiver, field) =>
         receiver match {
           case nested@ast.FieldAccess(root, next) =>
+            // add nested location
+            addLocation(placeholder, nested)
             // add potential recursions
             if (configuration.useRecursion()) {
               // get parameters of recursive predicate
@@ -109,15 +111,15 @@ trait TemplateGenerator extends AbstractLearner {
               val instance = makeInstance(root)
               addIfAllowed(placeholder, instance)
             }
-            // add nested location
-            addLocation(placeholder, nested)
           case _ => // do nothing
         }
-      case ast.PredicateAccess(first +: rest, _) =>
+      case ast.PredicateAccess(first +: rest, name) =>
+        assert(name == Names.recursive)
         first match {
-          case ast.FieldAccess(_, _) if !placeholder.isRecursive =>
-            // TODO: Implement me.
-            logger.warn("Not implemented!")
+          case ast.FieldAccess(receiver, _) if !placeholder.isRecursive =>
+            // add parent predicate
+            val parent = makeRecursive(receiver +: rest)
+            addLocation(placeholder, parent)
           case _ => // do nothing
         }
     }
