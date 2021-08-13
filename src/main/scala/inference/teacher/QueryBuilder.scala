@@ -124,17 +124,13 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
 
   override protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
-      case ast.Inhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
+      case ast.Inhale(ast.PredicateAccessPredicate(predicate, _)) =>
         // get and inhale instance
-        val instance = input
-          .placeholder(name)
-          .asInstance(arguments)
+        val instance = input.instance(predicate)
         inhaleInstance(instance)
-      case ast.Exhale(ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _)) =>
-        // get  and exhale instance
-        val instance = input
-          .placeholder(name)
-          .asInstance(arguments)
+      case ast.Exhale(ast.PredicateAccessPredicate(predicate, _)) =>
+        // get and exhale instance
+        val instance = input.instance(predicate)
         exhaleInstance(instance)
       case call@ast.MethodCall(name, arguments, targets) =>
         val check = input.methodCheck(name)
@@ -176,7 +172,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     // inhale specification
     // TODO: Inhale existing specification
     if (configuration.noInlining()) {
-      val resource = instance.asResource()
+      val resource = instance.asResource
       emitInhale(resource)
       emitUnfold(resource)
     } else {
@@ -217,7 +213,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     // TODO: Exhale existing specification
     val info = ValueInfo(instance)
     if (configuration.noInlining()) {
-      val resource = instance.asResource()
+      val resource = instance.asResource
       emitFold(resource, info)
       emitExhale(resource)
     } else {

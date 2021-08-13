@@ -35,12 +35,20 @@ case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], atoms: S
     name == Names.recursive
 
   /**
-   * Returns an instance of the placeholder specification.
+   * Returns an instance of the specification placeholder.
    *
    * @return The instance.
    */
   def asInstance: Instance =
     IdentityInstance(this)
+
+  /**
+   * Returns a resource corresponding to this specification placeholder.
+   *
+   * @return The resource.
+   */
+  def asResource: ast.PredicateAccessPredicate =
+    asInstance.asResource
 
   override def toString: String =
     s"$name(${parameters.map(_.name).mkString(", ")})"
@@ -97,20 +105,14 @@ sealed trait Instance {
     }
 
   /**
-   * Returns a predicate access corresponding to this instance.
-   *
-   * @return The predicate access.
-   */
-  def asPredicate(): ast.PredicateAccess =
-    ast.PredicateAccess(arguments, name)()
-
-  /**
    * Returns a predicate access predicate corresponding to this instance.
    *
    * @return THe predicate access predicate.
    */
-  def asResource(): ast.PredicateAccessPredicate =
-    ast.PredicateAccessPredicate(asPredicate(), ast.FullPerm()())()
+  def asResource: ast.PredicateAccessPredicate = {
+    val predicate = ast.PredicateAccess(arguments, name)()
+    ast.PredicateAccessPredicate(predicate, ast.FullPerm()())()
+  }
 
   /**
    * Returns a copy of the instance with the given arguments.
