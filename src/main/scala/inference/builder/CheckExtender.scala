@@ -65,10 +65,8 @@ trait CheckExtender[R] extends Builder {
    * @param hypothesis The implicitly passed current hypothesis.
    * @return
    */
-  protected def extendSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn = {
-    val statements = scoped(sequence.ss.foreach(extendStatement))
-    sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
-  }
+  protected def extendSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn =
+    updateScope(sequence)(sequence.ss.foreach(extendStatement))
 
   /**
    * Extends the given statement.

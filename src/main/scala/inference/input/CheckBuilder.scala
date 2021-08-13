@@ -132,7 +132,11 @@ trait CheckBuilder extends Builder {
         val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
         val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
         // process body
-        val (processed, _) = processSequence(body, declarations)
+        val (processed, _) = scopedHints {
+          updateScope(body) {
+            processStatements(body, declarations)
+          }
+        }
         // create check corresponding to method
         val check = MethodCheck(method, precondition, postcondition, processed)
         checks.append(check)
@@ -147,25 +151,34 @@ trait CheckBuilder extends Builder {
    * @param declarations The declarations in scope.
    * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @param checks       The implicitly passed buffer used to accumulate the checks.
-   * @return The processed sequence and the collected hints.
+   * @return The processed sequence.
    */
   private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])
-                             (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): (ast.Seqn, Seq[Hint]) = {
-    // save and reset hints
-    val savedHints = this.hints
-    this.hints = Seq.empty
-    // process statements
-    val statements = scoped {
-      val updated = declarations ++ sequence.scopedDecls.collect { case variable: ast.LocalVarDecl => variable }
-      sequence.ss.foreach { statement => processStatement(statement, updated) }
+                             (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): ast.Seqn =
+    updateScope(sequence)(processStatements(sequence, declarations))
+
+  /**
+   * Processes the statements of the given sequence while also taking into account the variables declared by the
+   * sequence.
+   *
+   * @param sequence     The sequence.
+   * @param declarations The declarations in scope.
+   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @param checks       The implicitly passed buffer used to accumulate the checks.
+   */
+  def processStatements(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])
+                       (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit = {
+    // update declarations
+    val updated = {
+      val scoped = sequence
+        .scopedDecls
+        .collect { case variable: ast.LocalVarDecl => variable }
+      declarations ++ scoped
     }
-    // update sequence
-    val processed = sequence.copy(ss = statements)(sequence.pos, sequence.info, sequence.errT)
-    // extract and restore hints
-    val hints = this.hints
-    this.hints = savedHints
-    // return result
-    (processed, hints)
+    // process statements
+    sequence
+      .ss
+      .foreach { statement => processStatement(statement, updated) }
   }
 
   /**
@@ -176,17 +189,17 @@ trait CheckBuilder extends Builder {
    * @param placeholders The implicitly passed buffer used to accumulate placeholders.
    * @param checks       The implicitly passed buffer used to accumulate the checks.
    */
-  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl])(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
+  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl])
+                      (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
     statement match {
       case sequence: ast.Seqn =>
         // process sequence
-        val (processed, nestedHints) = processSequence(sequence, declarations)
+        val processed = processSequence(sequence, declarations)
         emit(processed)
-        nestedHints.foreach(addHint)
       case conditional@ast.If(condition, thenBranch, elseBranch) =>
         // process branches
-        val (thenProcessed, thenHints) = processSequence(thenBranch, declarations)
-        val (elseProcessed, elseHints) = processSequence(elseBranch, declarations)
+        val (thenProcessed, thenHints) = scopedHints(processSequence(thenBranch, declarations))
+        val (elseProcessed, elseHints) = scopedHints(processSequence(elseBranch, declarations))
         // update conditional
         val processed = conditional.copy(
           thn = thenProcessed,
@@ -199,7 +212,7 @@ trait CheckBuilder extends Builder {
         // create placeholder specification
         val invariant = createUniquePlaceholder(Names.invariant, declarations, existing)
         // process body
-        val (processed, _) = processSequence(body, declarations)
+        val (processed, _) = scopedHints(processSequence(body, declarations))
         // create check corresponding to loop
         val name = namespace.uniqueIdentifier("loop")
         val check = LoopCheck(loop, name, invariant, processed)
@@ -214,6 +227,26 @@ trait CheckBuilder extends Builder {
       case _ =>
         emit(statement)
     }
+
+  /**
+   * Returns the result computed by the given function and also captures all hints produced during the computation.
+   *
+   * @param function The function computing the result.
+   * @tparam R The type of the result.
+   * @return The result and the collected hints.
+   */
+  def scopedHints[R](function: => R): (R, Seq[Hint]) = {
+    // save and reset hints
+    val outer = hints
+    hints = Seq.empty
+    // compute result
+    val result = function
+    // collect and restore hints
+    val collected = hints
+    hints = outer
+    // return result
+    (result, collected)
+  }
 
   /**
    * Adds the given hint.

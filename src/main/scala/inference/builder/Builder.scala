@@ -78,6 +78,19 @@ trait Builder {
   }
 
   /**
+   * Returns the sequence obtained from the given sequence by replacing its statements with the statements emitted by
+   * the given expression.
+   *
+   * @param original The original sequence.
+   * @param emitter  THe statement emitting expression.
+   * @return The sequence.
+   */
+  protected def updateScope(original: ast.Seqn)(emitter: => Unit): ast.Seqn = {
+    val statements = scoped(emitter)
+    original.copy(ss = statements)(original.pos, original.info, original.errT)
+  }
+
+  /**
    * Emits the given statement, i.e., adds the statement to the current scope.
    *
    * @param statement The statement to emit.

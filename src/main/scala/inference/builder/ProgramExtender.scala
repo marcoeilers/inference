@@ -113,8 +113,7 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
         // update loop
         val extended = {
           val original = loop.original
-          loop
-            .original.copy(
+          original.copy(
             invs = Seq(invariant),
             body = body
           )(original.pos, original.info, original.errT)
