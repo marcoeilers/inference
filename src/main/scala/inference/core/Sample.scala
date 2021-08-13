@@ -170,8 +170,11 @@ case class SnapshotAbstraction(snapshot: Snapshot) extends Abstraction {
     Some(value)
   }
 
-  override def toString: String =
-    snapshot
-      .partitions.map(_.mkString("="))
+  override def toString: String = {
+    val partitions = snapshot.partitions
+    if (partitions.isEmpty) "true"
+    else partitions
+      .map(_.mkString("="))
       .mkString("≠")
+  }
 }
