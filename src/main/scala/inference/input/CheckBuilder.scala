@@ -10,7 +10,7 @@ package inference.input
 
 import inference.Names
 import inference.builder.Builder
-import inference.core.Placeholder
+import inference.core.{Kind, Placeholder}
 import inference.util.Namespace
 import inference.util.collections.Collections
 import viper.silver.ast
@@ -76,8 +76,8 @@ trait CheckBuilder extends Builder {
         val name = method.name
         val arguments = method.formalArgs
         val declarations = arguments ++ method.formalReturns
-        val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
-        val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
+        val precondition = createPlaceholder(name, Kind.Precondition, arguments, method.pres)
+        val postcondition = createPlaceholder(name, Kind.Postcondition, declarations, method.posts)
         name -> (precondition, postcondition)
       }
       .toMap
@@ -90,37 +90,30 @@ trait CheckBuilder extends Builder {
       val name = Names.recursive
       val names = if (configuration.useSegments()) Seq("x", "y") else Seq("x")
       val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())
-      createPlaceholder(name, parameters, Seq.empty)
+      createPlaceholder(name, Kind.Predicate, parameters, Seq.empty)
     }
     // return placeholders and checks
     (placeholders.toSeq, checks.toSeq)
   }
 
   /**
-   * Creates a specification placeholder with the given name, parameters, and existing specifications. In addition the
-   * method may change the name in order to ensure its uniqueness.
+   * Creates a specification placeholder with the given name, kind, parameters, and existing specification. If necessary
+   * the name is changed in order to ensure its uniqueness.
    *
    * @param name       The name (may change to ensure uniqueness).
+   * @param kind       The kind of specification.
    * @param parameters The parameters.
    * @param existing   The existing specifications.
    * @return The placeholder.
    */
-  private def createUniquePlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
+  private def createPlaceholder(name: String, kind: Kind.Value, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
     // get unique name
-    val unique = namespace.uniqueIdentifier(name)
-    // create placeholder
-    createPlaceholder(unique, parameters, existing)
-  }
-
-  /**
-   * Creates a specification placeholder with the given name, parameters, and existing specifications.
-   *
-   * @param name       The name (may change to ensure uniqueness).
-   * @param parameters The parameters.
-   * @param existing   The existing specifications.
-   * @return The placeholder.
-   */
-  private def createPlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
+    val unique = kind match {
+      case Kind.Precondition => namespace.uniqueIdentifier(name = s"${Names.precondition}_$name", None)
+      case Kind.Postcondition => namespace.uniqueIdentifier(name = s"${Names.postcondition}_$name", None)
+      case Kind.Invariant => namespace.uniqueIdentifier(Names.invariant)
+      case Kind.Predicate => name
+    }
     // create atomic predicates
     val atoms = {
       val references = parameters
@@ -132,7 +125,7 @@ trait CheckBuilder extends Builder {
         .toSeq
     }
     // create placeholder
-    val placeholder = Placeholder(name, parameters, atoms, existing)
+    val placeholder = Placeholder(name, kind, parameters, atoms, existing)
     placeholders.append(placeholder)
     placeholder
   }
@@ -144,9 +137,9 @@ trait CheckBuilder extends Builder {
    */
   private def processPredicate(predicate: ast.Predicate): Unit = {
     val name = predicate.name
-    val argument = predicate.formalArgs
+    val arguments = predicate.formalArgs
     val existing = predicate.body.toSeq
-    createPlaceholder(name, argument, existing)
+    createPlaceholder(name, Kind.Predicate, arguments, existing)
   }
 
   /**
@@ -188,7 +181,7 @@ trait CheckBuilder extends Builder {
    */
   private def processLoop(loop: ast.While, declarations: Seq[ast.LocalVarDecl]): LoopCheck = {
     // create placeholder specification
-    val placeholder = createUniquePlaceholder(Names.invariant, declarations, loop.invs)
+    val placeholder = createPlaceholder(Names.invariant, Kind.Invariant, declarations, loop.invs)
     // process loop body
     val body = loop.body
     val invariant = placeholder.asResource
@@ -277,15 +270,23 @@ trait CheckBuilder extends Builder {
         }
       case call@ast.MethodCall(name, arguments, _) =>
         if (Names.isAnnotation(name)) {
+          // process annotation
           val argument = arguments.head
           val hint = Hint(name, argument)
           addHint(hint)
         } else {
+          // instrument method call
           val (precondition, postcondition) = specifications(name)
           instrumented(emitExhale(precondition.asInstance(arguments).asResource))
           emit(call)
           instrumented(emitInhale(postcondition.asInstance(arguments).asResource))
         }
+      case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
+        // instrument inhale
+        instrumented(emitInhale(resource))
+      case ast.Exhale(resource: ast.PredicateAccessPredicate) =>
+        // instrument exhale
+        instrumented(emitExhale(resource))
       case _ =>
         emit(statement)
     }

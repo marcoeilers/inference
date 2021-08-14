@@ -9,17 +9,19 @@
 package inference.core
 
 import inference.Names
+import inference.core.Kind.Kind
 import viper.silver.ast
 
 /**
  * A placeholder for a specification.
  *
  * @param name       The unique name identifying the placeholder.
+ * @param kind       The kind of specification.
  * @param parameters The parameters upon which the specification may depend.
  * @param atoms      The atomic predicates that may be used for the specification.
  * @param existing   The existing partial specification.
  */
-case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], atoms: Seq[ast.Exp], existing: Seq[ast.Exp]) {
+case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDecl], atoms: Seq[ast.Exp], existing: Seq[ast.Exp]) {
   /**
    * The variables corresponding to the parameters.
    */
@@ -55,6 +57,14 @@ case class Placeholder(name: String, parameters: Seq[ast.LocalVarDecl], atoms: S
 }
 
 /**
+ * Enumeration used to indicate the kind of a specification.
+ */
+object Kind extends Enumeration {
+  type Kind = Value
+  val Precondition, Postcondition, Invariant, Predicate = Value
+}
+
+/**
  * An instance of a placeholder.
  */
 sealed trait Instance {
@@ -72,6 +82,14 @@ sealed trait Instance {
    */
   def name: String =
     placeholder.name
+
+  /**
+   * Returns whether the specification instance corresponds to a predicate.
+   *
+   * @return True if the instance corresponds to a predicate.
+   */
+  def isPredicate: Boolean =
+    placeholder.kind == Kind.Predicate
 
   /**
    * Returns the arguments to the placeholder.

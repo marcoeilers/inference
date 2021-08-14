@@ -15,16 +15,17 @@ import viper.silver.ast
 
 /**
  * A program extender.
+ *
+ * @param input The input.
  */
-trait ProgramExtender extends CheckExtender[ast.Seqn] {
+class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Folding {
   /**
-   * Extends the program given by the input with specifications corresponding to the given hypothesis.
+   * Extends the input program with specifications corresponding to the given hypothesis.
    *
-   * @param input      The input to the inference.
    * @param hypothesis The inferred hypothesis.
    * @return The extended program.
    */
-  def extend(implicit input: Input, hypothesis: Hypothesis): ast.Program = {
+  def extend(hypothesis: Hypothesis): ast.Program = {
     // get configuration and original input program
     val configuration = input.configuration
     val original = input.program
@@ -62,7 +63,7 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
     // methods
     val methods = original
       .methods
-      .map(extendMethod)
+      .map { method => extendMethod(method)(hypothesis) }
     // update program
     original.copy(
       fields = fields,
@@ -78,7 +79,7 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
    * @param hypothesis The implicitly passed hypothesis.
    * @return The extended method.
    */
-  private def extendMethod(method: ast.Method)(implicit input: Input, hypothesis: Hypothesis): ast.Method = {
+  private def extendMethod(method: ast.Method)(implicit hypothesis: Hypothesis): ast.Method = {
     // get method specification
     val name = method.name
     val check = input.methodCheck(name)
@@ -103,12 +104,28 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
         statements.foreach(processInstrumented)
       case ast.Inhale(expression) =>
         expression match {
-          case ast.PredicateAccessPredicate(predicate, _) => // TODO: Unfold
+          case resource@ast.PredicateAccessPredicate(predicate, _) =>
+            val instance = input.instance(predicate)
+            if (instance.isPredicate) {
+              // inhale and unfold predicate
+              emitInhale(resource)
+              emitUnfold(resource)
+            } else {
+              // TODO: Unfold
+            }
           case _ => // do nothing
         }
       case ast.Exhale(expression) =>
         expression match {
-          case ast.PredicateAccessPredicate(predicate, _) => // TODO: Fold
+          case resource@ast.PredicateAccessPredicate(predicate, _) =>
+            val instance = input.instance(predicate)
+            if (instance.isPredicate) {
+              // fold and exhale predicate
+              emitFold(resource)
+              emitExhale(resource)
+            } else {
+              // TODO: Fold
+            }
           case _ => // do nothing
         }
       case other =>

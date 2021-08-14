@@ -119,12 +119,24 @@ trait Runner[R] extends Inference {
    * @return The result.
    */
   def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[R]
+
+  /**
+   * Extends the program corresponding to the given input with the specifications represented by the given hypothesis.
+   *
+   * @param input      The input.
+   * @param hypothesis The hypothesis.
+   * @return The extended program.
+   */
+  def extend(input: Input, hypothesis: Hypothesis): ast.Program = {
+    val extender = new ProgramExtender(input)
+    extender.extend(hypothesis)
+  }
 }
 
 /**
  * An inference runner that prints the inferred hypothesis.
  */
-trait PrintRunner extends Runner[Unit] with ProgramExtender {
+trait PrintRunner extends Runner[Unit] {
   override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Unit] = {
     hypothesis match {
       case Some(hypothesis) =>
@@ -143,7 +155,7 @@ trait PrintRunner extends Runner[Unit] with ProgramExtender {
 /**
  * An inference runner that verifiers the program annotated with the inferred specification.
  */
-trait TestRunner extends Runner[Boolean] with ProgramExtender {
+trait TestRunner extends Runner[Boolean] {
   override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Boolean] =
     hypothesis.map { hypothesis =>
       // extend input program
