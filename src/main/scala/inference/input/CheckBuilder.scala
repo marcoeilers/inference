@@ -125,7 +125,7 @@ trait CheckBuilder extends Builder {
         .toSeq
     }
     // create placeholder
-    val placeholder = Placeholder(name, kind, parameters, atoms, existing)
+    val placeholder = Placeholder(unique, kind, parameters, atoms, existing)
     placeholders.append(placeholder)
     placeholder
   }
