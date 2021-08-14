@@ -11,7 +11,6 @@ package inference.input
 import inference.analysis.DepthAnalysis
 import inference.core.{Hypothesis, Placeholder}
 import viper.silver.ast
-import viper.silver.ast.Node
 import viper.silver.ast.pretty.FastPrettyPrinter._
 import viper.silver.ast.pretty.PrettyPrintPrimitives
 
@@ -87,20 +86,34 @@ case class LoopCheck(original: ast.While, name: String, invariant: Placeholder, 
     original.cond
 }
 
-/**
- * An auxiliary statement used to cut out loops to make the inference modular.
- *
- * @param loop The corresponding loop check.
- */
-case class Cut(loop: LoopCheck) extends ast.ExtensionStmt {
+sealed trait InferenceStatement extends ast.ExtensionStmt {
   // default meta data
   override val pos: ast.Position = ast.NoPosition
   override val info: ast.Info = ast.NoInfo
   override val errT: ast.ErrorTrafo = ast.NoTrafos
 
-  override def extensionSubnodes: Seq[Node] =
+  // no sub-nodes
+  override def extensionSubnodes: Seq[ast.Node] =
     Seq.empty
+}
 
+/**
+ * An auxiliary statement used to mark instrumented statements.
+ *
+ * @param body  The body containing the instrumented statements.
+ * @param hints Some hints (only present if annotations are enabled).
+ */
+case class Instrumented(body: ast.Seqn, hints: Seq[Hint]) extends InferenceStatement {
+  override def prettyPrint: PrettyPrintPrimitives#Cont =
+    text("instrumented") <+> showBlock(body)
+}
+
+/**
+ * An auxiliary statement used to cut out loops to make the inference modular.
+ *
+ * @param loop The corresponding loop check.
+ */
+case class Cut(loop: LoopCheck) extends InferenceStatement {
   override def prettyPrint: PrettyPrintPrimitives#Cont =
     text(loop.name)
 }

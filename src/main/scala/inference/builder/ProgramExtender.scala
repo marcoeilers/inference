@@ -10,7 +10,7 @@ package inference.builder
 
 import inference.Names
 import inference.core.Hypothesis
-import inference.input.{Check, Cut, Input}
+import inference.input.{Check, Cut, Hint, Input}
 import viper.silver.ast
 
 /**
@@ -97,29 +97,38 @@ trait ProgramExtender extends CheckExtender[ast.Seqn] {
   override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Seqn =
     extendSequence(check.body)
 
-  override protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
     statement match {
-      case ast.Inhale(predicate: ast.PredicateAccessPredicate) =>
-        emitInhale(predicate)
-        emitUnfold(predicate)
-      case ast.Exhale(predicate: ast.PredicateAccessPredicate) =>
-        emitFold(predicate)
-        emitExhale(predicate)
-      case Cut(loop) =>
-        // get loop specification
-        val invariant = hypothesis.getBody(loop.invariant.asInstance)
-        // extend loop body
-        val body = extendCheck(loop)
-        // update loop
-        val extended = {
-          val original = loop.original
-          original.copy(
-            invs = Seq(invariant),
-            body = body
-          )(original.pos, original.info, original.errT)
+      case ast.Seqn(statements, _) =>
+        statements.foreach(processInstrumented)
+      case ast.Inhale(expression) =>
+        expression match {
+          case ast.PredicateAccessPredicate(predicate, _) => // TODO: Unfold
+          case _ => // do nothing
         }
-        emit(extended)
+      case ast.Exhale(expression) =>
+        expression match {
+          case ast.PredicateAccessPredicate(predicate, _) => // TODO: Fold
+          case _ => // do nothing
+        }
       case other =>
-        emit(other)
+        sys.error(s"Unexpected statement: $other")
     }
+
+  override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {
+    // get loop specification
+    val check = cut.loop
+    val invariant = hypothesis.getBody(check.invariant.asInstance)
+    // extend loop body
+    val body = extendCheck(check)
+    // update loop
+    val extended = {
+      val original = check.original
+      original.copy(
+        invs = Seq(invariant),
+        body = body
+      )(original.pos, original.info, original.errT)
+    }
+    emit(extended)
+  }
 }

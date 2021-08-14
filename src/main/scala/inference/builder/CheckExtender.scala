@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.Check
+import inference.input.{Check, Cut, Hint, Instrumented}
 import viper.silver.ast
 
 /**
@@ -90,15 +90,28 @@ trait CheckExtender[R] extends Builder {
           els = elseExtended
         )(conditional.pos, conditional.info, conditional.errT)
         emit(extended)
+      case Instrumented(body, hints) =>
+        processInstrumented(body)(hypothesis, hints)
+      case cut: Cut =>
+        processCut(cut)
       case other =>
-        extendNonControlStatement(other)
+        emit(other)
     }
 
   /**
-   * Extends the given non-control statement.
+   * Processes the given instrumented statement.
    *
-   * @param statement  The statement to extend.
-   * @param hypothesis The implicitly passed hypothesis.
+   * @param statement  The instrumented statement.
+   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hints      The implicitly passed hints.
    */
-  protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit
+  protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit
+
+  /**
+   * Processes the given cut statement.
+   *
+   * @param cut        The cut.
+   * @param hypothesis THe implicitly passed current hypothesis.
+   */
+  protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit
 }

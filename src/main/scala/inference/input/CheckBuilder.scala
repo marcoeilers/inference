@@ -25,12 +25,40 @@ trait CheckBuilder extends Builder {
   /**
    * The namespace used to generate unique identifiers.
    */
-  var namespace: Namespace = _
+  private var namespace: Namespace = _
 
   /**
    * The list used to accumulate hints.
    */
-  var hints: Seq[Hint] = _
+  private var hints: mutable.Buffer[Hint] =
+    ListBuffer.empty
+
+  /**
+   * The buffer used to accumulate the placeholders.
+   */
+  private val placeholders: mutable.Buffer[Placeholder] =
+    ListBuffer.empty
+
+  /**
+   * The buffer used to accumulate the checks.
+   */
+  private val checks: mutable.Buffer[Check] =
+    ListBuffer.empty
+
+  /**
+   * A map from method names to the corresponding pair of pre- and postconditions.
+   */
+  private var specifications: Map[String, (Placeholder, Placeholder)] = _
+
+  /**
+   * Resets the check builder.
+   */
+  private def reset(): Unit = {
+    namespace = new Namespace()
+    placeholders.clear()
+    checks.clear()
+    specifications = Map.empty
+  }
 
   /**
    * Processes the given program.
@@ -40,10 +68,19 @@ trait CheckBuilder extends Builder {
    */
   def buildChecks(configuration: Configuration, program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
     // reset
-    namespace = new Namespace()
-    // initialize buffers
-    implicit val placeholders: mutable.Buffer[Placeholder] = ListBuffer.empty
-    implicit val checks: mutable.Buffer[Check] = ListBuffer.empty
+    reset()
+    // create placeholders for method specifications
+    specifications = program
+      .methods
+      .map { method =>
+        val name = method.name
+        val arguments = method.formalArgs
+        val declarations = arguments ++ method.formalReturns
+        val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
+        val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
+        name -> (precondition, postcondition)
+      }
+      .toMap
     // process predicates
     program.predicates.foreach(processPredicate)
     // process methods
@@ -63,13 +100,12 @@ trait CheckBuilder extends Builder {
    * Creates a specification placeholder with the given name, parameters, and existing specifications. In addition the
    * method may change the name in order to ensure its uniqueness.
    *
-   * @param name         The name (may change to ensure uniqueness).
-   * @param parameters   The parameters.
-   * @param existing     The existing specifications.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @param name       The name (may change to ensure uniqueness).
+   * @param parameters The parameters.
+   * @param existing   The existing specifications.
    * @return The placeholder.
    */
-  private def createUniquePlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp])(implicit placeholders: mutable.Buffer[Placeholder]): Placeholder = {
+  private def createUniquePlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
     // get unique name
     val unique = namespace.uniqueIdentifier(name)
     // create placeholder
@@ -79,13 +115,12 @@ trait CheckBuilder extends Builder {
   /**
    * Creates a specification placeholder with the given name, parameters, and existing specifications.
    *
-   * @param name         The name (may change to ensure uniqueness).
-   * @param parameters   The parameters.
-   * @param existing     The existing specifications.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @param name       The name (may change to ensure uniqueness).
+   * @param parameters The parameters.
+   * @param existing   The existing specifications.
    * @return The placeholder.
    */
-  private def createPlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp])(implicit placeholders: mutable.Buffer[Placeholder]): Placeholder = {
+  private def createPlaceholder(name: String, parameters: Seq[ast.LocalVarDecl], existing: Seq[ast.Exp]): Placeholder = {
     // create atomic predicates
     val atoms = {
       val references = parameters
@@ -105,10 +140,9 @@ trait CheckBuilder extends Builder {
   /**
    * Processes the given predicate.
    *
-   * @param predicate    The predicate to process.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
+   * @param predicate The predicate to process.
    */
-  private def processPredicate(predicate: ast.Predicate)(implicit placeholders: mutable.Buffer[Placeholder]): Unit = {
+  private def processPredicate(predicate: ast.Predicate): Unit = {
     val name = predicate.name
     val argument = predicate.formalArgs
     val existing = predicate.body.toSeq
@@ -118,23 +152,24 @@ trait CheckBuilder extends Builder {
   /**
    * Processes the given method.
    *
-   * @param method       The method to process.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
-   * @param checks       The implicitly passed buffer used to accumulate the checks.
+   * @param method The method to process.
    */
-  private def processMethod(method: ast.Method)(implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
+  private def processMethod(method: ast.Method): Unit =
     method.body match {
       case Some(body) =>
         // create placeholder specifications
         val name = method.name
-        val arguments = method.formalArgs
-        val declarations = arguments ++ method.formalReturns
-        val precondition = createPlaceholder(s"${Names.precondition}_$name", arguments, method.pres)
-        val postcondition = createPlaceholder(s"${Names.postcondition}_$name", declarations, method.posts)
-        // process body
+        val (precondition, postcondition) = specifications(name)
+        // process method body
         val (processed, _) = scopedHints {
           updateScope(body) {
+            // inhale precondition
+            instrumented(emitInhale(precondition.asResource))
+            // process statements
+            val declarations = method.formalArgs ++ method.formalReturns
             processStatements(body, declarations)
+            // exhale postcondition
+            instrumented(emitExhale(postcondition.asResource))
           }
         }
         // create check corresponding to method
@@ -145,16 +180,43 @@ trait CheckBuilder extends Builder {
     }
 
   /**
+   * Processes the given loop.
+   *
+   * @param loop         The loop to process.
+   * @param declarations The declarations in scope.
+   * @return The loop check.
+   */
+  private def processLoop(loop: ast.While, declarations: Seq[ast.LocalVarDecl]): LoopCheck = {
+    // create placeholder specification
+    val placeholder = createUniquePlaceholder(Names.invariant, declarations, loop.invs)
+    // process loop body
+    val body = loop.body
+    val invariant = placeholder.asResource
+    val (processed, _) = scopedHints {
+      updateScope(body) {
+        instrumented {
+          emitInhale(invariant)
+        }
+        processStatements(body, declarations)
+        instrumented(emitExhale(invariant))
+      }
+    }
+    // create check corresponding to loop
+    val name = namespace.uniqueIdentifier("loop")
+    val check = LoopCheck(loop, name, placeholder, processed)
+    checks.append(check)
+    // return check
+    check
+  }
+
+  /**
    * Processes the given sequence.
    *
    * @param sequence     The sequence to process.
    * @param declarations The declarations in scope.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
-   * @param checks       The implicitly passed buffer used to accumulate the checks.
    * @return The processed sequence.
    */
-  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])
-                             (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): ast.Seqn =
+  private def processSequence(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl]): ast.Seqn =
     updateScope(sequence)(processStatements(sequence, declarations))
 
   /**
@@ -163,11 +225,8 @@ trait CheckBuilder extends Builder {
    *
    * @param sequence     The sequence.
    * @param declarations The declarations in scope.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
-   * @param checks       The implicitly passed buffer used to accumulate the checks.
    */
-  def processStatements(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl])
-                       (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit = {
+  def processStatements(sequence: ast.Seqn, declarations: Seq[ast.LocalVarDecl]): Unit = {
     // update declarations
     val updated = {
       val scoped = sequence
@@ -186,11 +245,8 @@ trait CheckBuilder extends Builder {
    *
    * @param statement    The statement to process.
    * @param declarations The declarations in scope.
-   * @param placeholders The implicitly passed buffer used to accumulate placeholders.
-   * @param checks       The implicitly passed buffer used to accumulate the checks.
    */
-  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl])
-                      (implicit placeholders: mutable.Buffer[Placeholder], checks: mutable.Buffer[Check]): Unit =
+  def processStatement(statement: ast.Stmt, declarations: Seq[ast.LocalVarDecl]): Unit =
     statement match {
       case sequence: ast.Seqn =>
         // process sequence
@@ -208,22 +264,28 @@ trait CheckBuilder extends Builder {
         emit(processed)
         thenHints.foreach { hint => addHint(hint.withCondition(condition)) }
         elseHints.foreach { hint => addHint(hint.withCondition(ast.Not(condition)())) }
-      case loop@ast.While(_, existing, body) =>
-        // create placeholder specification
-        val invariant = createUniquePlaceholder(Names.invariant, declarations, existing)
-        // process body
-        val (processed, _) = scopedHints(processSequence(body, declarations))
+      case loop@ast.While(condition, _, _) =>
         // create check corresponding to loop
-        val name = namespace.uniqueIdentifier("loop")
-        val check = LoopCheck(loop, name, invariant, processed)
-        checks.append(check)
-        // cut loop
-        val cut = Cut(check)
-        emit(cut)
-      case ast.MethodCall(name, arguments, _) if Names.isAnnotation(name) =>
-        val argument = arguments.head
-        val hint = Hint(name, argument)
-        addHint(hint)
+        val check = processLoop(loop, declarations)
+        val invariant = check.invariant.asResource
+        // instrument and cut loop
+        instrumented(emitExhale(invariant))
+        emitCut(check)
+        instrumented {
+          emitInhale(invariant)
+          emitInhale(ast.Not(condition)())
+        }
+      case call@ast.MethodCall(name, arguments, _) =>
+        if (Names.isAnnotation(name)) {
+          val argument = arguments.head
+          val hint = Hint(name, argument)
+          addHint(hint)
+        } else {
+          val (precondition, postcondition) = specifications(name)
+          instrumented(emitExhale(precondition.asInstance(arguments).asResource))
+          emit(call)
+          instrumented(emitInhale(postcondition.asInstance(arguments).asResource))
+        }
       case _ =>
         emit(statement)
     }
@@ -235,17 +297,27 @@ trait CheckBuilder extends Builder {
    * @tparam R The type of the result.
    * @return The result and the collected hints.
    */
-  def scopedHints[R](function: => R): (R, Seq[Hint]) = {
+  private def scopedHints[R](function: => R): (R, Seq[Hint]) = {
     // save and reset hints
     val outer = hints
-    hints = Seq.empty
+    val inner = ListBuffer.empty[Hint]
+    hints = inner
     // compute result
     val result = function
-    // collect and restore hints
-    val collected = hints
+    // restore hints and return result
     hints = outer
-    // return result
-    (result, collected)
+    (result, inner.toSeq)
+  }
+
+  /**
+   * Instruments the statements emitted by the given expression.
+   *
+   * @param emitter The statement emitting expression.
+   */
+  private def instrumented(emitter: => Unit): Unit = {
+    val body = makeScope(emitter)
+    val statement = Instrumented(body, hints.toSeq)
+    emit(statement)
   }
 
   /**
@@ -254,5 +326,5 @@ trait CheckBuilder extends Builder {
    * @param hint The hint to add.
    */
   private def addHint(hint: Hint): Unit =
-    hints = hints :+ hint
+    hints.append(hint)
 }

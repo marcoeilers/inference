@@ -11,7 +11,7 @@ package inference.teacher
 import inference.Names
 import inference.builder.{CheckExtender, Folding}
 import inference.core.{Hypothesis, Instance}
-import inference.input.{Check, Configuration, Cut, Input, LoopCheck, MethodCheck}
+import inference.input._
 import inference.util.ast.{Statements, ValueInfo}
 import inference.util.Namespace
 import viper.silver.ast
@@ -97,68 +97,54 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
 
   override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Method =
     check match {
-      case MethodCheck(original, precondition, postcondition, body) =>
+      case MethodCheck(original, _, _, body) =>
         // instrument body
-        val instrumented = makeDeclaredScope {
-          inhaleInstance(precondition.asInstance)
-          extendStatement(body)
-          exhaleInstance(postcondition.asInstance)
-        }
+        val instrumented = makeDeclaredScope(extendStatement(body))
         // build method based on original
         original.copy(
           pres = Seq.empty,
           posts = Seq.empty,
           body = Some(instrumented)
         )(original.pos, original.info, original.errT)
-      case check@LoopCheck(_, name, invariant, body) =>
+      case LoopCheck(_, name, _, body) =>
         // instrument loop
-        val instrumented = makeDeclaredScope {
-          inhaleInstance(invariant.asInstance)
-          emitInhale(check.condition)
-          extendStatement(body)
-          exhaleInstance(invariant.asInstance)
-        }
+        val instrumented = makeDeclaredScope(extendStatement(body))
         // build method
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
 
-  override protected def extendNonControlStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
+  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
     statement match {
-      case ast.Inhale(ast.PredicateAccessPredicate(predicate, _)) =>
-        // get and inhale instance
-        val instance = input.instance(predicate)
-        inhaleInstance(instance)
-      case ast.Exhale(ast.PredicateAccessPredicate(predicate, _)) =>
-        // get and exhale instance
-        val instance = input.instance(predicate)
-        exhaleInstance(instance)
-      case call@ast.MethodCall(name, arguments, targets) =>
-        val check = input.methodCheck(name)
-        // exhale method precondition (method's precondition was replaced with true)
-        val precondition = check
-          .precondition
-          .asInstance(arguments)
-        exhaleInstance(precondition)
-        // emit method call (to havoc targets)
-        emit(call)
-        // inhale method postcondition (method's postcondition was replaced with true)
-        val postcondition = check
-          .postcondition
-          .asInstance(arguments ++ targets)
-        inhaleInstance(postcondition)
-      case Cut(loop) =>
-        // exhale loop invariant
-        val invariant = loop.invariant.asInstance
-        exhaleInstance(invariant)
-        // havoc written variables
-        val havoc = Statements.makeHavoc(loop.original.writtenVars)
-        emit(havoc)
-        // inhale loop invariant and negated loop condition
-        inhaleInstance(invariant)
-        emitInhale(ast.Not(loop.condition)())
+      case ast.Seqn(statements, _) =>
+        statements.foreach(processInstrumented)
+      case ast.Inhale(expression) =>
+        expression match {
+          case ast.PredicateAccessPredicate(predicate, _) =>
+            // get and inhale instance
+            val instance = input.instance(predicate)
+            inhaleInstance(instance)
+          case condition =>
+            emitInhale(condition)
+        }
+      case ast.Exhale(expression) =>
+        expression match {
+          case ast.PredicateAccessPredicate(predicate, _) =>
+            // get and exhale instance
+            val instance = input.instance(predicate)
+            exhaleInstance(instance)
+          case _ =>
+            ???
+        }
       case other =>
-        emit(other)
+        sys.error(s"Unexpected statement: $other")
     }
+
+  override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {
+    // havoc written variables
+    val written = cut.loop.original.writtenVars
+    val havoc = Statements.makeHavoc(written)
+    emit(havoc)
+  }
 
   /**
    * Inhales the given specification instance.

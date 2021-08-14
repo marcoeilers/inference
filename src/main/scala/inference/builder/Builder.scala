@@ -8,6 +8,7 @@
 
 package inference.builder
 
+import inference.input.{Cut, LoopCheck}
 import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
@@ -195,5 +196,15 @@ trait Builder {
   protected def emitLabel(name: String): Unit = {
     val label = ast.Label(name, Seq.empty)()
     emit(label)
+  }
+
+  /**
+   * Emits a statement cutting out the loop corresponding to the given check.
+   *
+   * @param loop The loop check.
+   */
+  protected def emitCut(loop: LoopCheck): Unit = {
+    val cut = Cut(loop)
+    emit(cut)
   }
 }
