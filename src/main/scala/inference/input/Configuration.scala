@@ -42,6 +42,9 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       name = "useHeuristics",
       descr = "Explicitly forbids the us of annotations")
 
+  val useAnnotations: ScallopOption[Boolean] =
+    useHeuristics.map(!_)
+
   val heuristicsFoldDepth: ScallopOption[Int] =
     opt[Int](
       name = "heuristicsFoldDepth",

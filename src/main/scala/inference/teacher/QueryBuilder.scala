@@ -132,8 +132,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
             // get and exhale instance
             val instance = input.instance(predicate)
             exhaleInstance(instance)
-          case _ =>
-            ???
+          case condition =>
+            emitExhale(condition)
         }
       case other =>
         sys.error(s"Unexpected statement: $other")
@@ -152,7 +152,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
    * @param instance   The instance.
    * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
+  private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
     // get body
     val body = hypothesis.getBody(instance)
     // inhale specification
@@ -164,15 +164,12 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     } else {
       emitInhale(body)
     }
-    // unfold and save
-    if (configuration.useHeuristics()) {
-      val maxDepth = 0
-      unfold(body)(maxDepth, hypothesis)
-    } else {
-      // TODO: Use hints
-      val maxDepth = check.depth(hypothesis)
-      unfold(body)(maxDepth, hypothesis)
-    }
+    // unfold predicate body
+    implicit val maxDepth: Int =
+      if (configuration.useAnnotations()) check.depth(hypothesis)
+      else 0
+    unfold(body)
+    // save state snapshot
     saveSnapshot(instance, exhaled = false)
   }
 
@@ -182,18 +179,19 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
    * @param instance   The instance.
    * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis): Unit = {
-    // get body
-    val body = hypothesis.getBody(instance)
-    // save and fold
+  private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
+    // save state snapshot
     saveSnapshot(instance, exhaled = true)
-    if (configuration.useHeuristics()) {
-      val maxDepth = configuration.heuristicsFoldDepth()
-      fold(body)(maxDepth, hypothesis)
+    // fold predicate body
+    val body = hypothesis.getBody(instance)
+    if (configuration.useAnnotations()) {
+      // fold with hints
+      implicit val maxDepth: Int = check.depth(hypothesis)
+      foldWithHints(body, hints)
     } else {
-      // TODO: Use hints
-      val maxDepth = check.depth(hypothesis)
-      fold(body)(maxDepth, hypothesis)
+      // fold without hints
+      implicit val maxDepth: Int = configuration.heuristicsFoldDepth()
+      fold(body)
     }
     // exhale specification
     // TODO: Exhale existing specification

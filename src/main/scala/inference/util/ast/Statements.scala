@@ -54,4 +54,18 @@ object Statements {
   @inline
   def makeSequence(statements: Seq[ast.Stmt]): ast.Seqn =
     ast.Seqn(statements, Seq.empty)()
+
+  /**
+   * Returns a conditional statement with the given condition, then branch, and else branch.
+   *
+   * @param condition  The condition.
+   * @param thenBranch The then branch.
+   * @param elseBranch The else branch.
+   * @return The conditional statement.
+   */
+  def makeConditional(condition: ast.Exp, thenBranch: ast.Stmt, elseBranch: ast.Stmt): ast.If = {
+    val thenBody = makeSequence(thenBranch)
+    val elseBody = makeSequence(elseBranch)
+    ast.If(condition, thenBody, elseBody)()
+  }
 }
