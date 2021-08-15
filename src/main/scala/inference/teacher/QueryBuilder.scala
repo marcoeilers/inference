@@ -24,13 +24,6 @@ import scala.collection.mutable.ListBuffer
  */
 trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
   /**
-   * Returns the input to the inference.
-   *
-   * @return The input.
-   */
-  protected def input: Input
-
-  /**
    * Returns the configuration.
    *
    * @return The configuration.
@@ -164,7 +157,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     } else {
       emitInhale(body)
     }
-    // unfold predicate body
+    // unfold predicates appearing in specification
     implicit val maxDepth: Int =
       if (configuration.useAnnotations()) check.depth(hypothesis)
       else 0
@@ -182,7 +175,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
     // save state snapshot
     saveSnapshot(instance, exhaled = true)
-    // fold predicate body
+    // fold predicates appearing in specification
     val body = hypothesis.getBody(instance)
     if (configuration.useAnnotations()) {
       // fold with hints
@@ -194,7 +187,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
       fold(body)
     }
     // exhale specification
-    // TODO: Exhale existing specification
     val info = ValueInfo(instance)
     if (configuration.noInlining()) {
       val resource = instance.asResource
