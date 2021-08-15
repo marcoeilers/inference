@@ -56,6 +56,24 @@ object Statements {
     ast.Seqn(statements, Seq.empty)()
 
   /**
+   * Returns the given sequence but with all the undeclared variables declared.
+   *
+   * @param sequence The sequence.
+   * @param ignore   The declarations to ignore.
+   * @return The sequence with no undeclared variables.
+   */
+  def makeDeclared(sequence: ast.Seqn, ignore: Seq[ast.Declaration] = Seq.empty): ast.Seqn = {
+    // collect undeclared variables
+    val undeclared = sequence
+      .undeclLocalVars
+      .map { variable => ast.LocalVarDecl(variable.name, variable.typ)() }
+      .diff(ignore)
+    // declare undeclared variables
+    val declarations = sequence.scopedDecls ++ undeclared
+    sequence.copy(scopedDecls = declarations)(sequence.pos, sequence.info, sequence.errT)
+  }
+
+  /**
    * Returns a conditional statement with the given condition, then branch, and else branch.
    *
    * @param condition  The condition.

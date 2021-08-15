@@ -11,6 +11,7 @@ package inference.builder
 import inference.Names
 import inference.core.Hypothesis
 import inference.input.{Check, Configuration, Cut, Hint, Input}
+import inference.util.ast.Statements
 import viper.silver.ast
 
 /**
@@ -94,7 +95,10 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
     val precondition = hypothesis.getBody(check.precondition.asInstance)
     val postcondition = hypothesis.getBody(check.postcondition.asInstance)
     // extend method body
-    val body = extendCheck(check)
+    val body = {
+      val extended = extendCheck(check)
+      Statements.makeDeclared(extended, method.scopedDecls)
+    }
     // update method
     method.copy(
       pres = Seq(precondition),
@@ -152,7 +156,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
           case _ => // do nothing
         }
       case other =>
-        sys.error(s"Unexpected statement: $other")
+        emit(other)
     }
 
   override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {

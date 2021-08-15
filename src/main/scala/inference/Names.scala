@@ -30,9 +30,9 @@ object Names {
   val snapshot = "s"
 
   /**
-   * The prefix used to generate names for variables used to save permission values.
+   * The prefix used to generate names for auxiliary variables.
    */
-  val permission = "p"
+  val auxiliary = "t"
 
   /**
    * The name used for the recursive predicate.

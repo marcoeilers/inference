@@ -276,10 +276,28 @@ trait CheckBuilder extends Builder {
           addHint(hint)
         } else {
           // instrument method call
-          val (precondition, postcondition) = specifications(name)
-          instrumented(emitExhale(precondition.asInstance(arguments).asResource))
-          emit(call)
-          instrumented(emitInhale(postcondition.asInstance(arguments).asResource))
+          instrumented {
+            // make sure all arguments are variables
+            val variables = arguments.map {
+              case variable: ast.LocalVar =>
+                variable
+              case access: ast.FieldAccess =>
+                // save value using variable
+                val variable = save(access)
+                // add hint
+                val hint = Hint(Names.downAnnotation, variable)
+                addHint(hint)
+                // return variable
+                variable
+              case other =>
+                sys.error(s"Unexpected argument: $other")
+            }
+            // exhale precondition and inhale postcondition
+            val (precondition, postcondition) = specifications(name)
+            emitExhale(precondition.asInstance(variables).asResource)
+            emit(call)
+            emitInhale(postcondition.asInstance(variables).asResource)
+          }
         }
       case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
         // instrument inhale
@@ -319,6 +337,21 @@ trait CheckBuilder extends Builder {
     val body = makeScope(emitter)
     val statement = Instrumented(body, hints.toSeq)
     emit(statement)
+  }
+
+  /**
+   * Saves the value of the given expression by assigning it to a local variable.
+   *
+   * @param expression The expression to save.
+   * @return The local variable.
+   */
+  private def save(expression: ast.Exp): ast.LocalVar = {
+    // create variable
+    val name = namespace.uniqueIdentifier(Names.auxiliary)
+    val variable = ast.LocalVar(name, expression.typ)()
+    // emit assignment and return variable
+    emitAssignment(variable, expression)
+    variable
   }
 
   /**

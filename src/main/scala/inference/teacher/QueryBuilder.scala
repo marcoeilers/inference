@@ -92,7 +92,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     check match {
       case MethodCheck(original, _, _, body) =>
         // instrument body
-        val instrumented = makeDeclaredScope(extendStatement(body))
+        val instrumented = {
+          val extended = extendSequence(body)
+          Statements.makeDeclared(extended, original.scopedDecls)
+        }
         // build method based on original
         original.copy(
           pres = Seq.empty,
@@ -101,7 +104,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
         )(original.pos, original.info, original.errT)
       case LoopCheck(_, name, _, body) =>
         // instrument loop
-        val instrumented = makeDeclaredScope(extendStatement(body))
+        val instrumented = {
+          val extended = extendSequence(body)
+          Statements.makeDeclared(extended)
+        }
         // build method
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
@@ -129,7 +135,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
             emitExhale(condition)
         }
       case other =>
-        sys.error(s"Unexpected statement: $other")
+        emit(other)
     }
 
   override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {
