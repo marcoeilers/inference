@@ -6,6 +6,7 @@ method traverse(x: Ref)
     var c: Ref
     c := x
     while (c != null) {
+        __down__(c)
         c := c.next
     }
 }
