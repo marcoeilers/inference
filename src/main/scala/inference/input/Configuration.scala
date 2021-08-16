@@ -40,10 +40,15 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val useHeuristics: ScallopOption[Boolean] =
     opt[Boolean](
       name = "useHeuristics",
-      descr = "Explicitly forbids the us of annotations")
+      descr = "Explicitly forbids the us of hints")
 
-  val useAnnotations: ScallopOption[Boolean] =
+  val useHints: ScallopOption[Boolean] =
     useHeuristics.map(!_)
+
+  val verifyWithHints: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "verifyWithHints",
+      descr = "Enforces verification with hints")
 
   val heuristicsFoldDepth: ScallopOption[Int] =
     opt[Int](

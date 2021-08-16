@@ -40,31 +40,31 @@ object Names {
   val recursive = "P"
 
   /**
-   * The name of the down annotation.
+   * The name of the down hint.
    */
-  val downAnnotation = "__down__"
+  val downHint = "__down__"
 
   /**
-   * The name of the up annotation.
+   * The name of the up hint.
    */
-  val upAnnotation = "__up__"
+  val upHint = "__up__"
 
   /**
-   * All annotation names.
+   * All hint names.
    */
-  val annotations = Seq(
-    downAnnotation,
-    upAnnotation
+  val hints = Seq(
+    downHint,
+    upHint
   )
 
   /**
-   * Returns whether the given name corresponds to an annotation.
+   * Returns whether the given name corresponds to a hint.
    *
    * @param name The name to check.
-   * @return True if the name corresponds to an annotation.
+   * @return True if the name corresponds to a hint.
    */
-  def isAnnotation(name: String): Boolean =
-    annotations.contains(name)
+  def isHint(name: String): Boolean =
+    hints.contains(name)
 
   /**
    * Returns the variable name used for the activation of a clause.

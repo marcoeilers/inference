@@ -84,11 +84,11 @@ object Input extends CheckBuilder {
    */
   private def beforeResolving(input: PProgram): PProgram = {
     val methods = {
-      // create dummy method for each annotation
+      // create dummy method for each hint
       val dummies = Names
-        .annotations
-        .map { annotation =>
-          val name = PIdnDef(annotation)()
+        .hints
+        .map { hint =>
+          val name = PIdnDef(hint)()
           val arguments = Seq(PFormalArgDecl(PIdnDef("x")(), TypeHelper.Ref)())
           PMethod(name, arguments, Seq.empty, Seq.empty, Seq.empty, None)()
         }
@@ -108,7 +108,7 @@ object Input extends CheckBuilder {
     // filter out dummy methods
     val methods = input
       .methods
-      .filterNot { method => Names.isAnnotation(method.name) }
+      .filterNot { method => Names.isHint(method.name) }
     // update input program
     input.copy(methods = methods)(input.pos, input.info, input.errT)
   }

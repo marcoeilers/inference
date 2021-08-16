@@ -13,8 +13,6 @@ import inference.input.Input
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier
 
-import scala.annotation.tailrec
-
 /**
  * An abstract inference.
  */

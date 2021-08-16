@@ -14,26 +14,26 @@ import viper.silver.ast
 /**
  * A folding hint.
  *
- * @param name       The name (corresponds to an annotation).
+ * @param name       The name of the hint.
  * @param argument   The argument for which the hint is meant.
  * @param conditions The conditions under which the hint is relevant.
  */
 case class Hint(name: String, argument: ast.Exp, conditions: Seq[ast.Exp] = Seq.empty) {
   /**
-   * Returns true if this hint corresponds to a down annotation.
+   * Returns ture if this is a down hint.
    *
-   * @return True if this hint corresponds to a down annotation.
+   * @return True if this is a down hint.
    */
   def isDown: Boolean =
-    name == Names.downAnnotation
+    name == Names.downHint
 
   /**
-   * Returns true if this hint corresponds to an up annotation.
+   * Returns true if this is an up hint.
    *
-   * @return True if this hint corresponds to an up annotation.
+   * @return True if this is an up hint.
    */
   def isUp: Boolean =
-    name == Names.upAnnotation
+    name == Names.upHint
 
   /**
    * Returns the hint with the given condition added.

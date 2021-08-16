@@ -55,7 +55,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     val checks = input.checks
     // fields
     val fields = {
-      val extra = if (configuration.useHeuristics()) Seq(magic) else Seq.empty
+      val extra = if (configuration.useHints()) Seq.empty else Seq(magic)
       original.fields ++ extra
     }
     // predicates
@@ -165,7 +165,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     }
     // unfold predicates appearing in specification
     implicit val maxDepth: Int =
-      if (configuration.useAnnotations()) check.depth(hypothesis)
+      if (configuration.useHints()) check.depth(hypothesis)
       else 0
     unfold(body)
     // save state snapshot
@@ -183,7 +183,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     saveSnapshot(instance, exhaled = true)
     // fold predicates appearing in specification
     val body = hypothesis.getBody(instance)
-    if (configuration.useAnnotations()) {
+    if (configuration.useHints()) {
       // fold with hints
       implicit val maxDepth: Int = check.depth(hypothesis)
       foldWithHints(body, hints)

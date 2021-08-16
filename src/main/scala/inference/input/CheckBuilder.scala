@@ -269,8 +269,8 @@ trait CheckBuilder extends Builder {
           emitInhale(ast.Not(condition)())
         }
       case call@ast.MethodCall(name, arguments, _) =>
-        if (Names.isAnnotation(name)) {
-          // process annotation
+        if (Names.isHint(name)) {
+          // process hint
           val argument = arguments.head
           val hint = Hint(name, argument)
           addHint(hint)
@@ -285,7 +285,7 @@ trait CheckBuilder extends Builder {
                 // save value using variable
                 val variable = save(access)
                 // add hint
-                val hint = Hint(Names.downAnnotation, variable)
+                val hint = Hint(Names.downHint, variable)
                 addHint(hint)
                 // return variable
                 variable

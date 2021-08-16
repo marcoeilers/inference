@@ -41,8 +41,8 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
     // fields
     val fields = {
       val extra =
-        if (configuration.useHeuristics()) Seq(magic)
-        else Seq.empty
+        if (configuration.useHints() || configuration.verifyWithHints()) Seq.empty
+        else Seq(magic)
       original.fields ++ extra
     }
     // predicates
@@ -125,7 +125,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
             } else {
               // unfold predicates appearing in specification
               implicit val maxDepth: Int =
-                if (configuration.useAnnotations()) check.depth(hypothesis)
+                if (configuration.useHints() || configuration.verifyWithHints()) check.depth(hypothesis)
                 else 0
               val body = hypothesis.getBody(instance)
               unfold(body)
@@ -143,7 +143,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
             } else {
               // fold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              if (configuration.useAnnotations()) {
+              if (configuration.useHints() || configuration.verifyWithHints()) {
                 // fold with hints
                 implicit val maxDepth: Int = check.depth(hypothesis)
                 foldWithHints(body, hints)
