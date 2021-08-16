@@ -19,7 +19,7 @@ import viper.silver.ast
  *
  * @param input The input.
  */
-class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Folding {
+class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Folding with Simplification {
   /**
    * Returns the configuration.
    *
@@ -122,7 +122,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
               // inhale and unfold predicate
               emitInhale(resource)
               emitUnfold(resource)
-            } else {
+            } else simplified {
               // unfold predicates appearing in specification
               implicit val maxDepth: Int =
                 if (configuration.useHints() || configuration.verifyWithHints()) check.depth(hypothesis)
@@ -140,7 +140,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
               // fold and exhale predicate
               emitFold(resource)
               emitExhale(resource)
-            } else {
+            } else simplified {
               // fold predicates appearing in specification
               val body = hypothesis.getBody(instance)
               if (configuration.useHints() || configuration.verifyWithHints()) {
