@@ -9,7 +9,7 @@
 package inference.teacher
 
 import inference.Names
-import inference.builder.{CheckExtender, Folding}
+import inference.builder.CheckExtender
 import inference.core.{Hypothesis, Instance}
 import inference.input._
 import inference.util.ast.{Statements, ValueInfo}
@@ -22,7 +22,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * A query builder mixin.
  */
-trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
+trait QueryBuilder extends CheckExtender[ast.Method] {
   /**
    * Returns the configuration.
    *
@@ -30,6 +30,9 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
    */
   private def configuration: Configuration =
     input.configuration
+
+  override protected def useHints: Boolean =
+    configuration.useHints()
 
   /**
    * The namespace used to generate unique identifiers.
@@ -170,10 +173,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
-    // get body
-    val body = hypothesis.getBody(instance)
     // inhale specification
-    // TODO: Inhale existing specification
+    val body = hypothesis.getBody(instance)
     if (configuration.noInlining()) {
       val resource = instance.asResource
       emitInhale(resource)
@@ -182,9 +183,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
       emitInhale(body)
     }
     // unfold predicates appearing in specification
-    implicit val maxDepth: Int =
-      if (configuration.useHints()) check.depth(hypothesis)
-      else 0
     unfold(body)
     // save state snapshot
     saveSnapshot(instance, exhaled = false)
@@ -201,15 +199,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
     saveSnapshot(instance, exhaled = true)
     // fold predicates appearing in specification
     val body = hypothesis.getBody(instance)
-    if (configuration.useHints()) {
-      // fold with hints
-      implicit val maxDepth: Int = check.depth(hypothesis)
-      foldWithHints(body, hints)
-    } else {
-      // fold without hints
-      implicit val maxDepth: Int = configuration.heuristicsFoldDepth()
-      fold(body)
-    }
+    fold(body)
     // exhale specification
     val info = ValueInfo(instance)
     if (configuration.noInlining()) {

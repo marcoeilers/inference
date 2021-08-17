@@ -19,7 +19,7 @@ import viper.silver.ast
  *
  * @param input The input.
  */
-class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Folding with Simplification {
+class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
   /**
    * Returns the configuration.
    *
@@ -27,6 +27,9 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
    */
   private def configuration: Configuration =
     input.configuration
+
+  override protected def useHints: Boolean =
+    configuration.useHints() || configuration.verifyWithHints()
 
   /**
    * Extends the input program with specifications corresponding to the given hypothesis.
@@ -124,9 +127,6 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
               emitUnfold(resource)
             } else simplified {
               // unfold predicates appearing in specification
-              implicit val maxDepth: Int =
-                if (configuration.useHints() || configuration.verifyWithHints()) check.depth(hypothesis)
-                else 0
               val body = hypothesis.getBody(instance)
               unfold(body)
             }
@@ -143,15 +143,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] with Fol
             } else simplified {
               // fold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              if (configuration.useHints() || configuration.verifyWithHints()) {
-                // fold with hints
-                implicit val maxDepth: Int = check.depth(hypothesis)
-                foldWithHints(body, hints)
-              } else {
-                // fold without hints
-                implicit val maxDepth: Int = configuration.heuristicsFoldDepth()
-                fold(body)
-              }
+              fold(body)
             }
           case _ => // do nothing
         }

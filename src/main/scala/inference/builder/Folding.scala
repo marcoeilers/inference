@@ -9,20 +9,81 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Hint, Input}
+import inference.input.{Check, Configuration, Hint, Input}
 import inference.util.ast.{Expressions, Statements, ValueInfo}
 import viper.silver.ast
 
 /**
  * Mixin providing methods to fold and unfold specifications.
  */
-trait Folding extends Builder {
+trait Folding extends Builder with Simplification {
   /**
    * Returns the input.
    *
    * @return The input.
    */
   protected def input: Input
+
+  /**
+   * Returns the check currently being processed.
+   *
+   * @return The current check.
+   */
+  protected def check: Check
+
+  /**
+   * Returns the configuration.
+   *
+   * @return The configuration.
+   */
+  private def configuration: Configuration =
+    input.configuration
+
+  /**
+   * Returns whether hints should be used or not.
+   *
+   * @return True if hints should be used.
+   */
+  protected def useHints: Boolean
+
+  /**
+   * Unfolds the given expression.
+   *
+   * @param expression The expression to unfold.
+   * @param simplify   The flag indicating whether the emitted code should be simplified.
+   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hints      The implicitly passed hints.
+   */
+  protected def unfold(expression: ast.Exp, simplify: Boolean = false)
+                      (implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
+    if (simplify) simplified(unfold(expression))
+    else {
+      implicit val maxDepth: Int =
+        if (useHints) check.depth(hypothesis)
+        else 0
+      unfoldWithoutHints(expression)
+    }
+
+  /**
+   * Folds the given expression.
+   *
+   * @param expression The expression to fold.
+   * @param simplify   The flag indicating whether the emitted code should be simplified.
+   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hints      The implicitly passed hints.
+   */
+  protected def fold(expression: ast.Exp, simplify: Boolean = false)
+                    (implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
+    if (simplify) simplified(fold(expression))
+    else if (useHints) {
+      // fold with hints
+      implicit val maxDepth: Int = check.depth(hypothesis)
+      foldWithHints(expression, hints)
+    } else {
+      // fold without hints
+      implicit val maxDepth: Int = configuration.heuristicsFoldDepth()
+      foldWithoutHints(expression)
+    }
 
   /**
    * Unfolds the given expression up to the specified maximal depth.
@@ -33,15 +94,15 @@ trait Folding extends Builder {
    * @param hypothesis The implicitly passed current hypothesis.
    * @param default    The implicitly passed default action applied to leaf expressions.
    */
-  protected def unfold(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
-                      (implicit maxDepth: Int, hypothesis: Hypothesis,
-                       default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
+  private def unfoldWithoutHints(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
+                                (implicit maxDepth: Int, hypothesis: Hypothesis,
+                                 default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     expression match {
       case ast.And(left, right) =>
-        unfold(left)
-        unfold(right)
+        unfoldWithoutHints(left)
+        unfoldWithoutHints(right)
       case ast.Implies(guard, guarded) =>
-        unfold(guarded, guards :+ guard)
+        unfoldWithoutHints(guarded, guards :+ guard)
       case resource@ast.PredicateAccessPredicate(predicate, _) =>
         // unfold predicate if maximal depth is not reached yet
         val depth = Expressions.getDepth(predicate.args.head)
@@ -53,7 +114,7 @@ trait Folding extends Builder {
             // recursively unfold predicates appearing in body
             val instance = input.instance(predicate)
             val body = hypothesis.getBody(instance)
-            unfold(body)
+            unfoldWithoutHints(body)
           }
           // conditionally unfold
           emitConditional(guards, unfolds)
@@ -73,9 +134,9 @@ trait Folding extends Builder {
    * @param hypothesis The implicitly passed current hypothesis.
    * @param default    The implicitly passed default action applied to leaf expressions.
    */
-  protected def foldWithHints(expression: ast.Exp, hints: Seq[Hint])
-                             (implicit maxDepth: Int, hypothesis: Hypothesis,
-                              default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit = {
+  private def foldWithHints(expression: ast.Exp, hints: Seq[Hint])
+                           (implicit maxDepth: Int, hypothesis: Hypothesis,
+                            default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit = {
     /**
      * Helper method that handles the start argument of the predicate instances appearing in the given expression.
      *
@@ -91,12 +152,12 @@ trait Folding extends Builder {
           handleStart(guarded, guards :+ guard)
         case predicate: ast.PredicateAccessPredicate =>
           val start = predicate.loc.args.head
-          val without: ast.Stmt = makeScope(fold(predicate))
+          val without: ast.Stmt = makeScope(foldWithoutHints(predicate))
           val body = hints.foldRight(without) {
             case (hint, result) =>
               // conditionally adapt fold depth
               val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
-              val adapted = makeScope(fold(predicate)(depth, hypothesis, default))
+              val adapted = makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
               // c under condition for hint relevance
               val condition = {
                 val equality = ast.EqCmp(start, hint.argument)()
@@ -106,11 +167,11 @@ trait Folding extends Builder {
           }
           emitConditional(guards, body)
         case other =>
-          fold(other, guards)
+          foldWithoutHints(other, guards)
       }
 
     // fold
-    if (hints.isEmpty) fold(expression)
+    if (hints.isEmpty) foldWithoutHints(expression)
     else handleStart(expression)
   }
 
@@ -125,15 +186,15 @@ trait Folding extends Builder {
    * @param hypothesis The implicitly passed current hypothesis.
    * @param default    The implicitly passed default action applied to leaf expressions.
    */
-  protected def fold(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
-                    (implicit maxDepth: Int, hypothesis: Hypothesis,
-                     default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
+  private def foldWithoutHints(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty)
+                              (implicit maxDepth: Int, hypothesis: Hypothesis,
+                               default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     expression match {
       case ast.And(left, right) =>
-        fold(left)
-        fold(right)
+        foldWithoutHints(left)
+        foldWithoutHints(right)
       case ast.Implies(guard, guarded) =>
-        fold(guarded, guards :+ guard)
+        foldWithoutHints(guarded, guards :+ guard)
       case resource@ast.PredicateAccessPredicate(predicate, _) =>
         // fold predicate if maximal depth is not reached yet
         val depth = Expressions.getDepth(predicate.args.head)
@@ -143,7 +204,7 @@ trait Folding extends Builder {
             // recursively fold predicates appearing in body
             val instance = input.instance(predicate)
             val body = hypothesis.getBody(instance)
-            fold(body)
+            foldWithoutHints(body)
             // fold predicate
             val info = ValueInfo(instance)
             emitFold(resource, info)

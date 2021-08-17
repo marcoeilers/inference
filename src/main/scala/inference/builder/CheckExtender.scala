@@ -17,18 +17,13 @@ import viper.silver.ast
  *
  * @tparam R The result type.
  */
-trait CheckExtender[R] extends Builder {
+trait CheckExtender[+R] extends Builder with Folding {
   /**
    * The current check.
    */
   private var current: Check = _
 
-  /**
-   * Returns the current check.
-   *
-   * @return The current check.
-   */
-  protected def check: Check =
+  override protected def check: Check =
     current
 
   /**
