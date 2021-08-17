@@ -144,6 +144,15 @@ class Input(val program: ast.Program,
       .toMap
 
   /**
+   * Returns the checks as a sequence of batches that are meant to be checked as a group.
+   *
+   * @return The sequence of batches.
+   */
+  def batches: Seq[Seq[Check]] =
+    if (configuration.noBatching()) checks.map(Seq(_))
+    else Seq(checks)
+
+  /**
    * Returns the specification placeholder with the given name.
    *
    * @param name The name of the specification placeholder.

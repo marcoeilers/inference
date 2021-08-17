@@ -42,17 +42,17 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
   private var query: PartialQuery = _
 
   /**
-   * Builds a query that checks the given hypothesis.
+   * Builds a query based on the given batch of checks and hypothesis.
    *
+   * @param batch      The batch of checks.
    * @param hypothesis The hypothesis to check.
    * @return The query.
    */
-  protected def buildQuery(hypothesis: Hypothesis): Query = {
+  protected def buildQuery(batch: Seq[Check], hypothesis: Hypothesis): Query = {
     // reset
     reset()
-    // get original program and checks
+    // get original program
     val original = input.program
-    val checks = input.checks
     // fields
     val fields = {
       val extra = if (configuration.useHints()) Seq.empty else Seq(magic)
@@ -67,9 +67,27 @@ trait QueryBuilder extends CheckExtender[ast.Method] with Folding {
       // get predicates
       placeholders.map(hypothesis.getPredicate)
     }
-    // instrument methods
-    implicit val current: Hypothesis = hypothesis
-    val methods = checks.map(extendCheck)
+    // methods
+    val methods = {
+      // dummy methods fo
+      val dummies = {
+        val names = batch.map(_.name).toSet
+        original
+          .methods
+          .flatMap { method =>
+            if (names.contains(method.name)) None
+            else {
+              val dummy = method.copy(body = None)(method.pos, method.info, method.errT)
+              Some(dummy)
+            }
+          }
+      }
+      // instrument methods
+      implicit val current: Hypothesis = hypothesis
+      val extended = batch.map(extendCheck)
+      // combine dummy and instrumented methods
+      dummies ++ extended
+    }
     // instrument program
     val program = original.copy(
       fields = fields,

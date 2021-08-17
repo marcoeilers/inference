@@ -19,10 +19,13 @@ import viper.silver.verifier.{Failure, Success, VerificationError, Verifier}
  * @param verifier The verifier used to check the hypotheses.
  */
 class Teacher(protected val input: Input, verifier: Verifier) extends AbstractTeacher with QueryBuilder with SampleExtractor {
-  override def check(hypothesis: Hypothesis): Seq[Sample] = {
-    val query = buildQuery(hypothesis)
-    execute(query, error => extractSample(query, error))
-  }
+  override def check(hypothesis: Hypothesis): Seq[Sample] =
+    input
+      .batches
+      .flatMap { batch =>
+        val query = buildQuery(batch, hypothesis)
+        execute(query, error => extractSample(query, error))
+      }
 
   /**
    * Executes the given query and uses the given sample extraction function to generate samples in the case of an

@@ -34,13 +34,13 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val maxLength: ScallopOption[Int] =
     opt[Int](
       name = "maxLength",
-      descr = "The maximal length of access paths that may appear in specifications",
+      descr = "The maximal length of access paths that may appear in specifications.",
       default = Some(2))
 
   val useHeuristics: ScallopOption[Boolean] =
     opt[Boolean](
       name = "useHeuristics",
-      descr = "Explicitly forbids the us of hints")
+      descr = "Explicitly forbids the us of hints.")
 
   val useHints: ScallopOption[Boolean] =
     useHeuristics.map(!_)
@@ -48,12 +48,13 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val verifyWithHints: ScallopOption[Boolean] =
     opt[Boolean](
       name = "verifyWithHints",
-      descr = "Enforces verification with hints")
+      descr = "Enforces verification with hints.",
+      hidden = true)
 
   val heuristicsFoldDepth: ScallopOption[Int] =
     opt[Int](
       name = "heuristicsFoldDepth",
-      descr = "The depth up to which predicates are statically folded when the heuristics is enabled",
+      descr = "The depth up to which predicates are statically folded when the heuristics is enabled.",
       default = Some(1))
 
   val noRecursion: ScallopOption[Boolean] =
@@ -69,10 +70,16 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       name = "useSegments",
       descr = "Enables the use of predicate segments.")
 
+  val noBatching: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "noBatching",
+      descr = "Disables batch verification of checks.",
+      hidden = true)
+
   val noInlining: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noInlining",
-      descr = "Disables specification inlining",
+      descr = "Disables specification inlining.",
       hidden = true)
 
   val file: ScallopOption[String] =
