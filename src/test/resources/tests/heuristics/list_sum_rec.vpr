@@ -1,0 +1,11 @@
+field val: Int
+field next: Ref
+
+method sum(x: Ref) returns (r: Int)
+{
+    if (x != null)
+    {
+        r := sum(x.next)
+        r := r + x.val
+    }
+}

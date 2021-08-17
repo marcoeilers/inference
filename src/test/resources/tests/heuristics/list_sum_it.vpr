@@ -1,0 +1,15 @@
+field val: Int
+field next: Ref
+
+method sum(x: Ref) returns (r: Int)
+{
+    var c: Ref
+    c := x
+    r := 0
+    while (c != null)
+    {
+        __down__(c)
+        r := r + c.val
+        c := c.next
+    }
+}
