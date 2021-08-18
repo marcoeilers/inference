@@ -200,3 +200,20 @@ case class SetAbstraction(locations: Set[ast.LocationAccess]) extends ResourceAb
   override def toString: String =
     locations.mkString("{", ",", "}")
 }
+
+case class DebugAbstraction(actual: ResourceAbstraction, dummy: ResourceAbstraction) extends ResourceAbstraction {
+  override def locations: Set[ast.LocationAccess] =
+    actual.locations
+
+  override def toString: String =
+    actual.toString
+}
+
+trait DummyAbstraction extends ResourceAbstraction {
+  override def locations: Set[ast.LocationAccess] =
+    sys.error("Unsupported operation.")
+}
+
+case class FieldAbstraction(receiver: String, field: ast.Field) extends DummyAbstraction
+
+case class PredicateAbstraction(name: String, arguments: Seq[String]) extends DummyAbstraction

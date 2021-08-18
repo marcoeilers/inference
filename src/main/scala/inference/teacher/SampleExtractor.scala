@@ -118,7 +118,18 @@ trait SampleExtractor {
       // get placeholder and create abstractions
       val placeholder = snapshot.placeholder
       val state = SnapshotAbstraction(snapshot)
-      val resource = SetAbstraction(locations)
+      val resource = {
+        val actual = SetAbstraction(locations)
+        val dummy = offending match {
+          case ast.FieldAccess(receiver, field) =>
+            val reference = failState.evaluateReference(receiver)
+            FieldAbstraction(reference, field)
+          case ast.PredicateAccess(arguments, name) =>
+            val references = arguments.map(failState.evaluateReference)
+            PredicateAbstraction(name, references)
+        }
+        DebugAbstraction(actual, dummy)
+      }
       // create record
       if (query.isExhaled(snapshot.label)) {
         ExhaledRecord(placeholder, state, resource, amount)
