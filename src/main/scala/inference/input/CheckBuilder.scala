@@ -21,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 /**
  * A mixin providing check building capabilities.
  */
-trait CheckBuilder extends Builder {
+trait CheckBuilder extends Builder with Atoms {
   /**
    * The namespace used to generate unique identifiers.
    */
@@ -115,15 +115,7 @@ trait CheckBuilder extends Builder {
       case Kind.Predicate => name
     }
     // create atomic predicates
-    val atoms = {
-      val references = parameters
-        .filter(_.isSubtype(ast.Ref))
-        .map(_.localVar)
-      Collections
-        .pairs(references)
-        .map { case (first, second) => ast.NeCmp(first, second)() }
-        .toSeq
-    }
+    val atoms = atomsFromParameters(parameters)
     // create placeholder
     val placeholder = Placeholder(unique, kind, parameters, atoms, existing)
     placeholders.append(placeholder)
