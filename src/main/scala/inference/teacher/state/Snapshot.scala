@@ -71,6 +71,15 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
   }
 
   /**
+   * Lazily computed reachability map that also includes null.
+   */
+  private lazy val nullableReachability = {
+    val literal = ast.NullLit()()
+    val value = state.evaluateReference(literal)
+    SetMap.add(reachability, value, literal)
+  }
+
+  /**
    * Returns the label of the state snapshot.
    *
    * @return The label.
@@ -92,7 +101,7 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
    * @return The partitions.
    */
   def partitions: Iterable[Set[ast.Exp]] =
-    reachability.map { case (_, set) => set }
+    nullableReachability.map { case (_, set) => set }
 
   override def toString: String =
     instance.toString
