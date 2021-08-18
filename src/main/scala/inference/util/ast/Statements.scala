@@ -25,6 +25,20 @@ object Statements {
   }
 
   /**
+   * Returns whether the given statement is guaranteed to be equivalent to a skip statement.
+   *
+   * @param statement The statement.
+   * @return True if the statement is equivalent to a skip statement.
+   */
+  def isSkip(statement: ast.Stmt): Boolean =
+    statement match {
+      case ast.Seqn(statements, _) =>
+        statements.forall(isSkip)
+      case _ =>
+        false
+    }
+
+  /**
    * Returns a skip statement.
    *
    * @return The skip statement.
