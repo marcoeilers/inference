@@ -257,9 +257,10 @@ trait HypothesisSolver {
     // get guard map and state abstraction
     val name = record.placeholder.name
     val guardMap = guardMaps.getOrElse(name, Map.empty)
-    val abstraction = record.abstraction
+    val state = record.state
     // encode options
     record
+      .resource
       .locations
       .flatMap { location =>
         val guards = guardMap(location)
@@ -267,7 +268,7 @@ trait HypothesisSolver {
           val conjuncts = sequence
             .map {
               case ResourceGuard(guardId, atoms) =>
-                val values = abstraction.evaluate(atoms)
+                val values = state.evaluate(atoms)
                 encodeState(guardId, values, default)
               case ChoiceGuard(_, _) =>
                 // TODO: Implement me.

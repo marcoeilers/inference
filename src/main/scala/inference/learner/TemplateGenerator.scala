@@ -45,8 +45,10 @@ trait TemplateGenerator extends AbstractLearner {
       .records
       .foreach { record =>
         val placeholder = record.placeholder
-        val locations = record.locations
-        locations.foreach { location => addLocation(placeholder, location) }
+        record
+          .resource
+          .locations
+          .foreach { location => addLocation(placeholder, location) }
       }
   }
 

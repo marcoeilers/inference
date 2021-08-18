@@ -115,14 +115,15 @@ trait SampleExtractor {
           evaluatePermission(actual, instance, state, hypothesis)
         }
         .getOrElse(0)
-      // get placeholder and create abstraction
+      // get placeholder and create abstractions
       val placeholder = snapshot.placeholder
-      val abstraction = SnapshotAbstraction(snapshot)
+      val state = SnapshotAbstraction(snapshot)
+      val resource = SetAbstraction(locations)
       // create record
       if (query.isExhaled(snapshot.label)) {
-        ExhaledRecord(placeholder, abstraction, locations, amount)
+        ExhaledRecord(placeholder, state, resource, amount)
       } else {
-        InhaledRecord(placeholder, abstraction, locations, amount)
+        InhaledRecord(placeholder, state, resource, amount)
       }
     }
 

@@ -86,14 +86,14 @@ sealed trait Record {
    *
    * @return The state abstraction.
    */
-  def abstraction: Abstraction
+  def state: StateAbstraction
 
   /**
-   * Returns the set of locations that can be used to represent the offending resource.
+   * Returns the resource abstraction.
    *
-   * @return The set of locations referring to the offending resource.
+   * @return The resource abstraction
    */
-  def locations: Set[ast.LocationAccess]
+  def resource: ResourceAbstraction
 
   /**
    * Returns the permission difference.
@@ -107,38 +107,38 @@ sealed trait Record {
  * A record representing a data point corresponding to an inhaled state snapshot.
  *
  * @param placeholder See [[Record.placeholder]].
- * @param abstraction See [[Record.abstraction]].
- * @param locations   See [[Record.locations]].
+ * @param state       See [[Record.state]].
+ * @param resource    See [[Record.resource]].
  * @param amount      The permission amount (i.e. absolute value of permission difference).
  */
-case class InhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
+case class InhaledRecord(placeholder: Placeholder, state: StateAbstraction, resource: ResourceAbstraction, amount: Int) extends Record {
   override def delta: Int =
     amount
 
   override def toString: String =
-    s"inhale@${placeholder.name}: $abstraction -> ${locations.mkString("{", ",", "}")}"
+    s"inhale@${placeholder.name}: $state -> $resource"
 }
 
 /**
  * A record representing a data point corresponding to an exhaled state snapshot.
  *
  * @param placeholder See [[Record.placeholder]].
- * @param abstraction See [[Record.abstraction]].
- * @param locations   See [[Record.locations]].
+ * @param state       See [[Record.state]].
+ * @param resource    See [[Record.resource]].
  * @param amount      The permission amount (i.e. absolute value of permission difference).
  */
-case class ExhaledRecord(placeholder: Placeholder, abstraction: Abstraction, locations: Set[ast.LocationAccess], amount: Int) extends Record {
+case class ExhaledRecord(placeholder: Placeholder, state: StateAbstraction, resource: ResourceAbstraction, amount: Int) extends Record {
   override def delta: Int =
     -amount
 
   override def toString: String =
-    s"exhale@${placeholder.name}: $abstraction -> ${locations.mkString("{", ",", "}")}"
+    s"exhale@${placeholder.name}: $state -> $resource"
 }
 
 /**
  * A state abstraction.
  */
-trait Abstraction {
+sealed trait StateAbstraction {
   /**
    * Evaluates the given atomic predicate in the abstract state.
    *
@@ -162,7 +162,7 @@ trait Abstraction {
  *
  * @param snapshot The snapshot.
  */
-case class SnapshotAbstraction(snapshot: Snapshot) extends Abstraction {
+case class SnapshotAbstraction(snapshot: Snapshot) extends StateAbstraction {
   override def evaluate(atom: ast.Exp): Option[Boolean] = {
     // TODO: Can the value ever be unknown?
     val actual = snapshot.instance.instantiate(atom)
@@ -177,4 +177,26 @@ case class SnapshotAbstraction(snapshot: Snapshot) extends Abstraction {
       .map(_.mkString("="))
       .mkString("≠")
   }
+}
+
+/**
+ * A resource abstraction.
+ */
+sealed trait ResourceAbstraction {
+  /**
+   * Returns the set of locations that can be used to represent the offending resource.
+   *
+   * @return The set of locations.
+   */
+  def locations: Set[ast.LocationAccess]
+}
+
+/**
+ * A resource abstracted by a set of locations that can be used to represent the offending resource.
+ *
+ * @param locations The locations.
+ */
+case class SetAbstraction(locations: Set[ast.LocationAccess]) extends ResourceAbstraction {
+  override def toString: String =
+    locations.mkString("{", ",", "}")
 }
