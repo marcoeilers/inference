@@ -84,6 +84,15 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
     expression match {
       case binary@ast.BinExp(left, right) =>
         left.typ match {
+          case ast.Bool =>
+            // evaluate operands
+            val leftValue = evaluateBoolean(left)
+            val rightValue = evaluateBoolean(right)
+            // reduce operands
+            binary match {
+              case _: ast.And => leftValue && rightValue
+              case _ => sys.error(s"Unexpected binary expression: $binary")
+            }
           case ast.Ref =>
             // evaluate operands
             val leftValue = evaluateReference(left)
