@@ -82,6 +82,15 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Disables specification inlining.",
       hidden = true)
 
+  val noBranching: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "noBranching",
+      descr = "Disables branching on accesses.",
+      hidden = true)
+
+  val useBranching: ScallopOption[Boolean] =
+    noBranching.map(!_)
+
   val file: ScallopOption[String] =
     trailArg[String](
       name = "file",

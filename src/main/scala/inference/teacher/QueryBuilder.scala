@@ -14,6 +14,7 @@ import inference.core.{Hypothesis, Instance}
 import inference.input._
 import inference.util.ast.{Statements, ValueInfo}
 import inference.util.Namespace
+import inference.util.collections.Collections
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -184,6 +185,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     }
     // unfold predicates appearing in specification
     unfold(body)
+    // branch on accesses
+    if (configuration.useBranching()) {
+      branchOnAccesses(instance)
+    }
     // save state snapshot
     saveSnapshot(instance, exhaled = false)
   }
@@ -233,6 +238,29 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       }
     // emit label
     emitLabel(label)
+  }
+
+  /**
+   * Branches on the accesses appearing in the given specification instance.
+   *
+   * @param instance The instance.
+   */
+  private def branchOnAccesses(instance: Instance): Unit = {
+    val accesses = instance.arguments.filter(_.isSubtype(ast.Ref))
+    val dummy = makeScope(emitInhale(ast.TrueLit()()))
+    // branch on nullity
+    accesses
+      .foreach { access =>
+        val condition = ast.NeCmp(access, ast.NullLit()())()
+        emitConditional(condition, dummy)
+      }
+    // branch on equality
+    Collections
+      .pairs(accesses)
+      .foreach { case (left, right) =>
+        val condition = ast.NeCmp(left, right)()
+        emitConditional(condition, dummy)
+      }
   }
 }
 
