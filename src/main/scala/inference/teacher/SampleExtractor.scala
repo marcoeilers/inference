@@ -50,12 +50,24 @@ trait SampleExtractor {
     input.configuration
 
   /**
-   * Extracts a sample from the given query and verification error.
+   * Extracts a sample from the given framing query and verification error.
    *
-   * @param query The query that caused the error.
+   * @param query The framing query that caused the error.
    * @param error The verification error.
+   * @return The extracted sample.
    */
-  protected def extractSample(query: Query, error: VerificationError): Sample = {
+  protected def extractFramingSample(query: Query, error: VerificationError): Sample = {
+    ???
+  }
+
+  /**
+   * Extracts a sample from the given basic query and verification error.
+   *
+   * @param query The basic query that caused the error.
+   * @param error The verification error.
+   * @return The extracted sample.
+   */
+  protected def extractBasicSample(query: Query, error: VerificationError): Sample = {
     // extract counterexample and offending location
     val (counter, offending, info) = extractInformation(error)
 

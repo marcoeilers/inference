@@ -46,13 +46,26 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private var query: PartialQuery = _
 
   /**
+   * Builds a query that checks whether the specifications represented by the given hypothesis are self-framing.
+   *
+   * @param hypothesis The hypothesis to check.
+   * @return The framing query.
+   */
+  protected def framingQuery(hypothesis: Hypothesis): Query = {
+    // reset
+    reset()
+    // TODO: Implement me.
+    ???
+  }
+
+  /**
    * Builds a query based on the given batch of checks and hypothesis.
    *
    * @param batch      The batch of checks.
    * @param hypothesis The hypothesis to check.
    * @return The query.
    */
-  protected def buildQuery(batch: Seq[Check], hypothesis: Hypothesis): Query = {
+  protected def basicQuery(batch: Seq[Check], hypothesis: Hypothesis): Query = {
     // reset
     reset()
     // get original program
