@@ -12,7 +12,7 @@ import inference.Names
 import inference.builder.CheckExtender
 import inference.core.{Hypothesis, Instance}
 import inference.input._
-import inference.util.ast.{Statements, ValueInfo}
+import inference.util.ast.{Expressions, Statements, ValueInfo}
 import inference.util.Namespace
 import inference.util.collections.Collections
 import viper.silver.ast
@@ -52,10 +52,59 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @return The framing query.
    */
   protected def framingQuery(hypothesis: Hypothesis): Query = {
+    /**
+     * Helper method that inhales the given expression conjunct-wise. The expression is implicitly rewritten to have
+     * its conjuncts at the top level by pushing implications inside.
+     *
+     * @param expression The expression to inhale.
+     * @param guards     The guards collected so far.
+     */
+    def inhale(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty): Unit =
+      expression match {
+        case ast.And(left, right) =>
+          inhale(left, guards)
+          inhale(right, guards)
+        case ast.Implies(guard, guarded) =>
+          inhale(guarded, guards :+ guard)
+        case conjunct =>
+          // inhale conjunct
+          val condition = Expressions.makeAnd(guards)
+          val implication = ast.Implies(condition, conjunct)()
+          emitInhale(implication)
+      }
+
     // reset
     reset()
-    // TODO: Implement me.
-    ???
+
+    // create predicates (dummy for recursive predicate)
+    val predicates = hypothesis
+      .predicates
+      .flatMap { predicate =>
+        if (Names.isRecursive(predicate.name)) {
+          val dummy = predicate.copy(body = None)(predicate.pos, predicate.info, predicate.errT)
+          Some(dummy)
+        } else None
+      }
+
+    // create methods (one for each specification)
+    val methods = hypothesis
+      .predicates
+      .map { case ast.Predicate(name, arguments, Some(specification)) =>
+        // create method inhaling the specification
+        val unique = namespace.uniqueIdentifier(name = s"check_$name", None)
+        val body = makeScope(inhale(specification))
+        ast.Method(unique, arguments, Seq.empty, Seq.empty, Seq.empty, Some(body))()
+      }
+
+    // create program
+    val original = input.program
+    val program = original.copy(
+      predicates = predicates,
+      methods = methods
+    )(original.pos, original.info, original.errT)
+
+    // finalize query
+    query(program, hypothesis)
   }
 
   /**
@@ -66,16 +115,17 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @return The query.
    */
   protected def basicQuery(batch: Seq[Check], hypothesis: Hypothesis): Query = {
-    // reset
+    // reset and get original program
     reset()
-    // get original program
     val original = input.program
-    // fields
+
+    // create fields
     val fields = {
       val extra = if (configuration.useHints()) Seq.empty else Seq(magic)
       original.fields ++ extra
     }
-    // predicates
+
+    // create predicates
     val predicates = {
       // get placeholders
       val placeholders =
@@ -84,9 +134,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       // get predicates
       placeholders.map(hypothesis.getPredicate)
     }
-    // methods
+
+    // create methods
     val methods = {
-      // dummy methods fo
+      // dummy methods for method not contained in batch
       val dummies = {
         val names = batch.map(_.name).toSet
         original
@@ -105,12 +156,14 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       // combine dummy and instrumented methods
       dummies ++ extended
     }
-    // instrument program
+
+    // create program
     val program = original.copy(
       fields = fields,
       predicates = predicates,
       methods = methods
     )(original.pos, original.info, original.errT)
+
     // finalize query
     query(program, hypothesis)
   }

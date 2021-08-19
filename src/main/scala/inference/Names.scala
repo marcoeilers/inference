@@ -58,6 +58,15 @@ object Names {
   )
 
   /**
+   * Returns whether the given name corresponds to the recursive predicate.
+   *
+   * @param name The name to check.
+   * @return True if the name corresponds to the recursive predicate.
+   */
+  def isRecursive(name: String): Boolean =
+    name == recursive
+
+  /**
    * Returns whether the given name corresponds to a hint.
    *
    * @param name The name to check.

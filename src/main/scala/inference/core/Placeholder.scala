@@ -34,7 +34,7 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
    * @return True if the specification placeholder corresponds to the recursive predicate.
    */
   def isRecursive: Boolean =
-    name == Names.recursive
+    Names.isRecursive(name)
 
   /**
    * Returns an instance of the specification placeholder.

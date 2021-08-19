@@ -116,7 +116,7 @@ trait TemplateGenerator extends AbstractLearner {
           case _ => // do nothing
         }
       case ast.PredicateAccess(first +: rest, name) =>
-        assert(name == Names.recursive)
+        assert(Names.isRecursive(name))
         first match {
           case ast.FieldAccess(receiver, _) if !placeholder.isRecursive =>
             // add parent predicate
