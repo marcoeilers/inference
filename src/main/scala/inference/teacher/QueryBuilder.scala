@@ -101,7 +101,13 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       .map { case ast.Predicate(name, arguments, Some(specification)) =>
         // create method inhaling the specification
         val unique = namespace.uniqueIdentifier(name = s"check_$name", None)
-        val body = makeScope(inhale(specification))
+        val body = makeScope {
+          // save state snapshot
+          val instance = input.placeholder(name).asInstance
+          saveSnapshot(instance)
+          // inhale specification
+          inhale(specification)
+        }
         ast.Method(unique, arguments, Seq.empty, Seq.empty, Seq.empty, Some(body))()
       }
 
@@ -265,7 +271,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       branchOnAccesses(instance)
     }
     // save state snapshot
-    saveSnapshot(instance, exhaled = false)
+    saveSnapshot(instance)
   }
 
   /**
@@ -297,7 +303,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param instance The instance.
    * @param exhaled  The flag indicating whether the snapshot was exhaled or not.
    */
-  private def saveSnapshot(instance: Instance, exhaled: Boolean): Unit = {
+  private def saveSnapshot(instance: Instance, exhaled: Boolean = false): Unit = {
     // generate unique snapshot label
     val label = namespace.uniqueIdentifier(Names.snapshot)
     query.addSnapshot(label, instance, exhaled)

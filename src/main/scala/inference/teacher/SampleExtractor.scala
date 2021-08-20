@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.Logger
 import inference.core._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
-import inference.util.ast.{Expressions, InferenceInfo, InstanceInfo}
+import inference.util.ast.{Expressions, InferenceInfo, InstanceInfo, LocationInfo}
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
@@ -57,7 +57,54 @@ trait SampleExtractor {
    * @return The extracted sample.
    */
   protected def extractFramingSample(query: Query, error: VerificationError): Sample = {
-    ???
+    // extract counter-example and offending location
+    val (counter, offending, info) = extractInformation(error)
+
+    val location = info match {
+      case Some(LocationInfo(location)) => location
+      case other => sys.error(s"Location info expected but found $other.")
+    }
+
+    // get label and instance
+    val (label, instance) = {
+      val heaps = counter.state.oldHeaps
+      query
+        .snapshots
+        .filter { case (label, _) => heaps.contains(label) }
+        .head
+    }
+
+    // compute state abstraction
+    val state = {
+      val model = ModelEvaluator(counter.model)
+      val state = StateEvaluator(Some(label), counter.state, model)
+      val snapshot = Snapshot(instance, state)
+      SnapshotAbstraction(snapshot)
+    }
+
+    // create sample
+    val sample = {
+      // get specification placeholder
+      val placeholder = instance.placeholder
+      // create left-hand side of implication
+      // TODO: Do we need to take into account reachability?
+      val left = {
+        val resource = SetAbstraction(Set(offending))
+        ExhaledRecord(placeholder, state, resource, 0)
+      }
+      // create right-hand side of implication
+      val right = {
+        val resource = SetAbstraction(Set(location))
+        val record = InhaledRecord(placeholder, state, resource, 0)
+        LowerBound(Seq(record))
+      }
+      // create implication sample
+      Implication(left, right)
+    }
+
+    // return sample
+    logger.info(sample.toString)
+    sample
   }
 
   /**
