@@ -89,12 +89,12 @@ trait SampleExtractor {
       // create left-hand side of implication
       // TODO: Do we need to take into account reachability?
       val left = {
-        val resource = SetAbstraction(Set(offending))
+        val resource = SetAbstraction(Set(location))
         ExhaledRecord(placeholder, state, resource, 0)
       }
       // create right-hand side of implication
       val right = {
-        val resource = SetAbstraction(Set(location))
+        val resource = SetAbstraction(Set(offending))
         val record = InhaledRecord(placeholder, state, resource, 0)
         LowerBound(Seq(record))
       }
