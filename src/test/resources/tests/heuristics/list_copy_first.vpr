@@ -1,0 +1,14 @@
+field val: Int
+field next: Ref
+
+method copy_first(x: Ref)
+{
+    var c: Ref
+    c := x
+    while (c != null)
+    {
+        __down__(c)
+        c.val := x.val
+        c := c.next
+    }
+}
