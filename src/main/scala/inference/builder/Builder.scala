@@ -85,9 +85,10 @@ trait Builder {
    * Emits a statement that inhales the given expression.
    *
    * @param expression The inhaled expression.
+   * @param info       The info to attach to the inhale statement.
    */
-  protected def emitInhale(expression: ast.Exp): Unit = {
-    val inhale = ast.Inhale(expression)()
+  protected def emitInhale(expression: ast.Exp, info: ast.Info = ast.NoInfo): Unit = {
+    val inhale = ast.Inhale(expression)(info = info)
     emit(inhale)
   }
 

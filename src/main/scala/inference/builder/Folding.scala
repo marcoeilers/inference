@@ -10,7 +10,7 @@ package inference.builder
 
 import inference.core.Hypothesis
 import inference.input.{Check, Configuration, Hint, Input}
-import inference.util.ast.{Expressions, Statements, ValueInfo}
+import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import viper.silver.ast
 
 /**
@@ -206,7 +206,7 @@ trait Folding extends Builder with Simplification {
             val body = hypothesis.getBody(instance)
             foldWithoutHints(body)
             // fold predicate
-            val info = ValueInfo(instance)
+            val info = InstanceInfo(instance)
             emitFold(resource, info)
           }
           // conditionally fold

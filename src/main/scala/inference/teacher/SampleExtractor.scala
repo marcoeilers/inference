@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.Logger
 import inference.core._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
-import inference.util.ast.{Expressions, Infos}
+import inference.util.ast.{Expressions, InferenceInfo, InstanceInfo}
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
@@ -68,7 +68,7 @@ trait SampleExtractor {
    * @return The extracted sample.
    */
   protected def extractBasicSample(query: Query, error: VerificationError): Sample = {
-    // extract counterexample and offending location
+    // extract counter-example and offending location
     val (counter, offending, info) = extractInformation(error)
 
     // get silicon state and model
@@ -179,12 +179,12 @@ trait SampleExtractor {
 
   /**
    * Extracts information form the given verification error. The information consists of a counterexample, an offending
-   * location, and an optionally attached info value
+   * location, and an optionally attached info.
    *
    * @param error The verification error.
    * @return The extracted information.
    */
-  private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess, Option[Instance]) = {
+  private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess, Option[InferenceInfo[Any]]) = {
     // extract counterexample
     val counter = error.counterexample match {
       case Some(value: Counter) => value
@@ -198,15 +198,19 @@ trait SampleExtractor {
     }
     // extract attached info value
     val info = error.offendingNode match {
-      case node: ast.Infoed => Infos.valueOption[Instance](node)
+      case node: ast.Infoed =>
+        node.info match {
+          case info: InferenceInfo[Any] => Some(info)
+          case _ => None
+        }
       case _ => None
     }
     // instantiate offending location
     val instantiated = info match {
-      case Some(instance) =>
+      case Some(InstanceInfo(instance)) =>
         if (configuration.noInlining() || instance.placeholder.isRecursive) instance.instantiate(offending)
         else offending
-      case None =>
+      case _ =>
         offending
     }
     // return information

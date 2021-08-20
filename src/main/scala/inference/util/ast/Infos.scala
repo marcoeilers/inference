@@ -8,37 +8,23 @@
 
 package inference.util.ast
 
+import inference.core.Instance
 import viper.silver.ast
+import viper.silver.ast.LocationAccess
 
-object Infos {
+/**
+ * An info carrying a value of some type.
+ *
+ * @tparam T The type of the value carried by the info.
+ */
+trait InferenceInfo[+T] extends ast.Info {
   /**
-   * Returns the info value attached to the given node.
+   * Returns the value carried by the info.
    *
-   * @param node The node.
-   * @tparam T The type of the value.
-   * @return The value.
+   * @return The info.
    */
-  def value[T](node: ast.Infoed): T =
-    valueOption(node) match {
-      case Some(value) => value
-      case None => sys.error("No info value defined.")
-    }
+  def value: T
 
-  /**
-   * Optionally returns the info value attached to the given node.
-   *
-   * @param node The node.
-   * @tparam T The type of the value.
-   * @return The value.
-   */
-  def valueOption[T](node: ast.Infoed): Option[T] =
-    node
-      .info
-      .getUniqueInfo[ValueInfo[T]]
-      .map(_.value)
-}
-
-trait InferenceInfo extends ast.Info {
   override def comment: Seq[String] =
     Seq.empty
 
@@ -46,18 +32,31 @@ trait InferenceInfo extends ast.Info {
     true
 }
 
+
 /**
- * An info holding a value of some type.
+ * An info carrying an instance.
  *
- * @param value The value.
- * @tparam T The type of the value.
+ * @param instance The instance.
  */
-case class ValueInfo[+T](value: T) extends InferenceInfo
+case class InstanceInfo(instance: Instance) extends InferenceInfo[Instance] {
+  override def value: Instance =
+    instance
+}
+
+/**
+ * An info carrying a location.
+ *
+ * @param location The location
+ */
+case class LocationInfo(location: ast.LocationAccess) extends InferenceInfo[ast.LocationAccess] {
+  override def value: LocationAccess =
+    location
+}
 
 /**
  * A mixin that enables comments.
  */
-trait Comment extends ValueInfo[Any] {
+trait Comment extends InferenceInfo[Any] {
   override def comment: Seq[String] =
     Seq(value.toString)
 }
