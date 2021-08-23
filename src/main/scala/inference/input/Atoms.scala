@@ -37,10 +37,9 @@ trait Atoms {
    * @return The atoms.
    */
   protected def atomsFromExpressions(expressions: Seq[ast.Exp]): Seq[ast.Exp] = {
-    // TODO: Use null!
     val withNull = ast.NullLit()() +: expressions
     Collections
-      .pairs(expressions)
+      .pairs(withNull)
       .map { case (first, second) => ast.NeCmp(first, second)() }
       .toSeq
   }
