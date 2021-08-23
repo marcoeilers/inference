@@ -1,0 +1,28 @@
+field val: Int
+field next: Ref
+
+method main(n: Int)
+{
+    var c: Ref
+    var i: Int
+
+    c := null
+    i := 0
+
+    while (i < n)
+    {
+        __up__(c)
+        var t: Ref
+        t := new(val, next)
+        t.next := c
+        t.val := 0
+        c := t
+        i := i + 1
+    }
+
+    while (c != null)
+    {
+        __down__(c)
+        c := c.next
+    }
+}
