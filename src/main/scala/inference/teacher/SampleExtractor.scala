@@ -11,8 +11,8 @@ package inference.teacher
 import com.typesafe.scalalogging.Logger
 import inference.core._
 import inference.input.{Configuration, Input}
-import inference.teacher.state.{Adaptor, ModelEvaluator, Snapshot, StateEvaluator}
-import inference.util.ast.{Expressions, InferenceInfo, InstanceInfo, LocationInfo}
+import inference.teacher.state.{Adaptor, ModelEvaluator, PermissionEvaluator, Snapshot, StateEvaluator}
+import inference.util.ast.{InferenceInfo, InstanceInfo, LocationInfo}
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
@@ -171,7 +171,7 @@ trait SampleExtractor {
           val actual = snapshot.instance.instantiate(formal)
           val instance = snapshot.instance
           val hypothesis = query.hypothesis
-          evaluatePermission(actual, instance, state, hypothesis)
+          evaluatePermission(actual, instance, hypothesis, state)
         }
         .getOrElse(0)
       // get placeholder and create abstractions
@@ -265,73 +265,17 @@ trait SampleExtractor {
   }
 
   /**
-   * Evaluates the permission amount for the given offending location represented by the given specification placeholder
-   * instance under consideration of the given state and hypothesis.
+   * Evaluates the permission amount for the given resource represented by the specification corresponding to the given
+   * specification instance under consideration of the given hypothesis and state.
    *
-   * @param offending  The offending location.
-   * @param instance   The specification placeholder instance.
-   * @param state      The state.
+   * @param resource   The resource.
+   * @param instance   The specification instance.
    * @param hypothesis The hypothesis.
+   * @param state      The state.
    * @return The permission amount.
    */
-  def evaluatePermission(offending: ast.LocationAccess, instance: Instance, state: StateEvaluator, hypothesis: Hypothesis): Int = {
-
-    lazy val maxDepth = Expressions.getDepth(offending)
-
-    /**
-     * TODO: Properly implement me.
-     *
-     * Helper method that evaluates the permission amount for the offending location represented by the given
-     * specification expression.
-     *
-     * @param expression The specification expression.
-     * @return The permission amount.
-     */
-    def evaluate(expression: ast.Exp): Int =
-      expression match {
-        case ast.TrueLit() => 0
-        case ast.And(left, right) =>
-          val leftValue = evaluate(left)
-          val rightValue = evaluate(right)
-          leftValue + rightValue
-        case ast.Implies(guard, guarded) =>
-          val condition = state.evaluateBoolean(guard)
-          if (condition) evaluate(guarded) else 0
-        case ast.FieldAccessPredicate(access, _) =>
-          offending match {
-            case ast.FieldAccess(receiver, field) =>
-              if (field == access.field) {
-                val comparison = ast.EqCmp(receiver, access.rcv)()
-                val condition = state.evaluateBoolean(comparison)
-                if (condition) 1 else 0
-              } else 0
-            case _ =>
-              0
-          }
-        case ast.PredicateAccessPredicate(access, _) =>
-          offending match {
-            case _: ast.FieldAccess =>
-              val depth = Expressions.getDepth(access.args.head)
-              if (depth < maxDepth) {
-                val instance = input.instance(access)
-                val body = hypothesis.getBody(instance)
-                evaluate(body)
-              } else 0
-            case ast.PredicateAccess(arguments, name) =>
-              if (name == access.predicateName) {
-                val condition = arguments
-                  .zip(access.args)
-                  .map { case (left, right) => ast.EqCmp(left, right)() }
-                  .forall(state.evaluateBoolean)
-                if (condition) 1 else 0
-              } else 0
-          }
-        case other =>
-          sys.error(s"Unexpected expression: $other")
-      }
-
-    // call helper method
-    val specification = hypothesis.getBody(instance)
-    evaluate(specification)
+  def evaluatePermission(resource: ast.Exp, instance: Instance, hypothesis: Hypothesis, state: StateEvaluator): Int = {
+    val evaluator = new PermissionEvaluator(input, hypothesis, state)
+    evaluator.evaluate(resource, instance, depth = 2)
   }
 }
