@@ -23,32 +23,9 @@ import viper.silicon.state.{BasicChunk, State}
  */
 case class StateEvaluator(label: Option[String], state: State, model: ModelEvaluator) {
   /**
-   * Returns the value associated with the given variable.
-   *
-   * @param variable The variable to look up.
-   * @return The value.
-   */
-  private def store(variable: ast.LocalVar): String = {
-    // adapt variable to state (if necessary)
-    val adapted = label match {
-      case Some(label) =>
-        // adapt variable
-        val name = s"${label}_${variable.name}"
-        val typ = variable.typ
-        ast.LocalVar(name, typ)()
-      case _ =>
-        // no adaptation needed
-        variable
-    }
-    // evaluate variable
-    val term = state.g(adapted)
-    model.evaluateReference(term)
-  }
-
-  /**
    * The precomputed heap map.
    */
-  private[state] val heap = label
+  private[state] val map = label
     .map(state.oldHeaps)
     .getOrElse(state.h)
     .values
@@ -75,7 +52,75 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
     }
 
   /**
+   * Returns the value associated with the given variable.
+   *
+   * @param variable The variable to look up.
+   * @return The value.
+   */
+  private def store(variable: ast.LocalVar): String = {
+    // adapt variable to state (if necessary)
+    val adapted = label match {
+      case Some(label) =>
+        // adapt variable
+        val name = s"${label}_${variable.name}"
+        val typ = variable.typ
+        ast.LocalVar(name, typ)()
+      case _ =>
+        // no adaptation needed
+        variable
+    }
+    // evaluate variable
+    val term = state.g(adapted)
+    model.evaluateReference(term)
+  }
+
+  /**
+   * Optionally returns the value associated with the given heap node and field.
+   *
+   * @param node  The node.
+   * @param field The field.
+   * @return The value.
+   */
+  def heapOption(node: String, field: String): Option[String] =
+    map
+      .get(node)
+      .flatMap(_.get(field))
+
+  /**
+   * Optionally evaluates the given expression (assumed to be boolean-typed).
+   *
+   * @param expression The expression.
+   * @return The boolean value.
+   */
+  def evaluateBooleanOption(expression: ast.Exp): Option[Boolean] =
+    expression match {
+      case binary@ast.BinExp(left, right) =>
+        left.typ match {
+          case ast.Bool =>
+            for {
+              leftValue <- evaluateBooleanOption(left)
+              rightValue <- evaluateBooleanOption(right)
+            } yield binary match {
+              case _: ast.And => leftValue && rightValue
+              case other => sys.error(s"Unexpected binary expression: $other")
+            }
+          case ast.Ref =>
+            for {
+              leftValue <- evaluateReferenceOption(left)
+              rightValue <- evaluateReferenceOption(right)
+            } yield binary match {
+              case _: ast.EqCmp => leftValue == rightValue
+              case _: ast.NeCmp => leftValue != rightValue
+              case other => sys.error(s"Unexpected binary expression: $other")
+            }
+        }
+      case other =>
+        sys.error(s"Unexpected expression: $other")
+    }
+
+  /**
    * Evaluates the given expression (assumed to be boolean-typed).
+   * TODO: Use optional implementation above if it does not introduce performance issues.
    *
    * @param expression The expression to evaluate.
    * @return The boolean value.
@@ -111,7 +156,29 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
     }
 
   /**
+   * Optionally evaluates the given expression (assumed to be reference-typed).
+   *
+   * @param expression The expression to evaluate.
+   * @return The reference value.
+   */
+  def evaluateReferenceOption(expression: ast.Exp): Option[String] =
+    expression match {
+      case ast.NullLit() =>
+        val value = model.evaluateReference(terms.Null())
+        Some(value)
+      case variable: ast.LocalVar =>
+        val value = store(variable)
+        Some(value)
+      case ast.FieldAccess(receiver, field) =>
+        val value = evaluateReferenceOption(receiver)
+        value.flatMap { node => heapOption(node, field.name) }
+      case other =>
+        sys.error(s"Unexpected expression: $other")
+    }
+
+  /**
    * Evaluates the given expression (assumed to be reference-typed).
+   * TODO: Use optional implementation above if it does not introduce performance issues.
    *
    * @param expression The expression to evaluate.
    * @return The reference value.
@@ -124,18 +191,6 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
         store(variable)
       case ast.FieldAccess(receiver, ast.Field(field, _)) =>
         val receiverValue = evaluateReference(receiver)
-        heap(receiverValue)(field)
+        map(receiverValue)(field)
     }
-
-  /**
-   * Evaluates the permission variable with the given name.
-   *
-   * @param name The name of the variable.
-   * @return The permission value.
-   */
-  def evaluatePermission(name: String): Int = {
-    val variable = ast.LocalVar(name, ast.Perm)()
-    val term = state.g(variable)
-    model.evaluatePermission(term)
-  }
 }

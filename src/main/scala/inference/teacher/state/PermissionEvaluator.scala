@@ -58,7 +58,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
             // check whether resource and specification are the same
             if (field == access.field) {
               val comparison = ast.EqCmp(receiver, access.rcv)()
-              val condition = state.evaluateBoolean(comparison)
+              val condition = evaluateBoolean(comparison)
               if (condition) 1 else 0
             } else 0
           case _ =>
@@ -78,7 +78,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
             lazy val equalArguments = arguments
               .zip(access.args)
               .map { case (left, right) => ast.EqCmp(left, right)() }
-              .forall(state.evaluateBoolean)
+              .forall(evaluateBoolean)
             // check whether resource and specification are the same
             if (name == access.predicateName && equalArguments) 1
             else {
@@ -89,4 +89,16 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
       case other =>
         sys.error(s"Unexpected specification: $other")
     }
+
+  /**
+   * Evaluates the given boolean expression.
+   *
+   * @param expression The expression to evaluate.
+   * @return The value.
+   */
+  def evaluateBoolean(expression: ast.Exp): Boolean =
+    state
+      .evaluateBooleanOption(expression)
+      .getOrElse(false
+      )
 }

@@ -36,7 +36,7 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
         // compute next step of reachability
         val next = current.foldLeft(Map.empty[String, Set[ast.Exp]]) {
           case (map1, (node, expressions)) => state
-            .heap
+            .map
             .getOrElse(node, Map.empty)
             .foldLeft(map1) {
               case (map2, (name, value)) =>
