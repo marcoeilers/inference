@@ -55,12 +55,15 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
       case ast.FieldAccessPredicate(access, _) =>
         resource match {
           case ast.FieldAccess(receiver, field) =>
+            // check whether resource and specification are the same
             if (field == access.field) {
               val comparison = ast.EqCmp(receiver, access.rcv)()
               val condition = state.evaluateBoolean(comparison)
               if (condition) 1 else 0
             } else 0
-          case _ => ???
+          case _ =>
+            // TODO: Implement me properly
+            0
         }
       case ast.PredicateAccessPredicate(access, _) =>
         resource match {
@@ -70,7 +73,18 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
               val body = hypothesis.getBody(instance)
               evaluate(resource, body, depth - 1)
             } else 0
-          case _ => ???
+          case ast.PredicateAccess(arguments, name) =>
+            // lazily compute whether all arguments are equal
+            lazy val equalArguments = arguments
+              .zip(access.args)
+              .map { case (left, right) => ast.EqCmp(left, right)() }
+              .forall(state.evaluateBoolean)
+            // check whether resource and specification are the same
+            if (name == access.predicateName && equalArguments) 1
+            else {
+              // TODO: Implement me properly
+              0
+            }
         }
       case other =>
         sys.error(s"Unexpected specification: $other")
