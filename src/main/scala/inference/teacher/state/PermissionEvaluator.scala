@@ -83,7 +83,11 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
             if (name == access.predicateName && equalArguments) 1
             else {
               // TODO: Implement me properly
-              0
+              if (depth > 0) {
+                val instance = input.instance(access)
+                val body = hypothesis.getBody(instance)
+                evaluate(resource, body, depth - 1)
+              } else 0
             }
         }
       case other =>
