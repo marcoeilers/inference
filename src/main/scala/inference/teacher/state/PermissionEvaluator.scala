@@ -103,6 +103,5 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
   def evaluateBoolean(expression: ast.Exp): Boolean =
     state
       .evaluateBooleanOption(expression)
-      .getOrElse(false
-      )
+      .getOrElse(false)
 }

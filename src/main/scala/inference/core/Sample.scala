@@ -8,7 +8,7 @@
 
 package inference.core
 
-import inference.teacher.state.Snapshot
+import inference.teacher.state.{Snapshot, StateEvaluator}
 import viper.silver.ast
 
 /**
@@ -136,16 +136,31 @@ case class ExhaledRecord(placeholder: Placeholder, state: StateAbstraction, reso
 }
 
 /**
- * A state abstraction.
+ * A state abstracted by some snapshot.
+ *
+ * @param snapshot The snapshot.
  */
-sealed trait StateAbstraction {
+case class StateAbstraction(snapshot: Snapshot) {
+  /**
+   * Returns the state.
+   *
+   * @return The state.
+   */
+  def state: StateEvaluator =
+    snapshot.state
+
   /**
    * Evaluates the given atomic predicate in the abstract state.
    *
    * @param atom The atomic predicate to evaluate.
    * @return The predicate value.
    */
-  def evaluate(atom: ast.Exp): Option[Boolean]
+  def evaluate(atom: ast.Exp): Option[Boolean] = {
+    // TODO: Can the value ever be unknown?
+    val actual = snapshot.instance.instantiate(atom)
+    val value = state.evaluateBoolean(actual)
+    Some(value)
+  }
 
   /**
    * Evaluates the given atomic predicates in the abstract state.
@@ -155,20 +170,43 @@ sealed trait StateAbstraction {
    */
   def evaluate(atoms: Seq[ast.Exp]): Seq[Option[Boolean]] =
     atoms.map(evaluate)
-}
 
-/**
- * A state abstracted by some snapshot.
- *
- * @param snapshot The snapshot.
- */
-case class SnapshotAbstraction(snapshot: Snapshot) extends StateAbstraction {
-  override def evaluate(atom: ast.Exp): Option[Boolean] = {
-    // TODO: Can the value ever be unknown?
-    val actual = snapshot.instance.instantiate(atom)
-    val value = snapshot.state.evaluateBoolean(actual)
-    Some(value)
-  }
+  /**
+   * Returns whether the given access expression is equal to the given resource in this state.
+   *
+   * @param access   The access .
+   * @param resource The resource.
+   * @return True if the access is equal to the resource.
+   */
+  def equal(access: ast.LocationAccess, resource: AccessAbstraction): Boolean =
+    resource match {
+      case FieldAbstraction(value, field) =>
+        access match {
+          case ast.FieldAccess(receiver, `field`) =>
+            equal(receiver, value)
+          case _ => false
+        }
+      case PredicateAbstraction(name, values) =>
+        access match {
+          case ast.PredicateAccess(arguments, `name`) =>
+            arguments
+              .zip(values)
+              .forall { case (argument, value) => equal(argument, value) }
+          case _ => false
+        }
+    }
+
+  /**
+   * Returns true if the given reference-typed expression evaluates to the given value in this state.
+   *
+   * @param value     The value.
+   * @param reference The reference.
+   * @return True if the reference evaluates to the value.
+   */
+  private def equal(reference: ast.Exp, value: String): Boolean =
+    state
+      .evaluateReferenceOption(reference)
+      .contains(value)
 
   override def toString: String = {
     val partitions = snapshot.partitions
@@ -191,6 +229,14 @@ sealed trait ResourceAbstraction {
   def locations: Set[ast.LocationAccess]
 }
 
+case class DebugAbstraction(actual: ResourceAbstraction, debug: ResourceAbstraction) extends ResourceAbstraction {
+  override def locations: Set[ast.LocationAccess] =
+    actual.locations
+
+  override def toString: String =
+    actual.toString
+}
+
 /**
  * A resource abstracted by a set of locations that can be used to represent the offending resource.
  *
@@ -201,19 +247,11 @@ case class SetAbstraction(locations: Set[ast.LocationAccess]) extends ResourceAb
     locations.mkString("{", ",", "}")
 }
 
-case class DebugAbstraction(actual: ResourceAbstraction, dummy: ResourceAbstraction) extends ResourceAbstraction {
-  override def locations: Set[ast.LocationAccess] =
-    actual.locations
-
-  override def toString: String =
-    actual.toString
-}
-
-trait DummyAbstraction extends ResourceAbstraction {
+sealed trait AccessAbstraction extends ResourceAbstraction {
   override def locations: Set[ast.LocationAccess] =
     sys.error("Unsupported operation.")
 }
 
-case class FieldAbstraction(receiver: String, field: ast.Field) extends DummyAbstraction
+case class FieldAbstraction(receiver: String, field: ast.Field) extends AccessAbstraction
 
-case class PredicateAbstraction(name: String, arguments: Seq[String]) extends DummyAbstraction
+case class PredicateAbstraction(name: String, arguments: Seq[String]) extends AccessAbstraction

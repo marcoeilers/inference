@@ -79,7 +79,7 @@ trait SampleExtractor {
       val model = ModelEvaluator(counter.model)
       val state = StateEvaluator(Some(label), counter.state, model)
       val snapshot = Snapshot(instance, state)
-      SnapshotAbstraction(snapshot)
+      StateAbstraction(snapshot)
     }
 
     // create sample
@@ -176,7 +176,7 @@ trait SampleExtractor {
         .getOrElse(0)
       // get placeholder and create abstractions
       val placeholder = snapshot.placeholder
-      val state = SnapshotAbstraction(snapshot)
+      val state = StateAbstraction(snapshot)
       val resource = {
         val actual = SetAbstraction(locations)
         val dummy = offending match {

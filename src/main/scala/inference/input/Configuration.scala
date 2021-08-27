@@ -37,6 +37,12 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "The maximal length of access paths that may appear in specifications.",
       default = Some(2))
 
+  val maxClauses: ScallopOption[Int] =
+    opt[Int](
+      name = "maxClauses",
+      descr = "The maximal number of clauses that may appear in conditions.",
+      default = Some(1))
+
   val useHeuristics: ScallopOption[Boolean] =
     opt[Boolean](
       name = "useHeuristics",
