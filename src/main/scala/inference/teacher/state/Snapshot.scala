@@ -169,11 +169,17 @@ case class Adaptor(source: StateEvaluator, target: Snapshot) {
    * @param expression The expression to adapt.
    * @return The adapted expressions.
    */
-  def adaptReference(expression: ast.Exp): Set[ast.Exp] = {
+  private def adaptReference(expression: ast.Exp): Set[ast.Exp] = {
     val node = source.evaluateReference(expression)
     target.reachability.getOrElse(node, Set.empty)
   }
 
+  /**
+   * Optionally adapts the given reference-typed exression.
+   *
+   * @param expression The expression to adapt.
+   * @return The adapted expression.
+   */
   def adaptReferenceOption(expression: ast.Exp): Option[Set[ast.Exp]] =
     source
       .evaluateReferenceOption(expression)
