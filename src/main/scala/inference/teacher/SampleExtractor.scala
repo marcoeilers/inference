@@ -9,7 +9,8 @@
 package inference.teacher
 
 import com.typesafe.scalalogging.Logger
-import inference.core._
+import inference.core.{Hypothesis, Instance}
+import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.teacher.state.{Adaptor, ModelEvaluator, PermissionEvaluator, Snapshot, StateEvaluator}
 import inference.util.ast.{InferenceInfo, InstanceInfo, LocationInfo}
@@ -86,15 +87,16 @@ trait SampleExtractor {
     val sample = {
       // get specification placeholder
       val placeholder = instance.placeholder
+      val snapshot = Snapshot(instance, state.state)
+      val adaptor = Adaptor(state.state, snapshot)
       // create left-hand side of implication
-      // TODO: Do we need to take into account reachability?
       val left = {
-        val resource = SetAbstraction(Set(location))
+        val resource = abstractLocation(location, adaptor)
         ExhaledRecord(placeholder, state, resource, 0)
       }
       // create right-hand side of implication
       val right = {
-        val resource = SetAbstraction(Set(offending))
+        val resource = abstractLocation(offending, adaptor)
         val record = InhaledRecord(placeholder, state, resource, 0)
         LowerBound(Seq(record))
       }
@@ -164,6 +166,7 @@ trait SampleExtractor {
         adaptor.adaptLocation(offending)
       }
       // permission difference
+      // TODO: Use resource abstraction
       val amount = locations
         .headOption
         .map { formal =>
@@ -178,16 +181,8 @@ trait SampleExtractor {
       val placeholder = snapshot.placeholder
       val state = StateAbstraction(snapshot)
       val resource = {
-        val actual = SetAbstraction(locations)
-        val dummy = offending match {
-          case ast.FieldAccess(receiver, field) =>
-            val reference = failState.evaluateReference(receiver)
-            FieldAbstraction(reference, field)
-          case ast.PredicateAccess(arguments, name) =>
-            val references = arguments.map(failState.evaluateReference)
-            PredicateAbstraction(name, references)
-        }
-        DebugAbstraction(actual, dummy)
+        val adaptor = Adaptor(failState, snapshot)
+        abstractLocation(offending, adaptor)
       }
       // create record
       if (query.isExhaled(snapshot.label)) {
@@ -277,5 +272,42 @@ trait SampleExtractor {
   def evaluatePermission(resource: ast.Exp, instance: Instance, hypothesis: Hypothesis, state: StateEvaluator): Int = {
     val evaluator = new PermissionEvaluator(input, hypothesis, state)
     evaluator.evaluate(resource, instance, depth = 2)
+  }
+
+  /**
+   * Returns an abstraction for the given resource.
+   *
+   * @param resource The resource to abstract.
+   * @param adaptor  The adaptor.
+   * @return The resource abstraction.
+   */
+  private def abstractLocation(resource: ast.LocationAccess, adaptor: Adaptor): ResourceAbstraction =
+    resource match {
+      case ast.FieldAccess(receiver, field) =>
+        val abstraction = abstractAccess(receiver, adaptor)
+        FieldAbstraction(abstraction, field)
+      case ast.PredicateAccess(arguments, name) =>
+        val abstractions = arguments.map { argument => abstractAccess(argument, adaptor) }
+        PredicateAbstraction(name, abstractions)
+    }
+
+  /**
+   * Returns an abstraction for the given access.
+   *
+   * @param access  The access to abstract.
+   * @param adaptor The adaptor.
+   * @return The access abstraction.
+   */
+  private def abstractAccess(access: ast.Exp, adaptor: Adaptor): AccessAbstraction = {
+    val adapted = adaptor.adaptReferenceOption(access)
+    adapted match {
+      case Some(expressions) =>
+        ExplicitSet(expressions)
+      case None =>
+        access match {
+          case location: ast.FieldAccess => abstractLocation(location, adaptor)
+          case other => sys.error(s"Unexpected access: $other")
+        }
+    }
   }
 }

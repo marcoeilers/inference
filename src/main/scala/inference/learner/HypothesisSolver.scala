@@ -9,7 +9,7 @@
 package inference.learner
 
 import inference.Names
-import inference.core._
+import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.util.ast.Expressions
 import inference.util.collections.Collections

@@ -109,6 +109,7 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
 
 /**
  * An adaptor used to adapt expressions from one state to another.
+ * TODO: Parts or all of this may become obsolete.
  *
  * @param source The source state.
  * @param target The target state.
@@ -168,8 +169,13 @@ case class Adaptor(source: StateEvaluator, target: Snapshot) {
    * @param expression The expression to adapt.
    * @return The adapted expressions.
    */
-  private def adaptReference(expression: ast.Exp): Set[ast.Exp] = {
+  def adaptReference(expression: ast.Exp): Set[ast.Exp] = {
     val node = source.evaluateReference(expression)
     target.reachability.getOrElse(node, Set.empty)
   }
+
+  def adaptReferenceOption(expression: ast.Exp): Option[Set[ast.Exp]] =
+    source
+      .evaluateReferenceOption(expression)
+      .map { x => target.reachability.getOrElse(x, Set.empty) }
 }

@@ -8,7 +8,8 @@
 
 package inference.teacher
 
-import inference.core.{AbstractTeacher, Hypothesis, Sample}
+import inference.core.sample.Sample
+import inference.core.{AbstractTeacher, Hypothesis}
 import inference.input.Input
 import viper.silver.verifier.{Failure, Success, VerificationError, Verifier}
 

@@ -8,8 +8,7 @@
 
 package inference.learner
 
-import inference.core.{AccessAbstraction, DebugAbstraction, Record, ResourceAbstraction, SetAbstraction, StateAbstraction}
-import inference.teacher.state.StateEvaluator
+import inference.core.sample.{Record, ResourceAbstraction, StateAbstraction}
 import viper.silver.ast
 
 import scala.annotation.tailrec
@@ -27,21 +26,13 @@ object Guards {
    * @return The effective guard.
    */
   def effective(record: Record)(implicit templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] = {
-    implicit val resource: AccessAbstraction = aux(record.resource)
+    implicit val resource: ResourceAbstraction = record.resource
     implicit val state: StateAbstraction = record.state
     // get and process template
     val name = record.placeholder.name
     val template = templates(name)
     processTemplate(template)
   }
-
-  @tailrec
-  private def aux(resource: ResourceAbstraction): AccessAbstraction =
-    resource match {
-      case DebugAbstraction(_, resource) => aux(resource)
-      case _: SetAbstraction => ???
-      case resource: AccessAbstraction => resource
-    }
 
   /**
    * Computes the effective guard corresponding to the given predicate template.
@@ -59,7 +50,7 @@ object Guards {
                               depth: Int = 0,
                               view: View = View.empty,
                               guards: Seq[Guard] = Seq.empty)
-                             (implicit resource: AccessAbstraction,
+                             (implicit resource: ResourceAbstraction,
                               state: StateAbstraction,
                               templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] =
     if (depth < 3) {
@@ -91,7 +82,7 @@ object Guards {
                                 view: View,
                                 guards: Seq[Guard],
                                 atoms: Seq[ast.Exp])
-                               (implicit resource: AccessAbstraction,
+                               (implicit resource: ResourceAbstraction,
                                 state: StateAbstraction,
                                 templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] =
     expression match {
@@ -100,8 +91,8 @@ object Guards {
           case ast.FieldAccessPredicate(access, _) =>
             // adapt field access
             val adapted = view.adaptFieldAccess(access)
-            // consider current guards if resource is equal to field access
-            if (state.equal(adapted, resource)) Seq(guards)
+            // consider current guards if resource abstraction contains field access
+            if (resource.abstracts(adapted)) Seq(guards)
             else Seq.empty
           case ast.PredicateAccessPredicate(access, _) =>
             // adapt predicate access
@@ -113,7 +104,7 @@ object Guards {
               processTemplate(template, depth + 1, view, guards)
             }
             // consider current guards if resource is equal to predicate access
-            if (state.equal(adapted, resource)) guards +: nested
+            if (resource.abstracts(adapted)) guards +: nested
             else nested
           case other =>
             sys.error(s"Unexpected wrapped expression in template: $other")

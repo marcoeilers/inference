@@ -9,7 +9,8 @@
 package inference.learner
 
 import inference.Names
-import inference.core.{AbstractLearner, Placeholder, Sample}
+import inference.core.sample.Sample
+import inference.core.{AbstractLearner, Placeholder}
 import inference.input.{Configuration, Input}
 import inference.util.ast.Expressions
 import inference.util.collections.SetMap

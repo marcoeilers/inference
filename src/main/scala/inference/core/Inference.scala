@@ -9,6 +9,7 @@
 package inference.core
 
 import com.typesafe.scalalogging.Logger
+import inference.core.sample.Sample
 import inference.input.Input
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier

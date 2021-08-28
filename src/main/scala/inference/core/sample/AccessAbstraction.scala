@@ -6,7 +6,7 @@
  * Copyright (c) 2011-2021 ETH Zurich.
  */
 
-package inference.core
+package inference.core.sample
 
 import inference.util.collections.Collections
 import viper.silver.ast
@@ -21,23 +21,35 @@ sealed trait AccessAbstraction {
    * @return The expressions.
    */
   def expressions: Set[ast.Exp]
+
+  /**
+   * Returns whether this in an abstraction for the given expression.
+   *
+   * @param expression The expression.
+   * @return True if this is an abstraction for the expression.
+   */
+  def abstracts(expression: ast.Exp): Boolean
 }
 
 /**
  * The default implementation of the access abstraction via a set of expressions.
+ * TODO: Also make an implicit version?
  *
  * @param expressions The expressions.
  */
-case class ExpressionSet(expressions: Set[ast.Exp]) extends AccessAbstraction
+case class ExplicitSet(expressions: Set[ast.Exp]) extends AccessAbstraction {
+  override def abstracts(expression: ast.Exp): Boolean =
+    expressions.contains(expression)
+}
 
 /**
- * A location access abstraction.
+ * A resource access abstraction.
  */
-sealed trait LocationAbstraction extends AccessAbstraction {
+sealed trait ResourceAbstraction extends AccessAbstraction {
   /**
-   * Returns expressions representing concrete location accesses.
+   * Returns locations representing concrete resource accesses.
    *
-   * @return The expressions.
+   * @return The locations.
    */
   def locations: Set[ast.LocationAccess]
 
@@ -53,11 +65,21 @@ sealed trait LocationAbstraction extends AccessAbstraction {
  * @param receiver The receiver abstraction.
  * @param field    The field.
  */
-case class FieldAbstraction(receiver: AccessAbstraction, field: ast.Field) extends LocationAbstraction {
+case class FieldAbstraction(receiver: AccessAbstraction, field: ast.Field) extends ResourceAbstraction {
   override lazy val locations: Set[ast.LocationAccess] =
     receiver
       .expressions
       .map { expression => ast.FieldAccess(expression, field)() }
+
+  override def abstracts(expression: ast.Exp): Boolean =
+    expression match {
+      case ast.FieldAccess(receiver, `field`) =>
+        this
+          .receiver
+          .abstracts(receiver)
+      case _ =>
+        false
+    }
 }
 
 /**
@@ -66,11 +88,22 @@ case class FieldAbstraction(receiver: AccessAbstraction, field: ast.Field) exten
  * @param name      The predicate name.
  * @param arguments The argument abstractions.
  */
-case class PredicateAbstraction(name: String, arguments: Seq[AccessAbstraction]) extends LocationAbstraction {
+case class PredicateAbstraction(name: String, arguments: Seq[AccessAbstraction]) extends ResourceAbstraction {
   override lazy val locations: Set[ast.LocationAccess] = {
     val sets = arguments.map(_.expressions)
     Collections
       .product(sets)
       .map { combination => ast.PredicateAccess(combination, name)() }
   }
+
+  override def abstracts(expression: ast.Exp): Boolean =
+    expression match {
+      case ast.PredicateAccess(arguments, `name`) =>
+        this
+          .arguments
+          .zip(arguments)
+          .forall { case (abstraction, argument) => abstraction.abstracts(argument) }
+      case _ =>
+        false
+    }
 }
