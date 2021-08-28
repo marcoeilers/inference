@@ -11,8 +11,6 @@ package inference.learner
 import inference.core.sample.{Record, ResourceAbstraction, StateAbstraction}
 import viper.silver.ast
 
-import scala.annotation.tailrec
-
 /**
  * A helper object used to compute effective guards.
  */
