@@ -29,7 +29,7 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
     opt[Int](
       name = "iterations",
       descr = "The number of iterations after which the learner gets exhausted and gives up.",
-      default = Some(10))
+      default = Some(20))
 
   val maxLength: ScallopOption[Int] =
     opt[Int](
