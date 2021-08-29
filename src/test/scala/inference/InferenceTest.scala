@@ -25,12 +25,12 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   val directory: String = "/tests"
 
   /**
-   * The path to the tests meant to be executed with heuristics.
+   * The path to the tests meant to be executed using heuristics.
    */
   val heuristicsDirectory: String = s"$directory/heuristics"
 
   /**
-   * The path to the tests meant to be executed with hints.
+   * The path to the tests meant to be executed using hints.
    */
   val hintsDirectory: String = s"$directory/hints"
 
@@ -41,34 +41,50 @@ class InferenceTest extends AnyFunSuite with TestRunner {
    * Runs all tests.
    */
   def runAll(): Unit = {
-    // tests with heuristics
+    // tests using heuristics
     val heuristicsFiles = collectFiles(heuristicsDirectory)
-    heuristicsFiles.foreach(runTestWithHeuristics)
+    heuristicsFiles.foreach(runTestUsingHeuristics)
 
-    // tests with hints
+    // tests using hints
     val hintsFiles = heuristicsFiles ++ collectFiles(hintsDirectory)
-    hintsFiles.foreach(runTestWithHints)
+    hintsFiles.foreach(runTestUsingHints)
+
+    // tests using predicate segments
+    // TODO: Add files only meant to be tested using predicate segments
+    val segmentsFiles = hintsFiles
+    segmentsFiles.foreach(runTestUsingSegments)
   }
 
   /**
-   * Tests the given file with heuristics.
+   * Tests the given file using heuristics.
    *
    * @param file The file to test.
    */
-  def runTestWithHeuristics(file: String): Unit = {
+  def runTestUsingHeuristics(file: String): Unit = {
     val name = s"test with heuristics: $file"
     val arguments = Main.heuristicsOptions ++ Seq(file)
     runTest(name, arguments)
   }
 
   /**
-   * Tests the given file with hints.
+   * Tests the given file using hints.
    *
    * @param file The file to test.
    */
-  def runTestWithHints(file: String): Unit = {
+  def runTestUsingHints(file: String): Unit = {
     val name = s"test with hints: $file"
     val arguments = Main.hintsOptions ++ Seq(file)
+    runTest(name, arguments)
+  }
+
+  /**
+   * Test the given file using predicate segments.
+   *
+   * @param file The file to test.
+   */
+  def runTestUsingSegments(file: String): Unit = {
+    val name = s"test with segments: $file"
+    val arguments = Main.segmentsOptions ++ Seq(file)
     runTest(name, arguments)
   }
 
