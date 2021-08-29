@@ -156,12 +156,13 @@ trait Folding extends Builder with Simplification {
           val body = hints.foldRight(without) {
             case (hint, result) =>
               // conditionally adapt fold depth
-              val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
-              val adapted = makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
-              // c under condition for hint relevance
               val condition = {
                 val equality = ast.EqCmp(start, hint.argument)()
                 Expressions.makeAnd(hint.conditions :+ equality)
+              }
+              val adapted = {
+                val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
+                makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
               }
               Statements.makeConditional(condition, adapted, result)
           }
