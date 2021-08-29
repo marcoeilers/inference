@@ -109,79 +109,23 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
 
 /**
  * An adaptor used to adapt expressions from one state to another.
- * TODO: Parts or all of this may become obsolete.
  *
  * @param source The source state.
  * @param target The target state.
  */
 case class Adaptor(source: StateEvaluator, target: Snapshot) {
   /**
-   * Adapts the given location.
-   *
-   * @param location The location to adapt.
-   * @return The adapted location.
-   */
-  def adaptLocation(location: ast.LocationAccess): Set[ast.LocationAccess] =
-    location match {
-      case ast.FieldAccess(receiver, field) =>
-        val adapted = adaptReference(receiver)
-        adapted.map { expression => ast.FieldAccess(expression, field)() }
-      case ast.PredicateAccess(arguments, name) =>
-        val sets = arguments.map(adaptReference)
-        Collections
-          .product(sets)
-          .map { adapted => ast.PredicateAccess(adapted, name)() }
-      case other =>
-        sys.error(s"Unexpected location: $other")
-    }
-
-  /**
-   * Adapts the given expression.
-   *
-   * @param expression The expression to adapt.
-   * @return The adapted expressions.
-   */
-  private def adapt(expression: ast.Exp): Set[ast.Exp] =
-    if (expression.typ == ast.Ref) {
-      adaptReference(expression)
-    } else expression match {
-      case equality: ast.EqCmp => adaptBinary(equality, ast.EqCmp(_, _)())
-      case inequality: ast.NeCmp => adaptBinary(inequality, ast.NeCmp(_, _)())
-      case _ => sys.error(s"Unexpected expression: $expression")
-    }
-
-  /**
-   * Adapts the given binary expression.
-   *
-   * @param binary      The binary expression to adapt.
-   * @param constructor The constructor used to build the adapted expressions.
-   * @return THe adapted binary expressions.
-   */
-  private def adaptBinary(binary: ast.BinExp, constructor: (ast.Exp, ast.Exp) => ast.Exp): Set[ast.Exp] =
-    for {
-      left <- adapt(binary.left);
-      right <- adapt(binary.right)
-    } yield constructor(left, right)
-
-  /**
-   * Adapts the given reference-typed expression.
-   *
-   * @param expression The expression to adapt.
-   * @return The adapted expressions.
-   */
-  private def adaptReference(expression: ast.Exp): Set[ast.Exp] = {
-    val node = source.evaluateReference(expression)
-    target.reachability.getOrElse(node, Set.empty)
-  }
-
-  /**
-   * Optionally adapts the given reference-typed exression.
+   * Optionally adapts the given reference-typed expression.
    *
    * @param expression The expression to adapt.
    * @return The adapted expression.
    */
-  def adaptReferenceOption(expression: ast.Exp): Option[Set[ast.Exp]] =
+  def adapt(expression: ast.Exp): Option[Set[ast.Exp]] =
     source
       .evaluateReferenceOption(expression)
-      .map { x => target.reachability.getOrElse(x, Set.empty) }
+      .map { node =>
+        target
+          .reachability
+          .getOrElse(node, Set.empty)
+      }
 }

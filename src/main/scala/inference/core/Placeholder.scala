@@ -10,6 +10,7 @@ package inference.core
 
 import inference.Names
 import inference.core.Kind.Kind
+import inference.core.sample.{AccessAbstraction, ExplicitSet, FieldAbstraction, PredicateAbstraction, ResourceAbstraction}
 import viper.silver.ast
 
 /**
@@ -120,6 +121,37 @@ sealed trait Instance {
       case ast.PredicateAccess(arguments, name) =>
         val instantiated = arguments.map(instantiate)
         ast.PredicateAccess(instantiated, name)()
+    }
+
+  /**
+   * Instantiates all occurrences of the parameters in the given resource abstraction with their corresonding arguments.
+   *
+   * @param resource The resource abstraction to instantiate.
+   * @return The instantiated resource abstraction.
+   */
+  def instantiate(resource: ResourceAbstraction): ResourceAbstraction =
+    resource match {
+      case FieldAbstraction(receiver, field) =>
+        val instantiated = instantiate(receiver)
+        FieldAbstraction(instantiated, field)
+      case PredicateAbstraction(name, arguments) =>
+        val instantiated = arguments.map(instantiate)
+        PredicateAbstraction(name, instantiated)
+    }
+
+  /**
+   * Instantiates all occurrences of the parameters in the given access abstraction with their corresponding arguments.
+   *
+   * @param access The access abstraction to instantiate.
+   * @return The instantiated access abstraction.
+   */
+  def instantiate(access: AccessAbstraction): AccessAbstraction =
+    access match {
+      case resource: ResourceAbstraction =>
+        instantiate(resource)
+      case ExplicitSet(expressions) =>
+        val instantiated = expressions.map(instantiate)
+        ExplicitSet(instantiated)
     }
 
   /**

@@ -160,29 +160,20 @@ trait SampleExtractor {
      * @return The record.
      */
     def recordify(snapshot: Snapshot): Record = {
-      // adapt locations
-      val locations = {
-        val adaptor = Adaptor(failState, snapshot)
-        adaptor.adaptLocation(offending)
-      }
-      // permission difference
-      // TODO: Use resource abstraction
-      val amount = locations
-        .headOption
-        .map { formal =>
-          val state = snapshot.state
-          val actual = snapshot.instance.instantiate(formal)
-          val instance = snapshot.instance
-          val hypothesis = query.hypothesis
-          evaluatePermission(actual, instance, hypothesis, state)
-        }
-        .getOrElse(0)
       // get placeholder and create abstractions
       val placeholder = snapshot.placeholder
       val state = StateAbstraction(snapshot)
       val resource = {
         val adaptor = Adaptor(failState, snapshot)
         abstractLocation(offending, adaptor)
+      }
+      // permission difference
+      val amount = {
+        val instance = snapshot.instance
+        val actual = instance.instantiate(resource)
+        val hypothesis = query.hypothesis
+        val state = snapshot.state
+        evaluatePermission(actual, instance, hypothesis, state)
       }
       // create record
       if (query.isExhaled(snapshot.label)) {
@@ -269,7 +260,7 @@ trait SampleExtractor {
    * @param state      The state.
    * @return The permission amount.
    */
-  def evaluatePermission(resource: ast.Exp, instance: Instance, hypothesis: Hypothesis, state: StateEvaluator): Int = {
+  def evaluatePermission(resource: ResourceAbstraction, instance: Instance, hypothesis: Hypothesis, state: StateEvaluator): Int = {
     val evaluator = new PermissionEvaluator(input, hypothesis, state)
     evaluator.evaluate(resource, instance, depth = 2)
   }
@@ -299,7 +290,7 @@ trait SampleExtractor {
    * @return The access abstraction.
    */
   private def abstractAccess(access: ast.Exp, adaptor: Adaptor): AccessAbstraction = {
-    val adapted = adaptor.adaptReferenceOption(access)
+    val adapted = adaptor.adapt(access)
     adapted match {
       case Some(expressions) =>
         ExplicitSet(expressions)

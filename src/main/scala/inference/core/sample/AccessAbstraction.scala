@@ -29,6 +29,9 @@ sealed trait AccessAbstraction {
    * @return True if this is an abstraction for the expression.
    */
   def abstracts(expression: ast.Exp): Boolean
+
+  override def toString: String =
+    expressions.mkString("{", ", ", "}")
 }
 
 /**

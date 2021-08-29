@@ -8,6 +8,7 @@
 
 package inference.teacher.state
 
+import inference.core.sample.{FieldAbstraction, PredicateAbstraction, ResourceAbstraction}
 import inference.core.{Hypothesis, Instance}
 import inference.input.Input
 import viper.silver.ast
@@ -29,7 +30,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
    * @param depth    The depth up to which predicates should be unfolded.
    * @return The permission amount.
    */
-  def evaluate(resource: ast.Exp, instance: Instance, depth: Int): Int = {
+  def evaluate(resource: ResourceAbstraction, instance: Instance, depth: Int): Int = {
     val specification = hypothesis.getBody(instance)
     evaluate(resource, specification, depth)
   }
@@ -42,7 +43,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
    * @param depth         The depth up to which predicates should be unfolded.
    * @return The permission amount.
    */
-  def evaluate(resource: ast.Exp, specification: ast.Exp, depth: Int): Int =
+  def evaluate(resource: ResourceAbstraction, specification: ast.Exp, depth: Int): Int =
     specification match {
       case ast.TrueLit() => 0
       case ast.And(left, right) =>
@@ -54,11 +55,9 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
         if (condition) evaluate(resource, guarded, depth) else 0
       case ast.FieldAccessPredicate(access, _) =>
         resource match {
-          case ast.FieldAccess(receiver, field) =>
-            // check whether resource and specification are the same
+          case FieldAbstraction(receiver, field) =>
             if (field == access.field) {
-              val comparison = ast.EqCmp(receiver, access.rcv)()
-              val condition = evaluateBoolean(comparison)
+              val condition = receiver.abstracts(access.rcv)
               if (condition) 1 else 0
             } else 0
           case _ =>
@@ -67,18 +66,17 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
         }
       case ast.PredicateAccessPredicate(access, _) =>
         resource match {
-          case resource: ast.FieldAccess =>
+          case resource: FieldAbstraction =>
             if (depth > 0) {
               val instance = input.instance(access)
               val body = hypothesis.getBody(instance)
               evaluate(resource, body, depth - 1)
             } else 0
-          case ast.PredicateAccess(arguments, name) =>
+          case PredicateAbstraction(name, arguments) =>
             // lazily compute whether all arguments are equal
             lazy val equalArguments = arguments
               .zip(access.args)
-              .map { case (left, right) => ast.EqCmp(left, right)() }
-              .forall(evaluateBoolean)
+              .forall { case (abstraction, argument) => abstraction.abstracts(argument) }
             // check whether resource and specification are the same
             if (name == access.predicateName && equalArguments) 1
             else {
