@@ -51,6 +51,18 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val useHints: ScallopOption[Boolean] =
     useHeuristics.map(!_)
 
+  val simplifyQueries: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "simplifyQueries",
+      descr = "Enables simplifications for queries.",
+      hidden = true)
+
+  val simplifyExtended: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "simplifyExtended",
+      descr = "Enables simplifications for extended program.",
+      hidden = true)
+
   val verifyWithHints: ScallopOption[Boolean] =
     opt[Boolean](
       name = "verifyWithHints",

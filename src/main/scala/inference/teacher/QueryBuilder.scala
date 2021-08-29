@@ -265,7 +265,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       emitInhale(body)
     }
     // unfold predicates appearing in specification
-    unfold(body)
+    unfold(body, configuration.simplifyQueries())
     // branch on accesses
     if (configuration.useBranching()) {
       branchOnAccesses(instance)
@@ -285,7 +285,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     saveSnapshot(instance, exhaled = true)
     // fold predicates appearing in specification
     val body = hypothesis.getBody(instance)
-    fold(body)
+    fold(body, configuration.simplifyQueries())
     // exhale specification
     val info = InstanceInfo(instance)
     if (configuration.noInlining()) {

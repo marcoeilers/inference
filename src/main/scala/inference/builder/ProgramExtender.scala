@@ -125,10 +125,10 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
               // inhale and unfold predicate
               emitInhale(resource)
               emitUnfold(resource)
-            } else simplified {
+            } else {
               // unfold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              unfold(body)
+              unfold(body, configuration.simplifyExtended())
             }
           case _ => // do nothing
         }
@@ -140,10 +140,10 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
               // fold and exhale predicate
               emitFold(resource)
               emitExhale(resource)
-            } else simplified {
+            } else {
               // fold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              fold(body)
+              fold(body, configuration.simplifyExtended())
             }
           case _ => // do nothing
         }
