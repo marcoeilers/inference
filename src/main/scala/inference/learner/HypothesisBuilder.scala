@@ -85,6 +85,9 @@ trait HypothesisBuilder {
         val guard = buildGuard(guardId, atoms, model)
         val guarded = buildExpression(body, atoms, model)
         ast.Implies(guard, guarded)()
+      case Truncated(condition, body) =>
+        val expression = buildExpression(body, atoms, model)
+        ast.Implies(condition, expression)()
     }
 
   /**

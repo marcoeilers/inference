@@ -195,9 +195,12 @@ trait HypothesisSolver {
         case ChoiceGuard(_, _) =>
           // TODO:
           ???
-        case TruncationGuard(_) =>
-          // TODO: Implement me.
-          ???
+        case TruncationGuard(condition) =>
+          record
+            .state
+            .evaluate(condition)
+            .map { value => ast.BoolLit(value)() }
+            .get
       }
       Expressions.makeAnd(conjuncts)
     }

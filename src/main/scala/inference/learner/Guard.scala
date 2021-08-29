@@ -112,8 +112,12 @@ object Guards {
       case Conjunction(conjuncts) =>
         conjuncts.flatMap { conjunct => processExpression(conjunct, depth, view, guards, atoms) }
       case Guarded(guardId, body) =>
-        val resourceGuard = ResourceGuard(guardId, atoms)
-        val updatedGuards = guards :+ resourceGuard
+        val guard = ResourceGuard(guardId, atoms)
+        val updatedGuards = guards :+ guard
+        processExpression(body, depth, view, updatedGuards, atoms)
+      case Truncated(condition, body) =>
+        val guard = TruncationGuard(view.adapt(condition))
+        val updatedGuards = guards :+ guard
         processExpression(body, depth, view, updatedGuards, atoms)
     }
 

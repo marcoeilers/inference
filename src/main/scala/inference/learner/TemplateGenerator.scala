@@ -173,7 +173,14 @@ trait TemplateGenerator extends AbstractLearner {
       Conjunction(fields ++ predicates)
     }
     // create template
-    PredicateTemplate(placeholder, body)
+    if (placeholder.isRecursive && configuration.useSegments()) {
+      val Seq(start, stop) = placeholder.variables
+      val condition = ast.NeCmp(start, stop)()
+      val truncated = Truncated(condition, body)
+      PredicateTemplate(placeholder, truncated)
+    } else {
+      PredicateTemplate(placeholder, body)
+    }
   }
 
   /**

@@ -85,3 +85,14 @@ case class Guarded(guardId: Int, body: TemplateExpression) extends TemplateExpre
   override def toString: String =
     s"(phi_$guardId -> $body)"
 }
+
+/**
+ * A truncated template expression.
+ *
+ * @param condition The truncation condition.
+ * @param body      The truncated template expression.
+ */
+case class Truncated(condition: ast.Exp, body: TemplateExpression) extends TemplateExpression {
+  override def toString: String =
+    s"($condition -> $body)"
+}
