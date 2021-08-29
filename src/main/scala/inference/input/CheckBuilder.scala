@@ -181,6 +181,7 @@ trait CheckBuilder extends Builder with Atoms {
       updateScope(body) {
         instrumented {
           emitInhale(invariant)
+          emitInhale(loop.cond)
         }
         processStatements(body, declarations)
         instrumented(emitExhale(invariant))
