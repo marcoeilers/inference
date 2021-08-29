@@ -73,7 +73,7 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
   /**
    * Lazily computed reachability map that also includes null.
    */
-  private lazy val nullableReachability = {
+  private[state] lazy val nullableReachability = {
     val literal = ast.NullLit()()
     val value = state.evaluateReference(literal)
     SetMap.add(reachability, value, literal)
@@ -115,17 +115,30 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
  */
 case class Adaptor(source: StateEvaluator, target: Snapshot) {
   /**
-   * Optionally adapts the given reference-typed expression.
+   * Optionally returns a set of expressions that may be used to represent the given reference-typed expression.
    *
    * @param expression The expression to adapt.
+   * @param nullable   The flag indicating whether the set may contain the null reference.
    * @return The adapted expression.
    */
-  def adapt(expression: ast.Exp): Option[Set[ast.Exp]] =
+  def adapt(expression: ast.Exp, nullable: Boolean): Option[Set[ast.Exp]] = {
+    // get reachability map
+    val map =
+      if (nullable) target.nullableReachability
+      else target.reachability
+    // adapt expression
+    adapt(expression, map)
+  }
+
+  /**
+   * Optionally adapts the given reference-typed expression using the given reachability map.
+   *
+   * @param expression The expression to adapt.
+   * @param map        The reachability map.
+   * @return The adapted expression.
+   */
+  private def adapt(expression: ast.Exp, map: Map[String, Set[ast.Exp]]): Option[Set[ast.Exp]] =
     source
       .evaluateReferenceOption(expression)
-      .map { node =>
-        target
-          .reachability
-          .getOrElse(node, Set.empty)
-      }
+      .map { node => map.getOrElse(node, Set.empty) }
 }

@@ -275,22 +275,23 @@ trait SampleExtractor {
   private def abstractLocation(resource: ast.LocationAccess, adaptor: Adaptor): ResourceAbstraction =
     resource match {
       case ast.FieldAccess(receiver, field) =>
-        val abstraction = abstractAccess(receiver, adaptor)
+        val abstraction = abstractAccess(receiver, adaptor, nullable = false)
         FieldAbstraction(abstraction, field)
       case ast.PredicateAccess(arguments, name) =>
-        val abstractions = arguments.map { argument => abstractAccess(argument, adaptor) }
+        val abstractions = arguments.map { argument => abstractAccess(argument, adaptor, nullable = true) }
         PredicateAbstraction(name, abstractions)
     }
 
   /**
    * Returns an abstraction for the given access.
    *
-   * @param access  The access to abstract.
-   * @param adaptor The adaptor.
+   * @param access   The access to abstract.
+   * @param adaptor  The adaptor.
+   * @param nullable The flag indicating whether the abstraction may include the null reference.
    * @return The access abstraction.
    */
-  private def abstractAccess(access: ast.Exp, adaptor: Adaptor): AccessAbstraction = {
-    val adapted = adaptor.adapt(access)
+  private def abstractAccess(access: ast.Exp, adaptor: Adaptor, nullable: Boolean): AccessAbstraction = {
+    val adapted = adaptor.adapt(access, nullable)
     adapted match {
       case Some(expressions) =>
         ExplicitSet(expressions)
