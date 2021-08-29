@@ -28,8 +28,10 @@ object Guards {
     implicit val state: StateAbstraction = record.state
     // get and process template
     val name = record.placeholder.name
-    val template = templates(name)
-    processTemplate(template)
+    templates
+      .get(name)
+      .map { template => processTemplate(template) }
+      .getOrElse(Seq.empty)
   }
 
   /**
