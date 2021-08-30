@@ -40,6 +40,11 @@ object Names {
   val recursive = "P"
 
   /**
+   * The name used for the append lemma.
+   */
+  val appendLemma = "append_lemma"
+
+  /**
    * The name of the down hint.
    */
   val downHint = "__down__"

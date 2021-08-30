@@ -92,6 +92,15 @@ trait CheckBuilder extends Builder with Atoms {
       val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())
       createPlaceholder(name, Kind.Predicate, parameters, Seq.empty)
     }
+    // add append lemma placeholder
+    if (configuration.useSegments()) {
+      val name = Names.appendLemma
+      val names = Seq("x", "y", "z")
+      val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())
+      val atoms = atomsFromParameters(parameters.slice(1, 2))
+      val placeholder = Placeholder(name, Kind.Lemma, parameters, atoms, Seq.empty)
+      placeholders.append(placeholder)
+    }
     // return placeholders and checks
     (placeholders.toSeq, checks.toSeq)
   }

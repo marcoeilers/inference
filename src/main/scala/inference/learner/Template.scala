@@ -51,6 +51,20 @@ case class PredicateTemplate(placeholder: Placeholder, body: TemplateExpression)
 }
 
 /**
+ * A lemma template.
+ *
+ * @param placeholder   The specification placeholder corresponding to the lemma.
+ * @param precondition  The template expression corresponding to the lemma precondition.
+ * @param postcondition the template expression corresponding to the lemma postcondition.
+ */
+case class LemmaTemplate(placeholder: Placeholder, precondition: TemplateExpression, postcondition: TemplateExpression) extends Template {
+  override def toString: String =
+    s"$placeholder" +
+      s"   requires $precondition" +
+      s"   ensures $postcondition"
+}
+
+/**
  * The super trait for all template expressions.
  */
 sealed trait TemplateExpression

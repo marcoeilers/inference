@@ -62,7 +62,7 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
  */
 object Kind extends Enumeration {
   type Kind = Value
-  val Precondition, Postcondition, Invariant, Predicate = Value
+  val Precondition, Postcondition, Invariant, Predicate, Lemma = Value
 }
 
 /**
