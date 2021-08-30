@@ -51,7 +51,9 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
         val rightValue = evaluate(resource, right, depth)
         leftValue + rightValue
       case ast.Implies(guard, guarded) =>
-        val condition = state.evaluateBoolean(guard)
+        val condition = state
+          .evaluateBooleanOption(guard)
+          .getOrElse(false)
         if (condition) evaluate(resource, guarded, depth) else 0
       case ast.FieldAccessPredicate(access, _) =>
         resource match {
