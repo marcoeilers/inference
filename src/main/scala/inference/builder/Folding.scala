@@ -192,8 +192,8 @@ trait Folding extends Builder with Simplification {
                                default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     expression match {
       case ast.And(left, right) =>
-        foldWithoutHints(left)
-        foldWithoutHints(right)
+        foldWithoutHints(left, guards)
+        foldWithoutHints(right, guards)
       case ast.Implies(guard, guarded) =>
         foldWithoutHints(guarded, guards :+ guard)
       case resource@ast.PredicateAccessPredicate(predicate, _) =>
