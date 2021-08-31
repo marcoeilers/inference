@@ -8,7 +8,8 @@
 
 package inference.builder
 
-import inference.core.Hypothesis
+import inference.Names
+import inference.core.{Hypothesis, Instance}
 import inference.input.{Check, Configuration, Hint, Input}
 import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import viper.silver.ast
@@ -138,6 +139,56 @@ trait Folding extends Builder with Simplification {
                            (implicit maxDepth: Int, hypothesis: Hypothesis,
                             default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit = {
     /**
+     * Helper method that handles the stop argument of the predicate instances appearing in the given expression.
+     *
+     * @param expression The expression.
+     * @param guards     The guards collected so far.
+     */
+    def handleStop(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty): Unit =
+      expression match {
+        case ast.And(left, right) =>
+          handleStop(left, guards)
+          handleStop(right, guards)
+        case ast.Implies(guard, guarded) =>
+          handleStop(guarded, guards :+ guard)
+        case predicate@ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, _), _) =>
+          arguments match {
+            case Seq(start, stop) =>
+              val without: ast.Stmt = makeScope(handleStart(predicate))
+              val body = hints
+                .filter(_.isDown)
+                .foldRight(without) {
+                  case (hint, result) =>
+                    // condition under which the hint is relevant
+                    val condition = {
+                      val inequality = ast.NeCmp(start, stop)()
+                      val equality = ast.EqCmp(stop, hint.argument)()
+                      Expressions.makeAnd(hint.conditions :+ inequality :+ equality)
+                    }
+                    // append lemma application
+                    val application = makeScope {
+                      val arguments = Seq(start, hint.old, stop)
+                      val instance = input.instance(Names.appendLemma, arguments)
+                      // fold lemma precondition
+                      val precondition = hypothesis.getLemmaPrecondition(instance)
+                      handleStart(precondition)
+                      // call lemma method
+                      val call = makeCall(instance)
+                      emit(call)
+                    }
+                    // conditionally apply lemma
+                    Statements.makeConditional(condition, application, result)
+                }
+              emitConditional(guards, body)
+            case _ =>
+              // there is no stop argument
+              handleStart(predicate, guards)
+          }
+        case other =>
+          handleStart(other, guards)
+      }
+
+    /**
      * Helper method that handles the start argument of the predicate instances appearing in the given expression.
      *
      * @param expression The expression.
@@ -150,22 +201,25 @@ trait Folding extends Builder with Simplification {
           handleStart(right, guards)
         case ast.Implies(guard, guarded) =>
           handleStart(guarded, guards :+ guard)
-        case predicate: ast.PredicateAccessPredicate =>
-          val start = predicate.loc.args.head
+        case predicate@ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, _), _) =>
+          val start = arguments.head
           val without: ast.Stmt = makeScope(foldWithoutHints(predicate))
-          val body = hints.foldRight(without) {
-            case (hint, result) =>
-              // conditionally adapt fold depth
-              val condition = {
-                val equality = ast.EqCmp(start, hint.argument)()
-                Expressions.makeAnd(hint.conditions :+ equality)
-              }
-              val adapted = {
-                val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
-                makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
-              }
-              Statements.makeConditional(condition, adapted, result)
-          }
+          val body = hints
+            .foldRight(without) {
+              case (hint, result) =>
+                // condition under which the hint is relevant
+                val condition = {
+                  val equality = ast.EqCmp(start, hint.argument)()
+                  Expressions.makeAnd(hint.conditions :+ equality)
+                }
+                // adapt fold depth
+                val adapted = {
+                  val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
+                  makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
+                }
+                // conditionally adapt fold depth
+                Statements.makeConditional(condition, adapted, result)
+            }
           emitConditional(guards, body)
         case other =>
           foldWithoutHints(other, guards)
@@ -173,7 +227,7 @@ trait Folding extends Builder with Simplification {
 
     // fold
     if (hints.isEmpty) foldWithoutHints(expression)
-    else handleStart(expression)
+    else handleStop(expression)
   }
 
   /**
@@ -218,4 +272,16 @@ trait Folding extends Builder with Simplification {
       case other =>
         default(other, guards)
     }
+
+  /**
+   * Returns a method call corresponding to the application of the given lemma instance.
+   *
+   * @param instance The lemma instance.
+   * @return The method call.
+   */
+  private def makeCall(instance: Instance): ast.MethodCall = {
+    val name = instance.name
+    val arguments = instance.arguments
+    ast.MethodCall(name, arguments, Seq.empty)(ast.NoPosition, ast.NoInfo, ast.NoTrafos)
+  }
 }

@@ -8,6 +8,7 @@
 
 package inference.core
 
+import inference.util.ast.Expressions
 import viper.silver.ast
 
 /**
@@ -20,9 +21,17 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
   /**
    * The map from names to predicates.
    */
-  private lazy val map =
+  private lazy val predicateMap =
     predicates
       .map { predicate => predicate.name -> predicate }
+      .toMap
+
+  /**
+   * The map from names to lemma methods.
+   */
+  private lazy val lemmaMap =
+    lemmas
+      .map { lemma => lemma.name -> lemma }
       .toMap
 
   /**
@@ -45,7 +54,7 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
    * @return The inferred specification.
    */
   def getBody(name: String): ast.Exp =
-    map
+    predicateMap
       .get(name)
       .flatMap(_.body)
       .getOrElse(ast.TrueLit()())
@@ -60,6 +69,37 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
     val body = getBody(instance.name)
     instance.instantiate(body)
   }
+
+  /**
+   * Returns the precondition corresponding to the given lemma instance.
+   *
+   * @param instance The lemma instance.
+   * @return The precondition.
+   */
+  def getLemmaPrecondition(instance: Instance): ast.Exp =
+    lemmaMap.get(instance.name) match {
+      case Some(lemma) =>
+        val precondition = Expressions.makeAnd(lemma.pres)
+        instance.instantiate(precondition)
+      case _ =>
+        sys.error(s"Lemma $instance not defined by hypothesis.")
+    }
+
+  /**
+   * Returns the postcondition corresponding to the given lemma instance.
+   *
+   * @param instance The lemma instance.
+   * @return The postcondition.
+   */
+  def getLemmaPostcondition(instance: Instance): ast.Exp =
+    lemmaMap.get(instance.name) match {
+      case Some(lemma) =>
+        val postcondition = Expressions.makeAnd(lemma.posts)
+        instance.instantiate(postcondition)
+      case _ =>
+        sys.error(s"Lemma $instance not defined by hypothesis.")
+    }
+
 
   override def toString: String =
     if (predicates.isEmpty) "Hypothesis()"
