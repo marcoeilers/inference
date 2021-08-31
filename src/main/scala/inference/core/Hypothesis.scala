@@ -14,8 +14,9 @@ import viper.silver.ast
  * A hypothesis.
  *
  * @param predicates The predicates.
+ * @param lemmas     The lemma methods.
  */
-case class Hypothesis(predicates: Seq[ast.Predicate]) {
+case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
   /**
    * The map from names to predicates.
    */

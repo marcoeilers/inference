@@ -26,7 +26,7 @@ class Learner(protected val input: Input, protected val solver: Solver)
   override def hypothesis: Option[Hypothesis] = {
     if (samples.isEmpty) {
       // return empty hypothesis
-      val initial = Hypothesis(Seq.empty)
+      val initial = Hypothesis(Seq.empty, Seq.empty)
       Some(initial)
     } else {
       // generate templates

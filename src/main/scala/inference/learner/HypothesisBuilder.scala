@@ -35,58 +35,106 @@ trait HypothesisBuilder {
   protected def buildHypothesis(templates: Seq[Template], model: Map[String, Boolean]): Hypothesis = {
     // build predicates
     val predicates = templates.collect {
-      case template: PredicateTemplate => buildPredicate(template, model)
+      case template: PredicateTemplate =>
+        buildPredicate(template)(model)
     }
-
+    // build lemmas
+    val lemmas = templates.collect {
+      case template: LemmaTemplate =>
+        buildLemma(template)(model)
+    }
     // create hypothesis
-    val hypothesis = Hypothesis(predicates)
-
+    val hypothesis = Hypothesis(predicates, lemmas)
     // return hypothesis
     logger.info(hypothesis.toString)
     hypothesis
   }
 
   /**
-   * Builds a predicate corresponding to the given template model.
+   * Builds a predicate corresponding to the given predicate template and model.
    *
    * @param template The predicate template.
    * @param model    The model.
    * @return The predicate.
    */
-  private def buildPredicate(template: PredicateTemplate, model: Map[String, Boolean]): ast.Predicate = {
+  private def buildPredicate(template: PredicateTemplate)(implicit model: Map[String, Boolean]): ast.Predicate = {
     // get placeholder and extract name, parameters, and atoms
     val placeholder = template.placeholder
     val name = placeholder.name
     val parameters = placeholder.parameters
     val atoms = placeholder.atoms
     // build body
-    val body = buildExpression(template.body, atoms, model)
-    val simplified = Expressions.simplify(body)
+    val body = buildBody(template.body, atoms)
     // create predicate
-    ast.Predicate(name, parameters, Some(simplified))()
+    ast.Predicate(name, parameters, body)()
   }
 
   /**
-   * Builds an expression to the given expression corresponding to the given model.
+   * Builds a lemma method corresponding to the given lemma template and model.
+   *
+   * @param template The lemma template.
+   * @param model    The model.
+   * @return The lemma method.
+   */
+  private def buildLemma(template: LemmaTemplate)(implicit model: Map[String, Boolean]): ast.Method = {
+    // build pre- and postcondition
+    val name = template.name
+    val parameters = template.parameters
+    val atoms = template.atoms
+    val precondition = buildSpecification(template.precondition, atoms)
+    val postcondition = buildSpecification(template.postcondition, atoms)
+    // create lemma method
+    ast.Method(name, parameters, Seq.empty, precondition, postcondition, None)()
+  }
+
+  /**
+   *
+   * Builds a predicate body corresponding to the given template expression and model.
+   *
+   * @param expression The template expression.
+   * @param atoms      The atoms upon which the predicate body may depend.
+   * @param model      The model.
+   * @return The predicate body.
+   */
+  def buildBody(expression: TemplateExpression, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): Option[ast.Exp] = {
+    val body = buildExpression(expression, atoms)
+    val simplified = Expressions.simplify(body)
+    Some(simplified)
+  }
+
+  /**
+   * Builds a specification corresponding to the given template expression and model.
+   *
+   * @param expression The template expression.
+   * @param atoms      The atoms upon which the specification may depend.
+   * @param model      The model.
+   * @return The specification.
+   */
+  @inline
+  def buildSpecification(expression: TemplateExpression, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): Seq[ast.Exp] =
+    buildBody(expression, atoms).toSeq
+
+  /**
+   * Builds an expression corresponding to the given template expression and model.
    *
    * @param expression The template expression.
    * @param atoms      The atoms upon which the expression may depend.
    * @param model      The model.
    * @return The expression.
    */
-  private def buildExpression(expression: TemplateExpression, atoms: Seq[ast.Exp], model: Map[String, Boolean]): ast.Exp =
+  private def buildExpression(expression: TemplateExpression, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): ast.Exp =
     expression match {
       case Wrapped(expression) =>
         expression
       case Conjunction(conjuncts) =>
-        val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms, model) }
+        val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms) }
         Expressions.makeAnd(mapped)
       case Guarded(guardId, body) =>
-        val guard = buildGuard(guardId, atoms, model)
-        val guarded = buildExpression(body, atoms, model)
+        val guard = buildGuard(guardId, atoms)
+        val guarded = buildExpression(body, atoms)
         ast.Implies(guard, guarded)()
       case Truncated(condition, body) =>
-        val expression = buildExpression(body, atoms, model)
+        val expression = buildExpression(body, atoms)
         ast.Implies(condition, expression)()
     }
 
@@ -98,7 +146,7 @@ trait HypothesisBuilder {
    * @param model   The model.
    * @return The guard.
    */
-  private def buildGuard(guardId: Int, atoms: Seq[ast.Exp], model: Map[String, Boolean]): ast.Exp = {
+  private def buildGuard(guardId: Int, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): ast.Exp = {
     val maxClauses = 1
     // build clauses
     val clauses = for (clauseIndex <- 0 until maxClauses) yield {

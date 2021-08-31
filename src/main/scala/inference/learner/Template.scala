@@ -33,10 +33,17 @@ sealed trait Template {
   /**
    * Returns the parameters of the specification.
    *
-   * @return THe parameters.
+   * @return The parameters.
    */
   def parameters: Seq[ast.LocalVarDecl] =
     placeholder.parameters
+
+  /**
+   * Returns the atoms that may be used for the specification.
+   * @return The atoms.
+   */
+  def atoms: Seq[ast.Exp] =
+    placeholder.atoms
 }
 
 /**
