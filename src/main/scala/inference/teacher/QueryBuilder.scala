@@ -152,6 +152,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
     // create methods
     val methods = {
+      // lemma methods
+      val lemmas = hypothesis.lemmas
       // dummy methods for method not contained in batch
       val dummies = {
         val names = batch.map(_.name).toSet
@@ -168,8 +170,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       // instrument methods
       implicit val current: Hypothesis = hypothesis
       val extended = batch.map(extendCheck)
-      // combine dummy and instrumented methods
-      dummies ++ extended
+      // combine lemma, dummy and instrumented methods
+      lemmas ++ dummies ++ extended
     }
 
     // create program

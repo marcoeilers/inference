@@ -71,19 +71,28 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
   }
 
   /**
+   * Returns the lemma method with the given name.
+   *
+   * @param name The name of the lemma.
+   * @return The lemma method.
+   */
+  def getLemma(name: String): ast.Method =
+    lemmaMap.get(name) match {
+      case Some(method) => method
+      case _ => sys.error(s"Lemma method not defined: $name")
+    }
+
+  /**
    * Returns the precondition corresponding to the given lemma instance.
    *
    * @param instance The lemma instance.
    * @return The precondition.
    */
-  def getLemmaPrecondition(instance: Instance): ast.Exp =
-    lemmaMap.get(instance.name) match {
-      case Some(lemma) =>
-        val precondition = Expressions.makeAnd(lemma.pres)
-        instance.instantiate(precondition)
-      case _ =>
-        sys.error(s"Lemma $instance not defined by hypothesis.")
-    }
+  def getLemmaPrecondition(instance: Instance): ast.Exp = {
+    val lemma = getLemma(instance.name)
+    val precondition = Expressions.makeAnd(lemma.pres)
+    instance.instantiate(precondition)
+  }
 
   /**
    * Returns the postcondition corresponding to the given lemma instance.
@@ -91,14 +100,11 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
    * @param instance The lemma instance.
    * @return The postcondition.
    */
-  def getLemmaPostcondition(instance: Instance): ast.Exp =
-    lemmaMap.get(instance.name) match {
-      case Some(lemma) =>
-        val postcondition = Expressions.makeAnd(lemma.posts)
-        instance.instantiate(postcondition)
-      case _ =>
-        sys.error(s"Lemma $instance not defined by hypothesis.")
-    }
+  def getLemmaPostcondition(instance: Instance): ast.Exp = {
+    val lemma = getLemma(instance.name)
+    val postcondition = Expressions.makeAnd(lemma.posts)
+    instance.instantiate(postcondition)
+  }
 
 
   override def toString: String =

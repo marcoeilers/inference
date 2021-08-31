@@ -73,9 +73,16 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
       extended ++ recursive
     }
     // methods
-    val methods = original
-      .methods
-      .map { method => extendMethod(method)(hypothesis) }
+    val methods = {
+      // lemma methods
+      val lemmas = hypothesis.lemmas
+      // extend methods
+      val extended = original
+        .methods
+        .map { method => extendMethod(method)(hypothesis) }
+      // combine lemma and extended methods
+      lemmas ++ extended
+    }
     // update program
     original.copy(
       fields = fields,

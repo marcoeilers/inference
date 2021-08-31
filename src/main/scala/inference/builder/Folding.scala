@@ -89,7 +89,7 @@ trait Folding extends Builder with Simplification {
   /**
    * Unfolds the given expression up to the specified maximal depth.
    *
-   * @param expression THe expression to unfold.
+   * @param expression The expression to unfold.
    * @param guards     The guards collected so far.
    * @param maxDepth   The implicitly passed maximal depth.
    * @param hypothesis The implicitly passed current hypothesis.

@@ -117,6 +117,7 @@ trait SampleExtractor {
    * @return The extracted sample.
    */
   protected def extractBasicSample(query: Query, error: VerificationError): Sample = {
+    println(error)
     // extract counter-example and offending location
     val (counter, offending, info) = extractInformation(error)
 
