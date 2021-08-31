@@ -274,7 +274,8 @@ trait CheckBuilder extends Builder with Atoms {
         if (Names.isHint(name)) {
           // process hint
           val argument = arguments.head
-          val hint = Hint(name, argument)
+          val old = save(argument)
+          val hint = Hint(name, argument, old)
           addHint(hint)
         } else {
           // instrument method call
@@ -283,11 +284,12 @@ trait CheckBuilder extends Builder with Atoms {
             val variables = arguments.map {
               case variable: ast.LocalVar =>
                 variable
-              case access: ast.FieldAccess =>
-                // save value using variable
+              case access@ast.FieldAccess(receiver, _) =>
+                // save value of field access and get receiver as a variable
                 val variable = save(access)
+                val old = asVariable(receiver)
                 // add hint
-                val hint = Hint(Names.downHint, variable)
+                val hint = Hint(Names.downHint, variable, old)
                 addHint(hint)
                 // return variable
                 variable
@@ -340,6 +342,18 @@ trait CheckBuilder extends Builder with Atoms {
     val statement = Instrumented(body, hints.toSeq)
     emit(statement)
   }
+
+  /**
+   * Returns the given expression as a variable.
+   *
+   * @param expression The expression.
+   * @return The variable.
+   */
+  private def asVariable(expression: ast.Exp): ast.LocalVar =
+    expression match {
+      case variable: ast.LocalVar => variable
+      case other => sys.error(s"Unexpected expression: $other")
+    }
 
   /**
    * Saves the value of the given expression by assigning it to a local variable.
