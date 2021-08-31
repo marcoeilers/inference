@@ -78,6 +78,21 @@ object Expressions {
     expression.transform(term => simplification(term), Traverse.BottomUp)
 
   /**
+   * Simplifies the given conjunction.
+   *
+   * @param conjunction The conjunction to simplify.
+   * @return The simplified conjunction.
+   */
+  def simplifyAnd(conjunction: ast.And): ast.Exp =
+    (conjunction.left, conjunction.right) match {
+      case (ast.TrueLit(), right) => right
+      case (left, ast.TrueLit()) => left
+      case (literal: ast.FalseLit, _) => literal
+      case (_, literal: ast.FalseLit) => literal
+      case _ => conjunction
+    }
+
+  /**
    * Performs a simplification step.
    *
    * @param expression The expression to simplify.
@@ -103,21 +118,17 @@ object Expressions {
         case _ => expression
       }
       // simplify conjunction
-      case ast.And(left, right) => (left, right) match {
-        case (ast.TrueLit(), _) => right
-        case (_, ast.TrueLit()) => left
-        case (ast.FalseLit(), _) => ast.FalseLit()()
-        case (_, ast.FalseLit()) => ast.FalseLit()()
-        case _ => expression
-      }
+      case conjunction: ast.And =>
+        simplifyAnd(conjunction)
       // simplify disjunction
-      case ast.Or(left, right) => (left, right) match {
-        case (ast.TrueLit(), _) => ast.TrueLit()()
-        case (_, ast.TrueLit()) => ast.TrueLit()()
-        case (ast.FalseLit(), _) => right
-        case (_, ast.FalseLit()) => left
-        case _ => expression
-      }
+      case ast.Or(left, right) =>
+        (left, right) match {
+          case (literal: ast.TrueLit, _) => literal
+          case (_, literal: ast.TrueLit) => literal
+          case (ast.FalseLit(), _) => right
+          case (_, ast.FalseLit()) => left
+          case _ => expression
+        }
       // simplify implication
       case ast.Implies(left, right) => (left, right) match {
         case (ast.TrueLit(), _) => right

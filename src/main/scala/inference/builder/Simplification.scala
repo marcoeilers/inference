@@ -102,7 +102,10 @@ trait Simplification extends Builder {
         val (simplifiedLeft, positiveLeft, negativeLeft) = simplifyCondition(left, positive, negative)
         val (simplifiedRight, positiveRight, negativeRight) = simplifyCondition(right, positive ++ positiveLeft, negative ++ negativeLeft)
         // return simplified conjunction and collected sets
-        val simplified = ast.And(simplifiedLeft, simplifiedRight)()
+        val simplified = {
+          val conjunction = ast.And(simplifiedLeft, simplifiedRight)()
+          Expressions.simplifyAnd(conjunction)
+        }
         val collectedPositive = positiveLeft ++ positiveRight
         val collectedNegative = negativeLeft ++ negativeRight
         (simplified, collectedPositive, collectedNegative)
