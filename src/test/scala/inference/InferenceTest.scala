@@ -22,17 +22,26 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   /**
    * The path to the tests.
    */
-  val directory: String = "/tests"
+  val directory: String =
+    "/tests"
 
   /**
    * The path to the tests meant to be executed using heuristics.
    */
-  val heuristicsDirectory: String = s"$directory/heuristics"
+  val heuristicsDirectory: String =
+    s"$directory/heuristics"
 
   /**
    * The path to the tests meant to be executed using hints.
    */
-  val hintsDirectory: String = s"$directory/hints"
+  val hintsDirectory: String =
+    s"$directory/hints"
+
+  /**
+   * The path to the tests meant to be executed using segments.
+   */
+  val segmentsDirectory: String =
+    s"$directory/segments"
 
   // run all tests
   runAll()
@@ -50,8 +59,7 @@ class InferenceTest extends AnyFunSuite with TestRunner {
     hintsFiles.foreach(runTestUsingHints)
 
     // tests using predicate segments
-    // TODO: Add files only meant to be tested using predicate segments
-    val segmentsFiles = hintsFiles
+    val segmentsFiles = hintsFiles ++ collectFiles(segmentsDirectory)
     segmentsFiles.foreach(runTestUsingSegments)
   }
 
