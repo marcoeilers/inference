@@ -9,7 +9,7 @@
 package inference.teacher.state
 
 import inference.core.{Instance, Placeholder}
-import inference.util.collections.{Collections, SetMap}
+import inference.util.collections.SetMap
 import viper.silver.ast
 
 /**

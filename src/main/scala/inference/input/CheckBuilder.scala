@@ -12,7 +12,6 @@ import inference.Names
 import inference.builder.Builder
 import inference.core.{Kind, Placeholder}
 import inference.util.Namespace
-import inference.util.collections.Collections
 import viper.silver.ast
 
 import scala.collection.mutable

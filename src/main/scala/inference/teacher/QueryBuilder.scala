@@ -73,8 +73,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
               LocationInfo(location)
             case ast.PredicateAccessPredicate(location, _) =>
               LocationInfo(location)
-            case _ =>
-              ???
+            case other =>
+              sys.error(s"Unexpected conjunct: $other")
           }
           // inhale conjunct
           val condition = Expressions.makeAnd(guards)

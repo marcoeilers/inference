@@ -124,7 +124,8 @@ sealed trait Instance {
     }
 
   /**
-   * Instantiates all occurrences of the parameters in the given resource abstraction with their corresonding arguments.
+   * Instantiates all occurrences of the parameters in the given resource abstraction with their corresponding
+   * arguments.
    *
    * @param resource The resource abstraction to instantiate.
    * @return The instantiated resource abstraction.
