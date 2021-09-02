@@ -75,6 +75,11 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "The depth up to which predicates are statically folded when the heuristics is enabled.",
       default = Some(1))
 
+  val syntacticFolding: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "syntacticFolding",
+      descr = "Enables a purely syntax based folding strategy.")
+
   val noRecursion: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noPredicates",

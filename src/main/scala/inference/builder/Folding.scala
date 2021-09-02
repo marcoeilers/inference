@@ -162,7 +162,9 @@ trait Folding extends Builder with Simplification {
                     // condition under which the hint is relevant
                     val condition = {
                       val inequality = ast.NeCmp(start, stop)()
-                      val equality = ast.EqCmp(stop, hint.argument)()
+                      val equality =
+                        if (configuration.syntacticFolding()) ast.BoolLit(stop == hint.argument)()
+                        else ast.EqCmp(stop, hint.argument)()
                       Expressions.makeAnd(hint.conditions :+ inequality :+ equality)
                     }
                     // append lemma application
@@ -209,15 +211,17 @@ trait Folding extends Builder with Simplification {
               case (hint, result) =>
                 // condition under which the hint is relevant
                 val condition = {
-                  val equality = ast.EqCmp(start, hint.argument)()
+                  val equality = {
+                    if (configuration.syntacticFolding()) ast.BoolLit(start == hint.argument)()
+                    else ast.EqCmp(start, hint.argument)()
+                  }
                   Expressions.makeAnd(hint.conditions :+ equality)
                 }
-                // adapt fold depth
+                // body with adapted fold depth
                 val adapted = {
                   val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
                   makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
                 }
-                // conditionally adapt fold depth
                 Statements.makeConditional(condition, adapted, result)
             }
           emitConditional(guards, body)

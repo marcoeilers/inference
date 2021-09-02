@@ -23,7 +23,8 @@ object Main extends PrintRunner {
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
       "--simplifyQueries",
       "--simplifyExtended",
-      "--verifyWithHints")
+      "--verifyWithHints",
+      "--syntacticFolding")
 
   /**
    * The options for an inference using heuristics.
@@ -55,7 +56,7 @@ object Main extends PrintRunner {
    */
   def main(arguments: Array[String]): Unit = {
     // inject default options if no arguments are specified
-    val injected = if (arguments.nonEmpty) arguments.toSeq else segmentsOptions :+ file
+    val injected = if (arguments.nonEmpty) arguments.toSeq else hintsOptions :+ file
     // run inference
     run(injected)
   }
