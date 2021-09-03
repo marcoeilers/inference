@@ -156,7 +156,7 @@ trait Folding extends Builder with Simplification {
             case Seq(start, stop) =>
               val without: ast.Stmt = makeScope(handleStart(predicate))
               val body = hints
-                .filter(_.isDown)
+                .filter(_.isPushBack)
                 .foldRight(without) {
                   case (hint, result) =>
                     // condition under which the hint is relevant
@@ -209,20 +209,28 @@ trait Folding extends Builder with Simplification {
           val body = hints
             .foldRight(without) {
               case (hint, result) =>
-                // condition under which the hint is relevant
-                val condition = {
-                  val equality = {
-                    if (configuration.syntacticFolding()) ast.BoolLit(start == hint.argument)()
-                    else ast.EqCmp(start, hint.argument)()
+                // compute adapted depth
+                val depthDelta =
+                  if (hint.isPopFront) -1
+                  else if (hint.isPushFront) 1
+                  else 0
+                // adapt fold depth if delta is non-zero
+                if (depthDelta == 0) {
+                  result
+                } else {
+                  // condition under which the hint is relevant
+                  val condition = {
+                    val equality = {
+                      if (configuration.syntacticFolding()) ast.BoolLit(start == hint.argument)()
+                      else ast.EqCmp(start, hint.argument)()
+                    }
+                    Expressions.makeAnd(hint.conditions :+ equality)
                   }
-                  Expressions.makeAnd(hint.conditions :+ equality)
+                  // body with adapted fold depth
+                  val adaptedDepth = maxDepth + depthDelta
+                  val adapted = makeScope(foldWithoutHints(predicate)(adaptedDepth, hypothesis, default))
+                  Statements.makeConditional(condition, adapted, result)
                 }
-                // body with adapted fold depth
-                val adapted = {
-                  val depth = if (hint.isDown) maxDepth - 1 else maxDepth + 1
-                  makeScope(foldWithoutHints(predicate)(depth, hypothesis, default))
-                }
-                Statements.makeConditional(condition, adapted, result)
             }
           emitConditional(guards, body)
         case other =>

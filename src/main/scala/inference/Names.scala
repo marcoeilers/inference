@@ -55,11 +55,35 @@ object Names {
   val upHint = "__up__"
 
   /**
+   * The name of the push back hint.
+   */
+  val popFrontHint = "__pop_front__"
+
+  /**
+   * The name of the push front hint.
+   */
+  val pushFrontHint = "__push_front__"
+
+  /**
+   * The name of the push back hint.
+   */
+  val pushBackHint = "__push_back__"
+
+  /**
+   * The name of the pop back hint.
+   */
+  val popBackHint = "__pop_back__"
+
+  /**
    * All hint names.
    */
   val hints = Seq(
     downHint,
-    upHint
+    upHint,
+    popFrontHint,
+    pushFrontHint,
+    pushBackHint,
+    popBackHint
   )
 
   /**

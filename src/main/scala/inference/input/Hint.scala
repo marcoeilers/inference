@@ -21,20 +21,58 @@ import viper.silver.ast
  */
 case class Hint(name: String, argument: ast.Exp, old: ast.LocalVar, conditions: Seq[ast.Exp] = Seq.empty) {
   /**
-   * Returns ture if this is a down hint.
+   * Returns whether this is a down hint.
    *
    * @return True if this is a down hint.
    */
+  @inline
   def isDown: Boolean =
     name == Names.downHint
 
   /**
-   * Returns true if this is an up hint.
+   * Returns whether this is an up hint.
    *
    * @return True if this is an up hint.
    */
+  @inline
   def isUp: Boolean =
     name == Names.upHint
+
+  /**
+   * Returns whether this is a pop front hint.
+   *
+   * @return True if this is a pop front hint.
+   */
+  @inline
+  def isPopFront: Boolean =
+    name == Names.popFrontHint || isDown
+
+  /**
+   * Returns whether this is a push front hint.
+   *
+   * @return True if this is a push front hint.
+   */
+  @inline
+  def isPushFront: Boolean =
+    name == Names.pushFrontHint || isUp
+
+  /**
+   * Returns whether this is a push back hint.
+   *
+   * @return True if this is a push back hint.
+   */
+  @inline
+  def isPushBack: Boolean =
+    name == Names.pushBackHint || isDown
+
+  /**
+   * Returns whether this is a pop back hint.
+   *
+   * @return True if this is a pop back hint.
+   */
+  @inline
+  def isPopBack: Boolean =
+    name == Names.popBackHint || isUp
 
   /**
    * Returns the hint with the given condition added.
