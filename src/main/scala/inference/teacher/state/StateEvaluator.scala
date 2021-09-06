@@ -8,6 +8,7 @@
 
 package inference.teacher.state
 
+import inference.util.ast.Infos
 import viper.silver.ast
 import viper.silicon.resources.FieldID
 import viper.silicon.state.terms
@@ -60,7 +61,7 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
   private def store(variable: ast.LocalVar): String = {
     // adapt variable to state (if necessary)
     val adapted = label match {
-      case Some(label) =>
+      case Some(label) if !Infos.isSaved(variable) =>
         // adapt variable
         val name = s"${label}_${variable.name}"
         val typ = variable.typ

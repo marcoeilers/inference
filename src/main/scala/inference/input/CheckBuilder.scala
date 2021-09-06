@@ -12,6 +12,7 @@ import inference.Names
 import inference.builder.Builder
 import inference.core.{Kind, Placeholder}
 import inference.util.Namespace
+import inference.util.ast.SavedInfo
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -363,7 +364,8 @@ trait CheckBuilder extends Builder with Atoms {
   private def save(expression: ast.Exp): ast.LocalVar = {
     // create variable
     val name = namespace.uniqueIdentifier(Names.auxiliary)
-    val variable = ast.LocalVar(name, expression.typ)()
+    val info = SavedInfo
+    val variable = ast.LocalVar(name, expression.typ)(info = info)
     // emit assignment and return variable
     emitAssignment(variable, expression)
     variable

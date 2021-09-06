@@ -13,6 +13,23 @@ import viper.silver.ast
 import viper.silver.ast.LocationAccess
 
 /**
+ * Utility object for infos.
+ */
+object Infos {
+  /**
+   * Returns whether the given variable is tagged as saved.
+   *
+   * @param variable The variable.
+   * @return True if the variable is tagged as saved.
+   */
+  def isSaved(variable: ast.LocalVar): Boolean =
+    variable
+      .info
+      .getUniqueInfo[SavedInfo.type]
+      .isDefined
+}
+
+/**
  * An info carrying a value of some type.
  *
  * @tparam T The type of the value carried by the info.
@@ -51,6 +68,13 @@ case class InstanceInfo(instance: Instance) extends InferenceInfo[Instance] {
 case class LocationInfo(location: ast.LocationAccess) extends InferenceInfo[ast.LocationAccess] {
   override def value: LocationAccess =
     location
+}
+
+/**
+ * An info used to tag saved variables.
+ */
+case object SavedInfo extends InferenceInfo[Unit] {
+  override def value: Unit = {}
 }
 
 /**

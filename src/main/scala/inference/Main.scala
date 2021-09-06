@@ -23,8 +23,7 @@ object Main extends PrintRunner {
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
       "--simplifyQueries",
       "--simplifyExtended",
-      "--verifyWithHints",
-      "--syntacticFolding")
+      "--verifyWithHints")
 
   /**
    * The options for an inference using heuristics.
