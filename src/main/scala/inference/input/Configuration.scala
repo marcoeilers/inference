@@ -106,13 +106,6 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Disables batch verification of checks.",
       hidden = true)
 
-  @deprecated
-  val noInlining: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "noInlining",
-      descr = "Disables specification inlining.",
-      hidden = true)
-
   val noBranching: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noBranching",

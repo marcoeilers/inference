@@ -85,6 +85,14 @@ sealed trait Instance {
     placeholder.name
 
   /**
+   * Returns whether this is an instance of the recursive predicate.
+   *
+   * @return True if this is an instance of the recursive predicate.
+   */
+  def isRecursive: Boolean =
+    placeholder.isRecursive
+
+  /**
    * Returns whether the specification instance corresponds to a predicate.
    *
    * @return True if the instance corresponds to a predicate.

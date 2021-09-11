@@ -242,7 +242,7 @@ trait SampleExtractor {
     // instantiate offending location
     val instantiated = info match {
       case Some(InstanceInfo(instance)) =>
-        if (configuration.noInlining() || instance.placeholder.isRecursive) instance.instantiate(offending)
+        if (instance.isRecursive) instance.instantiate(offending)
         else offending
       case _ =>
         offending

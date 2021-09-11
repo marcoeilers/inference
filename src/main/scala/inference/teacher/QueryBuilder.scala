@@ -142,11 +142,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
     // create predicates
     val predicates = {
-      // get placeholders
-      val placeholders =
-        if (configuration.noInlining()) input.placeholders
-        else input.placeholders.filter(_.isRecursive)
-      // get predicates
+      val placeholders = input.placeholders
       placeholders.map(hypothesis.getPredicate)
     }
 
@@ -259,13 +255,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
     // inhale specification
     val body = hypothesis.getBody(instance)
-    if (configuration.noInlining()) {
-      val resource = instance.asResource
-      emitInhale(resource)
-      emitUnfold(resource)
-    } else {
-      emitInhale(body)
-    }
+    emitInhale(body)
     // unfold predicates appearing in specification
     unfold(body, configuration.simplifyQueries())
     // branch on accesses
