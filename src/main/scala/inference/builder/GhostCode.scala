@@ -175,7 +175,7 @@ trait GhostCode extends Builder with Simplification {
         val condition = noPermission(predicate)
         emitConditional(condition, recursive, direct)
       case other =>
-        emitExhale(other)
+        emitExhale(other, info)
     }
 
   /**
