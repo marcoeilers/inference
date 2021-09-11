@@ -149,19 +149,18 @@ trait GhostCode extends Builder with Simplification {
    *
    * @param expression The expression to exhale.
    * @param depth      The maximal depth.
-   * @param guards     THe collected guards.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to exhaled resources.
    */
-  private def adaptiveExhale(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty)
+  private def adaptiveExhale(expression: ast.Exp, depth: Int)
                             (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
     expression match {
       case ast.And(left, right) =>
-        adaptiveExhale(right, depth, guards)
-        adaptiveExhale(left, depth, guards)
+        adaptiveExhale(right, depth)
+        adaptiveExhale(left, depth)
       case ast.Implies(left, right) =>
-        val updatedGuards = guards :+ left
-        adaptiveExhale(right, depth, updatedGuards)
+        val exhales = makeScope(adaptiveExhale(right, depth))
+        emitConditional(left, exhales)
       case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
         // recursive exhales
         val recursive = makeScope {
