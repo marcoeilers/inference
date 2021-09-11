@@ -17,7 +17,7 @@ import viper.silver.ast
  *
  * @tparam R The result type.
  */
-trait CheckExtender[R] extends Builder with Folding {
+trait CheckExtender[R] extends Builder with GhostCode {
   /**
    * The current check.
    */

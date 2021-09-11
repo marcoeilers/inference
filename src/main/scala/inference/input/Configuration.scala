@@ -48,8 +48,15 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       name = "useHeuristics",
       descr = "Explicitly forbids the us of hints.")
 
+  @deprecated
   val useHints: ScallopOption[Boolean] =
     useHeuristics.map(!_)
+
+  @deprecated
+  val useIntrospection: ScallopOption[Boolean] =
+    opt[Boolean](
+      name = "useIntrospection",
+      descr = "Enables adaptive folding strategy using permission introspection")
 
   val simplifyQueries: ScallopOption[Boolean] =
     opt[Boolean](
@@ -99,6 +106,7 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
       descr = "Disables batch verification of checks.",
       hidden = true)
 
+  @deprecated
   val noInlining: ScallopOption[Boolean] =
     opt[Boolean](
       name = "noInlining",

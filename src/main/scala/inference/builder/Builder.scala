@@ -114,7 +114,7 @@ trait Builder {
   }
 
   /**
-   * Emits a statement that conditionally executes the given body under the given conditions.
+   * Emits a conditional statement with the given condition and body.
    *
    * @param conditions The conditions.
    * @param body       The body.
@@ -125,15 +125,14 @@ trait Builder {
   }
 
   /**
-   * Emits a statement that conditionally executes the given body under the given condition.
+   * Emits a conditional statement with the given condition, then branch, and else branch.
    *
-   * @param condition The condition.
-   * @param body      The body.
+   * @param condition  The condition.
+   * @param thenBranch The then branch
+   * @param elseBranch The else branch.
    */
-  protected def emitConditional(condition: ast.Exp, body: ast.Stmt): Unit = {
-    val sequence = Statements.makeSequence(body)
-    val skip = Statements.makeSkip
-    val conditional = ast.If(condition, sequence, skip)()
+  protected def emitConditional(condition: ast.Exp, thenBranch: ast.Stmt, elseBranch: ast.Stmt = Statements.makeSkip): Unit = {
+    val conditional = Statements.makeConditional(condition, thenBranch, elseBranch)
     emit(conditional)
   }
 

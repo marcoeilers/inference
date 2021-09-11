@@ -26,22 +26,22 @@ object Main extends PrintRunner {
       "--verifyWithHints")
 
   /**
-   * The options for an inference using heuristics.
+   * The options for the inference using heuristics.
    */
   val heuristicsOptions: Seq[String] =
     baseOptions ++ Seq("--useHeuristics")
 
   /**
-   * The options for an inference using hints.
+   * The default options for the inference.
    */
-  val hintsOptions: Seq[String] =
-    baseOptions
+  val defaultOptions: Seq[String] =
+    baseOptions ++ Seq("--useIntrospection")
 
   /**
-   * The options for an inference using segments.
+   * The options for the inference using segments.
    */
   val segmentsOptions: Seq[String] =
-    hintsOptions ++ Seq("--useSegments")
+    defaultOptions ++ Seq("--useSegments")
 
   /**
    * The input file used if no arguments are specified.
@@ -55,7 +55,7 @@ object Main extends PrintRunner {
    */
   def main(arguments: Array[String]): Unit = {
     // inject default options if no arguments are specified
-    val injected = if (arguments.nonEmpty) arguments.toSeq else hintsOptions :+ file
+    val injected = if (arguments.nonEmpty) arguments.toSeq else defaultOptions :+ file
     // run inference
     run(injected)
   }

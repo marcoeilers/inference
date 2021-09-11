@@ -285,18 +285,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
     // save state snapshot
     saveSnapshot(instance, exhaled = true)
-    // fold predicates appearing in specification
-    val body = hypothesis.getBody(instance)
-    fold(body, configuration.simplifyQueries())
     // exhale specification
-    val info = InstanceInfo(instance)
-    if (configuration.noInlining()) {
-      val resource = instance.asResource
-      emitFold(resource, info)
-      emitExhale(resource)
-    } else {
-      emitExhale(body, info)
-    }
+    val body = hypothesis.getBody(instance)
+    implicit val info: ast.Info = InstanceInfo(instance)
+    exhale(body, configuration.simplifyQueries())
   }
 
   /**

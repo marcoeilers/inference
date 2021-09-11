@@ -81,7 +81,7 @@ class InferenceTest extends AnyFunSuite with TestRunner {
    */
   def runTestUsingHints(file: String): Unit = {
     val name = s"test with hints: $file"
-    val arguments = Main.hintsOptions ++ Seq(file)
+    val arguments = Main.defaultOptions ++ Seq(file)
     runTest(name, arguments)
   }
 
