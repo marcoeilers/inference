@@ -261,9 +261,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     emitInhale(body)
     // unfold predicates appearing in specification
     if (configuration.useBranching()) {
-      // reset accesses
-      accesses = Map.empty
       // unfold and track accesses
+      resetAccesses(instance)
       unfold(body, configuration.simplifyQueries())(hypothesis, trackAccesses)
       // branch on accesses
       branchOnAccesses()
@@ -312,6 +311,18 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // emit label
     emitLabel(label)
   }
+
+  /**
+   * Resets the tracked accesses to the arguments of the given instance.
+   *
+   * @param instance The instance.
+   */
+  private def resetAccesses(instance: Instance): Unit =
+    accesses = instance
+      .arguments
+      .filter(_.isSubtype(ast.Ref))
+      .map { argument => argument -> ast.TrueLit()() }
+      .toMap
 
   /**
    * A helper method used to track unfolded field accesses.
