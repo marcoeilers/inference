@@ -22,23 +22,16 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   /**
    * The path to the tests.
    */
-  val directory: String =
-    "/tests"
+  val directory: String = "/tests"
 
   /**
-   * The path to the tests meant to be executed using heuristics.
+   * The path to the tests meant to be executed using the default settings.
    */
-  val heuristicsDirectory: String =
-    s"$directory/heuristics"
+  val defaultDirectory: String =
+    s"$directory/default"
 
   /**
-   * The path to the tests meant to be executed using hints.
-   */
-  val hintsDirectory: String =
-    s"$directory/hints"
-
-  /**
-   * The path to the tests meant to be executed using segments.
+   * The path to the tests meant to be executed using predicate segments.
    */
   val segmentsDirectory: String =
     s"$directory/segments"
@@ -49,49 +42,34 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   /**
    * Runs all tests.
    */
-  def runAll(): Unit = {
-    // tests using heuristics
-    val heuristicsFiles = collectFiles(heuristicsDirectory)
-    heuristicsFiles.foreach(runTestUsingHeuristics)
+  private def runAll(): Unit = {
+    // run tests using default settings
+    val defaultFiles = collectFiles(defaultDirectory)
+    defaultFiles.foreach(runDefaultTest)
 
-    // tests using hints
-    val hintsFiles = heuristicsFiles ++ collectFiles(hintsDirectory)
-    hintsFiles.foreach(runTestUsingHints)
-
-    // tests using predicate segments
-    val segmentsFiles = hintsFiles ++ collectFiles(segmentsDirectory)
-    segmentsFiles.foreach(runTestUsingSegments)
+    // run tests using predicate segments
+    val segmentsFiles = defaultFiles ++ collectFiles(segmentsDirectory)
+    segmentsFiles.foreach(runSegmentsTest)
   }
 
   /**
-   * Tests the given file using heuristics.
+   * Tests the given file using the default settings.
    *
    * @param file The file to test.
    */
-  def runTestUsingHeuristics(file: String): Unit = {
-    val name = s"test with heuristics: $file"
-    val arguments = Main.heuristicsOptions ++ Seq(file)
-    runTest(name, arguments)
-  }
-
-  /**
-   * Tests the given file using hints.
-   *
-   * @param file The file to test.
-   */
-  def runTestUsingHints(file: String): Unit = {
-    val name = s"test with hints: $file"
+  private def runDefaultTest(file: String): Unit = {
+    val name = s"test using default settings: $file"
     val arguments = Main.defaultOptions ++ Seq(file)
     runTest(name, arguments)
   }
 
   /**
-   * Test the given file using predicate segments.
+   * Tests the given file using predicate segments.
    *
    * @param file The file to test.
    */
-  def runTestUsingSegments(file: String): Unit = {
-    val name = s"test with segments: $file"
+  private def runSegmentsTest(file: String): Unit = {
+    val name = s"test using predicate segments: $file"
     val arguments = Main.segmentsOptions ++ Seq(file)
     runTest(name, arguments)
   }
@@ -102,7 +80,7 @@ class InferenceTest extends AnyFunSuite with TestRunner {
    * @param name      The name of the test.
    * @param arguments The arguments to the inference.
    */
-  def runTest(name: String, arguments: Seq[String]): Unit =
+  private def runTest(name: String, arguments: Seq[String]): Unit =
     test(name) {
       val result = run(arguments)
       assert(result.getOrElse(false))

@@ -35,7 +35,7 @@ object Main extends PrintRunner {
    * The default options for the inference.
    */
   val defaultOptions: Seq[String] =
-    baseOptions ++ Seq("--useIntrospection")
+    baseOptions
 
   /**
    * The options for the inference using segments.

@@ -52,12 +52,6 @@ class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
   val useHints: ScallopOption[Boolean] =
     useHeuristics.map(!_)
 
-  @deprecated
-  val useIntrospection: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "useIntrospection",
-      descr = "Enables adaptive folding strategy using permission introspection")
-
   val simplifyQueries: ScallopOption[Boolean] =
     opt[Boolean](
       name = "simplifyQueries",
