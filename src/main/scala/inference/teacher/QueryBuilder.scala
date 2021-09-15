@@ -41,6 +41,11 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private var namespace: Namespace = _
 
   /**
+   * The accesses collected by the tracking method.
+   */
+  private var accesses: Map[ast.Exp, ast.Exp] = _
+
+  /**
    * The partial query.
    */
   private var query: PartialQuery = _
@@ -257,10 +262,15 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     val body = hypothesis.getBody(instance)
     emitInhale(body)
     // unfold predicates appearing in specification
-    unfold(body, configuration.simplifyQueries())
-    // branch on accesses
     if (configuration.useBranching()) {
-      branchOnAccesses(instance)
+      // reset accesses
+      accesses = Map.empty
+      // unfold and track accesses
+      unfold(body, configuration.simplifyQueries())(hypothesis, trackAccesses)
+      // branch on accesses
+      branchOnAccesses()
+    } else {
+      unfold(body, configuration.simplifyQueries())
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -306,26 +316,44 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   }
 
   /**
-   * Branches on the accesses appearing in the given specification instance.
+   * A helper method used to track unfolded field accesses.
    *
-   * @param instance The instance.
+   * @param expression The unfolded expression.
+   * @param guards     The collected guards.
    */
-  private def branchOnAccesses(instance: Instance): Unit = {
-    val accesses = instance.arguments.filter(_.isSubtype(ast.Ref))
+  private def trackAccesses(expression: ast.Exp, guards: Seq[ast.Exp]): Unit =
+    expression match {
+      case ast.FieldAccessPredicate(access, _) if access.isSubtype(ast.Ref) =>
+        // combine existing condition with guards
+        val condition = Expressions.makeAnd(guards)
+        val effective = accesses
+          .get(access)
+          .map { existing => ast.Or(existing, condition)() }
+          .getOrElse(condition)
+        // update accesses
+        accesses = accesses.updated(access, effective)
+      case _ => // do nothing
+    }
+
+  /**
+   * Branches on the accesses collected by the tracking method.
+   */
+  private def branchOnAccesses(): Unit = {
     val dummy = makeScope(emitInhale(ast.TrueLit()()))
     // branch on nullity
-    accesses
-      .foreach { access =>
-        val condition = ast.NeCmp(access, ast.NullLit()())()
+    accesses.foreach {
+      case (access, effective) =>
+        val atom = ast.NeCmp(access, ast.NullLit()())()
+        val condition = ast.And(effective, atom)()
         emitConditional(condition, dummy)
-      }
+    }
     // branch on equality
-    Collections
-      .pairs(accesses)
-      .foreach { case (left, right) =>
-        val condition = ast.NeCmp(left, right)()
+    Collections.pairs(accesses).foreach {
+      case ((access1, effective1), (access2, effective2)) =>
+        val atom = ast.NeCmp(access1, access2)()
+        val condition = Expressions.makeAnd(Seq(effective1, effective2, atom))
         emitConditional(condition, dummy)
-      }
+    }
   }
 }
 

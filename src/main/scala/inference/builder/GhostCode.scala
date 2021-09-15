@@ -44,9 +44,12 @@ trait GhostCode extends Builder with Simplification {
    * @param expression The expression to unfold.
    * @param simplify   The flag indicating whether the emitted code should be simplified.
    * @param hypothesis The current hypothesis.
+   * @param default    The default action for leaf expressions.
    */
-  protected def unfold(expression: ast.Exp, simplify: Boolean = false)
-                      (implicit hypothesis: Hypothesis): Unit =
+  protected def unfold(expression: ast.Exp,
+                       simplify: Boolean = false)
+                      (implicit hypothesis: Hypothesis,
+                       default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     if (simplify) simplified(unfold(expression))
     else {
       // TODO: Depth
@@ -91,19 +94,25 @@ trait GhostCode extends Builder with Simplification {
    * Recursively unfolds the given expression up to the given depth.
    *
    * @param expression The expression to unfold.
-   * @param depth      The depth.
-   * @param guards     The collected guards.
+   * @param depth      The current depth.
+   * @param outer      The collected guards already handled by a conditional statement.
+   * @param guards     The collected guards not yet handled by a conditional statement.
    * @param hypothesis The current hypothesis.
+   * @param default    The default action for leaf expressions.
    */
-  private def recursiveUnfold(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty)
-                             (implicit hypothesis: Hypothesis): Unit =
+  private def recursiveUnfold(expression: ast.Exp,
+                              depth: Int,
+                              outer: Seq[ast.Exp] = Seq.empty,
+                              guards: Seq[ast.Exp] = Seq.empty)
+                             (implicit hypothesis: Hypothesis,
+                              default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     expression match {
       case ast.And(left, right) =>
-        recursiveUnfold(left, depth, guards)
-        recursiveUnfold(right, depth, guards)
+        recursiveUnfold(left, depth, outer, guards)
+        recursiveUnfold(right, depth, outer, guards)
       case ast.Implies(left, right) =>
         val updatedGuards = guards :+ left
-        recursiveUnfold(right, depth, updatedGuards)
+        recursiveUnfold(right, depth, outer, updatedGuards)
       case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
         // create unfolds
         val unfolds = makeScope {
@@ -112,13 +121,22 @@ trait GhostCode extends Builder with Simplification {
           // recursively unfold predicates appearing in body
           val instance = input.instance(predicate)
           val body = hypothesis.getBody(instance)
-          recursiveUnfold(body, depth - 1)
+          recursiveUnfold(body, depth - 1, outer ++ guards)
         }
         // conditionally unfold
         emitConditional(guards, unfolds)
-      case _ => // do nothing
+      case other =>
+        default(other, outer ++ guards)
     }
 
+  /**
+   * Recursively folds the given expression up to the given depth.
+   *
+   * @param expression The expression to fold.
+   * @param depth      The current depth.
+   * @param guards     The collected guards.
+   * @param hypothesis The current hypothesis.
+   */
   private def recursiveFold(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty)
                            (implicit hypothesis: Hypothesis): Unit =
     expression match {
@@ -148,7 +166,7 @@ trait GhostCode extends Builder with Simplification {
    * Adaptively exhales the given expression up to the given depth.
    *
    * @param expression The expression to exhale.
-   * @param depth      The maximal depth.
+   * @param depth      The current depth.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to exhaled resources.
    */
