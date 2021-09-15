@@ -1,0 +1,19 @@
+field left: Ref
+field right: Ref
+field val: Ref
+
+function b(x: Ref): Bool
+
+method traverse(a: Ref)
+{
+    var c: Ref
+    c := a
+    while (c != null)
+    {
+        if (b(c)) {
+            c := c.left
+        } else {
+            c := c.right
+        }
+    }
+}
