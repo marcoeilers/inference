@@ -280,10 +280,11 @@ trait CheckBuilder extends Builder with Atoms {
         } else {
           // instrument method call
           instrumented {
-            // make sure all arguments are variables
+            // make sure all arguments are variables and different from targets
             val variables = arguments.map {
               case variable: ast.LocalVar =>
-                variable
+                if (targets.contains(variable)) save(variable)
+                else variable
               case access@ast.FieldAccess(receiver, _) =>
                 // save value of field access and get receiver as a variable
                 val variable = save(access)
