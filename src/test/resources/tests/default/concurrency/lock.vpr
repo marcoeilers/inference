@@ -1,0 +1,52 @@
+field val: Int
+
+predicate pre(x: Ref, y: Ref, i: Int)
+predicate post(x: Ref, y: Ref, i: Int)
+predicate lock(x: Ref)
+
+method main(n: Int)
+{
+    var a: Ref
+    var b: Ref
+    var i: Int
+
+    a := new(val)
+    exhale lock(a)
+
+    i := 0
+    while (i < n)
+    {
+        b := new(val)
+        exhale pre(a, b, i)
+        i := i + 1
+    }
+
+    i := 0
+    while (i < n)
+    {
+        inhale post(a, b, i)
+        free(b)
+        i := i + 1
+    }
+}
+
+method thread()
+{
+    var a: Ref
+    var b: Ref
+    var i: Int
+    inhale pre(a, b, i)
+    while (true)
+    {
+        inhale lock(a)
+        a.val := 0
+        b.val := 0
+        exhale lock(a)
+    }
+    exhale post(a, b, i)
+}
+
+method free(a: Ref)
+{
+    exhale acc(a.val)
+}
