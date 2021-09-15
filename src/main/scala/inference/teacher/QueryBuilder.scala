@@ -63,6 +63,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
      */
     def inhale(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty): Unit =
       expression match {
+        case ast.TrueLit() => // do nothing
         case ast.And(left, right) =>
           inhale(left, guards)
           inhale(right, guards)
