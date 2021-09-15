@@ -10,13 +10,13 @@ method main(n: Int)
     var b: Ref
     var i: Int
 
-    a := new(val)
+    a := create()
     exhale lock(a)
 
     i := 0
     while (i < n)
     {
-        b := new(val)
+        b := create()
         exhale pre(a, b, i)
         i := i + 1
     }
@@ -44,6 +44,11 @@ method thread()
         exhale lock(a)
     }
     exhale post(a, b, i)
+}
+
+method create() returns (r: Ref)
+{
+    inhale acc(r.val)
 }
 
 method free(a: Ref)

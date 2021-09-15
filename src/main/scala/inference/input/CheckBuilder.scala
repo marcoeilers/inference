@@ -270,7 +270,7 @@ trait CheckBuilder extends Builder with Atoms {
           emitInhale(invariant)
           emitInhale(ast.Not(condition)())
         }
-      case call@ast.MethodCall(name, arguments, _) =>
+      case call@ast.MethodCall(name, arguments, targets) =>
         if (Names.isHint(name)) {
           // process hint
           val argument = arguments.head
@@ -300,7 +300,7 @@ trait CheckBuilder extends Builder with Atoms {
             val (precondition, postcondition) = specifications(name)
             emitExhale(precondition.asInstance(variables).asResource)
             emit(call)
-            emitInhale(postcondition.asInstance(variables).asResource)
+            emitInhale(postcondition.asInstance(variables ++ targets).asResource)
           }
         }
       case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
