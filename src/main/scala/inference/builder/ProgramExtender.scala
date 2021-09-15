@@ -28,9 +28,6 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
   private def configuration: Configuration =
     input.configuration
 
-  override protected def useHints: Boolean =
-    configuration.useHints() || configuration.verifyWithHints()
-
   /**
    * Extends the input program with specifications corresponding to the given hypothesis.
    *

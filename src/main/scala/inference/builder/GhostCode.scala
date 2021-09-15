@@ -31,14 +31,6 @@ trait GhostCode extends Builder with Simplification {
   protected def check: Check
 
   /**
-   * Returns whether hints should be used.
-   *
-   * @return True if hints should be used.
-   */
-  @deprecated
-  protected def useHints: Boolean
-
-  /**
    * Unfolds the given expression.
    *
    * @param expression The expression to unfold.

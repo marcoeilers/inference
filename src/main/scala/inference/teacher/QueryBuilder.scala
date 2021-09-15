@@ -32,9 +32,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private def configuration: Configuration =
     input.configuration
 
-  override protected def useHints: Boolean =
-    configuration.useHints()
-
   /**
    * The namespace used to generate unique identifiers.
    */
