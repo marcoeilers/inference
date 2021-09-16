@@ -11,6 +11,7 @@ package inference.learner
 import inference.Names
 import inference.core.sample._
 import inference.input.{Configuration, Input}
+import inference.util.Namespace
 import inference.util.ast.Expressions
 import inference.util.collections.Collections
 import inference.util.solver.Solver
@@ -50,10 +51,9 @@ trait HypothesisSolver {
   protected def samples: Seq[Sample]
 
   /**
-   * The id used to generate unique names.
+   * The namespace used to generate unique names.
    */
-  private val id: AtomicInteger =
-    new AtomicInteger()
+  var namespace: Namespace = _
 
   /**
    * Encodes all accumulated samples under consideration of the given templates and returns a suitable model found by
@@ -63,8 +63,8 @@ trait HypothesisSolver {
    * @return The model.
    */
   def solve(templates: Seq[Template]): Option[Map[String, Boolean]] = {
-    // reset id
-    id.set(0)
+    // reset namespace
+    namespace = new Namespace(template = "%s-%d")
 
     // create mapping from names to predicate templates
     implicit val map: Map[String, PredicateTemplate] =
@@ -129,8 +129,6 @@ trait HypothesisSolver {
    * @return The encoding.
    */
   private def encodeDifference(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
-    // create auxiliary variable
-    val variable = integer(name = s"d-${id.getAndIncrement()}")
     // permission difference
     val delta = record match {
       case inhaledRecord: InhaledRecord =>
@@ -140,11 +138,8 @@ trait HypothesisSolver {
         val condition = encodeAtLeast(exhaledRecord, !default)
         ast.CondExp(condition, ast.IntLit(-1)(), ast.IntLit(0)())()
     }
-    // constrain variable to difference
-    val constraint = ast.EqCmp(variable, delta)()
-    solver.addConstraint(constraint)
-    // return variable holding difference
-    variable
+    // return auxiliary variable holding difference
+    auxiliary(delta, prefix = "d")
   }
 
   /**
@@ -202,7 +197,8 @@ trait HypothesisSolver {
             .map { value => ast.BoolLit(value)() }
             .get
       }
-      Expressions.makeAnd(conjuncts)
+      val optionEncoding = Expressions.makeAnd(conjuncts)
+      auxiliary(optionEncoding)
     }
   }
 
@@ -217,16 +213,16 @@ trait HypothesisSolver {
   private def encodeState(guardId: Int, values: Seq[Option[Boolean]], default: Boolean): ast.Exp = {
     // encode clauses
     val clauses = for (clauseIndex <- 0 until configuration.maxClauses()) yield {
-      val clauseActivation = boolean(Names.clauseActivation(guardId, clauseIndex))
+      val clauseActivation = makeBoolean(Names.clauseActivation(guardId, clauseIndex))
       val clauseEncoding = {
         // encode literals
         val literals = values
           .zipWithIndex
           .map { case (value, literalIndex) =>
-            val literalActivation = boolean(Names.literalActivation(guardId, clauseIndex, literalIndex))
+            val literalActivation = makeBoolean(Names.literalActivation(guardId, clauseIndex, literalIndex))
             val literalEncoding = value match {
               case Some(sign) =>
-                val positive = boolean(Names.literalSign(guardId, clauseIndex, literalIndex))
+                val positive = makeBoolean(Names.literalSign(guardId, clauseIndex, literalIndex))
                 if (sign) positive else ast.Not(positive)()
               case None =>
                 ast.BoolLit(default)()
@@ -243,14 +239,22 @@ trait HypothesisSolver {
   }
 
   /**
-   * Creates an integer-typed variable with the given name.
+   * Returns an auxiliary variable constrained to be equal to the given expression.
    *
-   * @param name The name.
-   * @return The variable.
+   * @param expression The expression.
+   * @param prefix     The prefix to use for the variable name.
+   * @return The auxiliary variable.
    */
-  @inline
-  private def integer(name: String): ast.Exp =
-    variable(name, ast.Int)
+  private def auxiliary(expression: ast.Exp, prefix: String = "t"): ast.Exp = {
+    // create variable
+    val name = namespace.uniqueIdentifier(prefix)
+    val variable = makeVariable(name, expression.typ)
+    // constrain variable
+    val constraint = ast.EqCmp(variable, expression)()
+    solver.addConstraint(constraint)
+    // return variable
+    variable
+  }
 
   /**
    * Creates a boolean-typed variable with the given name.
@@ -259,8 +263,8 @@ trait HypothesisSolver {
    * @return The variable.
    */
   @inline
-  private def boolean(name: String): ast.Exp =
-    variable(name, ast.Bool)
+  private def makeBoolean(name: String): ast.Exp =
+    makeVariable(name, ast.Bool)
 
   /**
    * Creates a variable with the given name and type.
@@ -270,6 +274,6 @@ trait HypothesisSolver {
    * @return The variable.
    */
   @inline
-  private def variable(name: String, typ: ast.Type): ast.Exp =
+  private def makeVariable(name: String, typ: ast.Type): ast.Exp =
     ast.LocalVar(name, typ)()
 }

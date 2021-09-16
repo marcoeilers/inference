@@ -13,7 +13,7 @@ package inference.util
  *
  * @param map A map associating identifiers with version numbers.
  */
-class Namespace(private var map: Map[String, Int] = Map.empty) {
+class Namespace(private var map: Map[String, Int] = Map.empty, template: String = "%s_%d") {
   /**
    * Returns a unique identifier.
    *
@@ -24,9 +24,13 @@ class Namespace(private var map: Map[String, Int] = Map.empty) {
   def uniqueIdentifier(name: String, version: Option[Int] = Some(0)): String =
     if (version.isDefined || map.contains(name)) {
       var current = math.max(version.getOrElse(0), map.getOrElse(name, 0))
-      while (map.contains(s"${name}_$current")) current = current + 1
+      var identifier = template.format(name, current)
+      while (map.contains(identifier)) {
+        current = current + 1
+        identifier = template.format(name, current)
+      }
       map = map.updated(name, current + 1)
-      s"${name}_$current"
+      identifier
     } else {
       map = map.updated(name, 0)
       name
@@ -38,5 +42,5 @@ class Namespace(private var map: Map[String, Int] = Map.empty) {
    * @return The copied namespace.
    */
   def copy(): Namespace =
-    new Namespace(map)
+    new Namespace(map, template)
 }
