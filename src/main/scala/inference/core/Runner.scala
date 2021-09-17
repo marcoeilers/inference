@@ -34,7 +34,7 @@ trait Runner[R] extends Inference {
     val instance = new Silicon()
     // pass arguments
     val arguments = Seq(
-      "--z3Exe", configuration.z3Exe(),
+      "--z3Exe", configuration.z3Exe,
       "--counterexample", "raw",
       "--enableMoreCompleteExhale",
       "--ignoreFile", "dummy.vpr")
@@ -51,7 +51,7 @@ trait Runner[R] extends Inference {
    */
   def createSolver(configuration: Configuration): Solver = {
     // create and initialize solver
-    val solver = new Z3Solver(configuration.z3Exe())
+    val solver = new Z3Solver(configuration.z3Exe)
     solver.initialize()
     // return solver
     solver
@@ -70,7 +70,7 @@ trait Runner[R] extends Inference {
    * @return The result.
    */
   def run(arguments: Seq[String]): Option[R] = {
-    val configuration = new Configuration(arguments)
+    val configuration = Configuration(arguments)
     run(configuration)
   }
 

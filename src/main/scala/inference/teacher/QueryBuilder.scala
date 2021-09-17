@@ -137,12 +137,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     reset()
     val original = input.program
 
-    // create fields
-    val fields = {
-      val extra = if (configuration.useHints()) Seq.empty else Seq(magic)
-      original.fields ++ extra
-    }
-
     // create predicates
     val predicates = {
       val placeholders = input.placeholders
@@ -175,7 +169,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
     // create program
     val program = original.copy(
-      fields = fields,
       predicates = predicates,
       methods = methods
     )(original.pos, original.info, original.errT)
@@ -260,14 +253,14 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     val body = hypothesis.getBody(instance)
     emitInhale(body)
     // unfold predicates appearing in specification
-    if (configuration.useBranching()) {
+    if (configuration.useBranching) {
       // unfold and track accesses
       resetAccesses(instance)
-      unfold(body, configuration.simplifyQueries())(hypothesis, trackAccesses)
+      unfold(body, configuration.simplifyQueries)(hypothesis, trackAccesses)
       // branch on accesses
       branchOnAccesses()
     } else {
-      unfold(body, configuration.simplifyQueries())
+      unfold(body, configuration.simplifyQueries)
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -285,7 +278,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // exhale specification
     val body = hypothesis.getBody(instance)
     implicit val info: ast.Info = InstanceInfo(instance)
-    exhale(body, configuration.simplifyQueries())
+    exhale(body, configuration.simplifyQueries)
   }
 
   /**

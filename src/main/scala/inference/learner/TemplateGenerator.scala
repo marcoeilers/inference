@@ -70,7 +70,7 @@ trait TemplateGenerator extends AbstractLearner {
       // filter location access
       val allowed = location match {
         case path: ast.FieldAccess =>
-          Expressions.getLength(path) <= configuration.maxLength()
+          Expressions.getLength(path) <= configuration.maxLength
         case ast.PredicateAccess(arguments, _) =>
           arguments.zipWithIndex.forall {
             case (_: ast.NullLit, index) => index > 0
@@ -100,7 +100,7 @@ trait TemplateGenerator extends AbstractLearner {
             // add nested location
             addLocation(placeholder, nested)
             // add potential recursions
-            if (configuration.useRecursion()) {
+            if (configuration.useRecursive) {
               // get parameters of recursive predicate
               val recursive = input.placeholder(Names.recursive)
               val from +: rest = recursive.variables
@@ -173,7 +173,7 @@ trait TemplateGenerator extends AbstractLearner {
       Conjunction(fields ++ predicates)
     }
     // create template
-    if (placeholder.isRecursive && configuration.useSegments()) {
+    if (placeholder.isRecursive && configuration.useSegments) {
       // create template for recursive predicate
       val predicate = {
         val Seq(start, stop) = placeholder.variables
@@ -202,7 +202,7 @@ trait TemplateGenerator extends AbstractLearner {
   private def createFieldResources(fields: Set[ast.FieldAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] = {
     // sort fields
     val sorted =
-      if (configuration.maxLength() <= 2) fields.toSeq
+      if (configuration.maxLength <= 2) fields.toSeq
       else ???
     // crate template expression
     sorted.map(createGuarded)
@@ -313,7 +313,7 @@ trait TemplateGenerator extends AbstractLearner {
    * @return The predicate instance.
    */
   private def makeInstance(root: ast.Exp): ast.PredicateAccess = {
-    val arguments = if (configuration.useSegments()) Seq(root, ast.NullLit()()) else Seq(root)
+    val arguments = if (configuration.useSegments) Seq(root, ast.NullLit()()) else Seq(root)
     makeRecursive(arguments)
   }
 

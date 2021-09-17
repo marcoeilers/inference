@@ -29,7 +29,7 @@ object Input extends CheckBuilder {
    */
   def fromConfiguration(configuration: Configuration): Input = {
     // parse input program
-    val file = configuration.file()
+    val file = configuration.file
     val program = parse(file)
     // build checks
     val (placeholders, checks) = buildChecks(configuration, program)
@@ -149,8 +149,8 @@ class Input(val program: ast.Program,
    * @return The sequence of batches.
    */
   def batches: Seq[Seq[Check]] =
-    if (configuration.noBatching()) checks.map(Seq(_))
-    else Seq(checks)
+    if (configuration.useBatching) Seq(checks)
+    else checks.map(Seq(_))
 
   /**
    * Returns the specification placeholder with the given name.

@@ -38,13 +38,6 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
     // get configuration and original input program
     val configuration = input.configuration
     val original = input.program
-    // fields
-    val fields = {
-      val extra =
-        if (configuration.useHints() || configuration.verifyWithHints()) Seq.empty
-        else Seq(magic)
-      original.fields ++ extra
-    }
     // predicates
     val predicates = {
       // extend existing predicates
@@ -61,7 +54,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
         }
       // get recursive predicate
       val recursive =
-        if (configuration.useRecursion()) {
+        if (configuration.useRecursive) {
           val placeholder = input.placeholder(Names.recursive)
           val predicate = hypothesis.getPredicate(placeholder)
           Seq(predicate)
@@ -82,7 +75,6 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
     }
     // update program
     original.copy(
-      fields = fields,
       predicates = predicates,
       methods = methods
     )(original.pos, original.info, original.errT)
@@ -132,7 +124,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             } else {
               // unfold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              unfold(body, configuration.simplifyExtended())
+              unfold(body, configuration.simplifyExtended)
             }
           case _ => // do nothing
         }
@@ -147,7 +139,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             } else {
               // fold predicates appearing in specification
               val body = hypothesis.getBody(instance)
-              fold(body, configuration.simplifyExtended())
+              fold(body, configuration.simplifyExtended)
             }
           case _ => // do nothing
         }

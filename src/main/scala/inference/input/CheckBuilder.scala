@@ -86,14 +86,14 @@ trait CheckBuilder extends Builder with Atoms {
     // process methods
     program.methods.foreach(processMethod)
     // recursive predicate placeholder
-    if (configuration.useRecursion()) {
+    if (configuration.useRecursive) {
       val name = Names.recursive
-      val names = if (configuration.useSegments()) Seq("x", "y") else Seq("x")
+      val names = if (configuration.useSegments) Seq("x", "y") else Seq("x")
       val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())
       createPlaceholder(name, Kind.Predicate, parameters, Seq.empty)
     }
     // add append lemma placeholder
-    if (configuration.useSegments()) {
+    if (configuration.useSegments) {
       val name = Names.appendLemma
       val names = Seq("x", "y", "z")
       val parameters = names.map(ast.LocalVarDecl(_, ast.Ref)())

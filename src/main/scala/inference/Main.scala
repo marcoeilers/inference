@@ -22,14 +22,7 @@ object Main extends PrintRunner {
     Seq(
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
       "--simplifyQueries",
-      "--simplifyExtended",
-      "--verifyWithHints")
-
-  /**
-   * The options for the inference using heuristics.
-   */
-  val heuristicsOptions: Seq[String] =
-    baseOptions ++ Seq("--useHeuristics")
+      "--simplifyExtended")
 
   /**
    * The default options for the inference.
@@ -41,7 +34,7 @@ object Main extends PrintRunner {
    * The options for the inference using segments.
    */
   val segmentsOptions: Seq[String] =
-    defaultOptions ++ Seq("--useSegments")
+    defaultOptions ++ Seq("--segments")
 
   /**
    * The input file used if no arguments are specified.

@@ -13,97 +13,151 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
 import scala.util.Properties
 
 /**
- * A configuration obtained from parsing input arguments.
- *
- * @param arguments The arguments.
+ * Companion object used to create configuration objects.
  */
-class Configuration(arguments: Seq[String]) extends ScallopConf(arguments) {
-  val z3Exe: ScallopOption[String] =
-    opt[String](
-      name = "z3Exe",
-      descr = "The path to the z3 executable.",
-      default = Properties.envOrNone("Z3_EXE"),
-      required = true)
+case object Configuration {
+  /**
+   * Returns a configuration object corresponding to the given input arguments.
+   *
+   * @param arguments The input arguments.
+   * @return The configuration object.
+   */
+  def apply(arguments: Seq[String]): Configuration = {
+    // parse input arguments
+    val options = new OptionsParser(arguments)
+    // create configuration object
+    Configuration(
+      file = options.file(),
+      z3Exe = options.z3Exe(),
+      useRecursive = options.recursive(),
+      useSegments = options.segments(),
+      iterations = options.iterations(),
+      maxLength = options.maxLength(),
+      maxClauses = options.maxClauses(),
+      useBatching = options.batching(),
+      useBranching = options.branching(),
+      simplifyQueries = options.simplifyQueries(),
+      simplifyExtended = options.simplifyExtended())
+  }
 
-  val iterations: ScallopOption[Int] =
-    opt[Int](
-      name = "iterations",
-      descr = "The number of iterations after which the learner gets exhausted and gives up.",
-      default = Some(20))
+  /**
+   * A helper class used to parse input arguments.
+   *
+   * @param arguments The input arguments to parse.
+   */
+  private class OptionsParser(arguments: Seq[String]) extends ScallopConf(arguments) {
+    val z3Exe: ScallopOption[String] =
+      opt[String](
+        name = "z3Exe",
+        descr = "The path to the z3 executable.",
+        default = Properties.envOrNone("Z3_EXE"),
+        required = true
+      )
 
-  val maxLength: ScallopOption[Int] =
-    opt[Int](
-      name = "maxLength",
-      descr = "The maximal length of access paths that may appear in specifications.",
-      default = Some(2))
+    val recursive: ScallopOption[Boolean] =
+      toggle(
+        name = "recursive",
+        descrYes = "Enables the use of recursive predicates.",
+        descrNo = "Disables the use of recursive predicates.",
+        default = Some(true)
+      )
 
-  val maxClauses: ScallopOption[Int] =
-    opt[Int](
-      name = "maxClauses",
-      descr = "The maximal number of clauses that may appear in conditions.",
-      default = Some(1))
+    val segments: ScallopOption[Boolean] =
+      toggle(
+        name = "segments",
+        descrYes = "Enables the use of predicate segments.",
+        descrNo = "Disables the use of predicate segments.",
+        default = Some(false)
+      )
 
-  val useHeuristics: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "useHeuristics",
-      descr = "Explicitly forbids the us of hints.")
+    val iterations: ScallopOption[Int] =
+      opt[Int](
+        name = "iterations",
+        descr = "The number of iterations after which the learner gets exhausted and gives up.",
+        default = Some(20)
+      )
 
-  @deprecated
-  val useHints: ScallopOption[Boolean] =
-    useHeuristics.map(!_)
+    val maxLength: ScallopOption[Int] =
+      opt[Int](
+        name = "maxLength",
+        descr = "The maximal length of access paths that may appear in specifications.",
+        default = Some(2))
 
-  val simplifyQueries: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "simplifyQueries",
-      descr = "Enables simplifications for queries.",
-      hidden = true)
+    val maxClauses: ScallopOption[Int] =
+      opt[Int](
+        name = "maxClauses",
+        descr = "The maximal number of clauses that may appear in conditions.",
+        default = Some(1)
+      )
 
-  val simplifyExtended: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "simplifyExtended",
-      descr = "Enables simplifications for extended program.",
-      hidden = true)
+    val batching: ScallopOption[Boolean] =
+      toggle(
+        name = "batching",
+        descrYes = "Enables batch processing of checks.",
+        descrNo = "Disables batch processing of checks.",
+        default = Some(true),
+        hidden = true
+      )
 
-  val verifyWithHints: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "verifyWithHints",
-      descr = "Enforces verification with hints.",
-      hidden = true)
+    val branching: ScallopOption[Boolean] =
+      toggle(
+        name = "branching",
+        descrYes = "Enables branching on atomic predicates.",
+        descrNo = "Disables branching on atomic predicates.",
+        default = Some(true),
+        hidden = true
+      )
 
-  val noRecursion: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "noPredicates",
-      descr = "Disables the use of recursive predicates.")
+    val simplifyQueries: ScallopOption[Boolean] =
+      toggle(
+        name = "simplifyQueries",
+        descrYes = "Enables simplifications for queries.",
+        descrNo = "Disables simplifications for queries.",
+        hidden = true
+      )
 
-  val useRecursion: ScallopOption[Boolean] =
-    noRecursion.map(!_)
+    val simplifyExtended: ScallopOption[Boolean] =
+      toggle(
+        name = "simplifyExtended",
+        descrYes = "Enables simplifications for extended program.",
+        descrNo = "Disables simplifications for extended program.",
+        hidden = true)
 
-  val useSegments: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "useSegments",
-      descr = "Enables the use of predicate segments.")
+    val file: ScallopOption[String] =
+      trailArg[String](
+        name = "file",
+        descr = "The path to the input file."
+      )
 
-  val noBatching: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "noBatching",
-      descr = "Disables batch verification of checks.",
-      hidden = true)
+    dependsOnAll(segments, List(recursive))
 
-  val noBranching: ScallopOption[Boolean] =
-    opt[Boolean](
-      name = "noBranching",
-      descr = "Disables branching on accesses.",
-      hidden = true)
-
-  val useBranching: ScallopOption[Boolean] =
-    noBranching.map(!_)
-
-  val file: ScallopOption[String] =
-    trailArg[String](
-      name = "file",
-      descr = "The path to the input file.")
-
-  mutuallyExclusive(useSegments, noRecursion)
-
-  verify()
+    verify()
+  }
 }
+
+/**
+ * A configuration object for the inference.
+ *
+ * @param file             The path to the input file.
+ * @param z3Exe            The path to the Z3 executable.
+ * @param useRecursive     The flag indicating whether the use of recursive predicate is enabled.
+ * @param useSegments      The flag indicating whether the us of predicate segments is enabled.
+ * @param iterations       The maximal number of iterations.
+ * @param maxLength        The maximal length of access paths that may appear in specifications.
+ * @param maxClauses       The maximal number of clauses that may appear in specifications.
+ * @param useBatching      The flag indicating whether batch processing of checks is enabled.
+ * @param useBranching     The flag indicating whether branching is enabled.
+ * @param simplifyQueries  The flag indicating whether the simplification of queries is enabled.
+ * @param simplifyExtended The flag indicating whether the simplification of extended programs is enabled.
+ */
+case class Configuration(file: String,
+                         z3Exe: String,
+                         useRecursive: Boolean,
+                         useSegments: Boolean,
+                         iterations: Int,
+                         maxLength: Int,
+                         maxClauses: Int,
+                         useBatching: Boolean,
+                         useBranching: Boolean,
+                         simplifyQueries: Boolean,
+                         simplifyExtended: Boolean)

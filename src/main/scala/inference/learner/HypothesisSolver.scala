@@ -213,7 +213,7 @@ trait HypothesisSolver {
    */
   private def encodeState(guardId: Int, values: Seq[Option[Boolean]], default: Boolean): ast.Exp = {
     // encode clauses
-    val clauses = for (clauseIndex <- 0 until configuration.maxClauses()) yield {
+    val clauses = for (clauseIndex <- 0 until configuration.maxClauses) yield {
       val clauseActivation = makeBoolean(Names.clauseActivation(guardId, clauseIndex))
       val clauseEncoding = {
         // encode literals

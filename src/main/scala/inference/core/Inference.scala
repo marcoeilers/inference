@@ -57,7 +57,7 @@ trait Inference {
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
     // get maximum iteration number
-    val max = input.configuration.iterations()
+    val max = input.configuration.iterations
 
     /**
      * Helper method used to iteratively compute the hypothesis.
