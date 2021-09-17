@@ -181,25 +181,26 @@ trait HypothesisSolver {
    */
   private def encodeOptions(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[ast.Exp] = {
     val state = record.state
-    val effective = Guards.effective(record)
-    effective.map { optionGuards =>
-      val conjuncts = optionGuards.map {
-        case ResourceGuard(guardId, atoms) =>
-          val values = state.evaluate(atoms)
-          encodeState(guardId, values, default)
-        case ChoiceGuard(_, _) =>
-          // TODO:
-          ???
-        case TruncationGuard(condition) =>
-          record
-            .state
-            .evaluate(condition)
-            .map { value => ast.BoolLit(value)() }
-            .get
+    // TODO: Use syntactic guards for upper bounds.
+    Guards.effective(record)
+      .map { case (optionGuards, _) =>
+        val conjuncts = optionGuards.map {
+          case ResourceGuard(guardId, atoms) =>
+            val values = state.evaluate(atoms)
+            encodeState(guardId, values, default)
+          case ChoiceGuard(_, _) =>
+            // TODO:
+            ???
+          case TruncationGuard(condition) =>
+            record
+              .state
+              .evaluate(condition)
+              .map { value => ast.BoolLit(value)() }
+              .get
+        }
+        val optionEncoding = Expressions.makeAnd(conjuncts)
+        auxiliary(optionEncoding)
       }
-      val optionEncoding = Expressions.makeAnd(conjuncts)
-      auxiliary(optionEncoding)
-    }
   }
 
   /**

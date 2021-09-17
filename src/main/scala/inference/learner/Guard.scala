@@ -16,6 +16,15 @@ import viper.silver.ast
  */
 object Guards {
   /**
+   * Type shortcut for effective guards.
+   *
+   * An effective guard represents a sequence of options to provide permissions for a specific location. Each option is
+   * a pair consisting of a sequence of guards that conjunctively guard the location and an expression representing the
+   * syntactic location.
+   */
+  type Effective = Seq[(Seq[Guard], ast.Exp)]
+
+  /**
    * Computes the effective guard corresponding to the given record under consideration of the implicitly passed
    * predicate templates.
    *
@@ -23,7 +32,7 @@ object Guards {
    * @param templates The predicate templates.
    * @return The effective guard.
    */
-  def effective(record: Record)(implicit templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] = {
+  def effective(record: Record)(implicit templates: Map[String, PredicateTemplate]): Effective = {
     implicit val resource: ResourceAbstraction = record.resource
     implicit val state: StateAbstraction = record.state
     // get and process template
@@ -52,7 +61,7 @@ object Guards {
                               guards: Seq[Guard] = Seq.empty)
                              (implicit resource: ResourceAbstraction,
                               state: StateAbstraction,
-                              templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] =
+                              templates: Map[String, PredicateTemplate]): Effective =
     if (depth < 3) {
       // get and adapt atoms
       val atoms = template
@@ -84,7 +93,7 @@ object Guards {
                                 atoms: Seq[ast.Exp])
                                (implicit resource: ResourceAbstraction,
                                 state: StateAbstraction,
-                                templates: Map[String, PredicateTemplate]): Seq[Seq[Guard]] =
+                                templates: Map[String, PredicateTemplate]): Effective =
     expression match {
       case Wrapped(wrapped) =>
         wrapped match {
@@ -92,7 +101,7 @@ object Guards {
             // adapt field access
             val adapted = view.adaptFieldAccess(access)
             // consider current guards if resource abstraction contains field access
-            if (resource.abstracts(adapted)) Seq(guards)
+            if (resource.abstracts(adapted)) Seq((guards, adapted))
             else Seq.empty
           case ast.PredicateAccessPredicate(access, _) =>
             // adapt predicate access
@@ -104,7 +113,7 @@ object Guards {
               processTemplate(template, depth + 1, view, guards)
             }
             // consider current guards if resource is equal to predicate access
-            if (resource.abstracts(adapted)) guards +: nested
+            if (resource.abstracts(adapted)) (guards, adapted) +: nested
             else nested
           case other =>
             sys.error(s"Unexpected wrapped expression in template: $other")
