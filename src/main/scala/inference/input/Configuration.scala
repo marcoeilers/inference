@@ -129,7 +129,10 @@ case object Configuration {
         descr = "The path to the input file."
       )
 
-    dependsOnAll(segments, List(recursive))
+    validate(recursive, segments) { (recursive, segments) =>
+      if (segments && !recursive) Left("Enabling predicate segments requires enabling recursive predicates.")
+      else Right()
+    }
 
     verify()
   }
