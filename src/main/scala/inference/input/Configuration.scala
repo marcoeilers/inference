@@ -36,6 +36,8 @@ case object Configuration {
       maxClauses = options.maxClauses(),
       useBatching = options.batching(),
       useBranching = options.branching(),
+      useSyntacticBounds = options.syntacticBounds(),
+      useSemanticBounds = options.semanticBounds(),
       simplifyQueries = options.simplifyQueries(),
       simplifyExtended = options.simplifyExtended())
   }
@@ -108,6 +110,18 @@ case object Configuration {
         hidden = true
       )
 
+    val syntacticBounds: ScallopOption[Boolean] =
+      opt[Boolean](
+        name = "syntacticBounds",
+        descr = "Enables the use of syntactic upper bounds."
+      )
+
+    val semanticBounds: ScallopOption[Boolean] =
+      opt[Boolean](
+        name = "semanticBounds",
+        descr = "Enables the use of semantic upper bounds."
+      )
+
     val simplifyQueries: ScallopOption[Boolean] =
       toggle(
         name = "simplifyQueries",
@@ -134,6 +148,8 @@ case object Configuration {
       else Right()
     }
 
+    mutuallyExclusive(syntacticBounds, semanticBounds)
+
     verify()
   }
 }
@@ -141,17 +157,19 @@ case object Configuration {
 /**
  * A configuration object for the inference.
  *
- * @param file             The path to the input file.
- * @param z3Exe            The path to the Z3 executable.
- * @param useRecursive     The flag indicating whether the use of recursive predicate is enabled.
- * @param useSegments      The flag indicating whether the us of predicate segments is enabled.
- * @param iterations       The maximal number of iterations.
- * @param maxLength        The maximal length of access paths that may appear in specifications.
- * @param maxClauses       The maximal number of clauses that may appear in specifications.
- * @param useBatching      The flag indicating whether batch processing of checks is enabled.
- * @param useBranching     The flag indicating whether branching is enabled.
- * @param simplifyQueries  The flag indicating whether the simplification of queries is enabled.
- * @param simplifyExtended The flag indicating whether the simplification of extended programs is enabled.
+ * @param file               The path to the input file.
+ * @param z3Exe              The path to the Z3 executable.
+ * @param useRecursive       The flag indicating whether the use of recursive predicate is enabled.
+ * @param useSegments        The flag indicating whether the us of predicate segments is enabled.
+ * @param iterations         The maximal number of iterations.
+ * @param maxLength          The maximal length of access paths that may appear in specifications.
+ * @param maxClauses         The maximal number of clauses that may appear in specifications.
+ * @param useBatching        The flag indicating whether batch processing of checks is enabled.
+ * @param useBranching       The flag indicating whether branching is enabled.
+ * @param useSyntacticBounds The flag indicating whether syntactic upper bounds are enabled.
+ * @param useSemanticBounds  The flag indicating whether semantic upper bounds are enabled.
+ * @param simplifyQueries    The flag indicating whether the simplification of queries is enabled.
+ * @param simplifyExtended   The flag indicating whether the simplification of extended programs is enabled.
  */
 case class Configuration(file: String,
                          z3Exe: String,
@@ -162,5 +180,10 @@ case class Configuration(file: String,
                          maxClauses: Int,
                          useBatching: Boolean,
                          useBranching: Boolean,
+                         useSyntacticBounds: Boolean,
+                         useSemanticBounds: Boolean,
                          simplifyQueries: Boolean,
-                         simplifyExtended: Boolean)
+                         simplifyExtended: Boolean) {
+  def useBounds: Boolean =
+    useSemanticBounds || useSyntacticBounds
+}

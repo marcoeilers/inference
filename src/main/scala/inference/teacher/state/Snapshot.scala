@@ -49,7 +49,7 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
         }
         // recurse and combine result
         val future = recurse(next, steps - 1)
-        SetMap.union(current, future)
+        SetMap.merge(current, future)
       }
 
     // initial reachability map

@@ -22,7 +22,8 @@ object Main extends PrintRunner {
     Seq(
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
       "--simplifyQueries",
-      "--simplifyExtended")
+      "--simplifyExtended",
+      "--syntacticBounds")
 
   /**
    * The default options for the inference.

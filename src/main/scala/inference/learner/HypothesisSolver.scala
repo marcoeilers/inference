@@ -13,7 +13,7 @@ import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.util.Namespace
 import inference.util.ast.Expressions
-import inference.util.collections.Collections
+import inference.util.collections.{Collections, SeqMap}
 import inference.util.solver.Solver
 import viper.silver.ast
 
@@ -181,26 +181,40 @@ trait HypothesisSolver {
    */
   private def encodeOptions(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[ast.Exp] = {
     val state = record.state
-    // TODO: Use syntactic guards for upper bounds.
-    Guards.effective(record)
-      .map { case (optionGuards, _) =>
-        val conjuncts = optionGuards.map {
-          case ResourceGuard(guardId, atoms) =>
-            val values = state.evaluate(atoms)
-            encodeState(guardId, values, default)
-          case ChoiceGuard(_, _) =>
-            // TODO:
-            ???
-          case TruncationGuard(condition) =>
-            record
-              .state
-              .evaluate(condition)
-              .map { value => ast.BoolLit(value)() }
-              .get
-        }
-        val optionEncoding = Expressions.makeAnd(conjuncts)
-        auxiliary(optionEncoding)
+    Guards
+      .effective(record)
+      .flatMap { case (_, effective) =>
+        effective.map { guards => encodeOption(guards, state, default) }
       }
+      .toSeq
+  }
+
+  /**
+   * Encodes an option represented by the given guards.
+   *
+   * @param guards  The guards.
+   * @param state   The state.
+   * @param default The default value to assume for unknown predicate values (approximation).
+   * @return The encoding.
+   */
+  private def encodeOption(guards: Seq[Guard], state: StateAbstraction, default: Boolean): ast.Exp = {
+    // create conjuncts corresponding to guards
+    val conjuncts = guards.map {
+      case ResourceGuard(guardId, atoms) =>
+        val values = state.evaluate(atoms)
+        encodeState(guardId, values, default)
+      case ChoiceGuard(_, _) =>
+        // TODO: Implement me.
+        ???
+      case TruncationGuard(condition) =>
+        state
+          .evaluate(condition)
+          .map { value => ast.BoolLit(value)() }
+          .get
+    }
+    // return auxiliary variable constrained to the encoding
+    val encoding = Expressions.makeAnd(conjuncts)
+    auxiliary(encoding)
   }
 
   /**

@@ -19,8 +19,8 @@ object SetMap {
    * @return The merged map.
    */
   @inline
-  def union[K, V](map1: Map[K, Set[V]], map2: Map[K, Set[V]]): Map[K, Set[V]] =
-    map2.foldLeft(map1) { case (map, (key, value)) => addAll(map, key, value) }
+  def merge[K, V](map1: Map[K, Set[V]], map2: Map[K, Set[V]]): Map[K, Set[V]] =
+    map2.foldLeft(map1) { case (map, (key, values)) => addAll(map, key, values) }
 
   /**
    * Adds the given value to the set associated with the given key in the given map.
@@ -43,7 +43,7 @@ object SetMap {
    * @param key    THe key.
    * @param values The values.
    * @tparam K The key type.
-   * @tparam V THe value type.
+   * @tparam V The value type.
    * @return The updated map.
    */
   @inline

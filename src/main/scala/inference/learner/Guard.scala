@@ -9,6 +9,7 @@
 package inference.learner
 
 import inference.core.sample.{Record, ResourceAbstraction, StateAbstraction}
+import inference.util.collections.SeqMap
 import viper.silver.ast
 
 /**
@@ -18,11 +19,11 @@ object Guards {
   /**
    * Type shortcut for effective guards.
    *
-   * An effective guard represents a sequence of options to provide permissions for a specific location. Each option is
-   * a pair consisting of a sequence of guards that conjunctively guard the location and an expression representing the
-   * syntactic location.
+   * An effective guard is represented by a map where the keys are syntactic expressions that may be used to refer to
+   * the offending location. The values are sequences of options where each option is a sequence of guards that
+   * conjunctively guard the syntactic location.
    */
-  type Effective = Seq[(Seq[Guard], ast.Exp)]
+  type Effective = Map[ast.Exp, Seq[Seq[Guard]]]
 
   /**
    * Computes the effective guard corresponding to the given record under consideration of the implicitly passed
@@ -40,7 +41,7 @@ object Guards {
     templates
       .get(name)
       .map { template => processTemplate(template) }
-      .getOrElse(Seq.empty)
+      .getOrElse(Map.empty)
   }
 
   /**
@@ -71,7 +72,7 @@ object Guards {
       // get and process template body
       val expression = template.body
       processExpression(expression, depth, view, guards, atoms)
-    } else Seq.empty
+    } else Map.empty
 
   /**
    * Computes the effective guard corresponding to the given template expression.
@@ -101,8 +102,8 @@ object Guards {
             // adapt field access
             val adapted = view.adaptFieldAccess(access)
             // consider current guards if resource abstraction contains field access
-            if (resource.abstracts(adapted)) Seq((guards, adapted))
-            else Seq.empty
+            if (resource.abstracts(adapted)) Map(adapted -> Seq(guards))
+            else Map.empty
           case ast.PredicateAccessPredicate(access, _) =>
             // adapt predicate access
             val adapted = view.adaptPredicateAccess(access)
@@ -113,13 +114,16 @@ object Guards {
               processTemplate(template, depth + 1, view, guards)
             }
             // consider current guards if resource is equal to predicate access
-            if (resource.abstracts(adapted)) (guards, adapted) +: nested
+            if (resource.abstracts(adapted)) SeqMap.add(nested, adapted, guards)
             else nested
           case other =>
             sys.error(s"Unexpected wrapped expression in template: $other")
         }
       case Conjunction(conjuncts) =>
-        conjuncts.flatMap { conjunct => processExpression(conjunct, depth, view, guards, atoms) }
+        conjuncts
+          .map { conjunct => processExpression(conjunct, depth, view, guards, atoms) }
+          .reduceOption(SeqMap.marge[ast.Exp, Seq[Guard]])
+          .getOrElse(Map.empty)
       case Guarded(guardId, body) =>
         val guard = ResourceGuard(guardId, atoms)
         val updatedGuards = guards :+ guard
