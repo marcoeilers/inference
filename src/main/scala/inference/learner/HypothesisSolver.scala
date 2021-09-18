@@ -13,11 +13,8 @@ import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.util.Namespace
 import inference.util.ast.Expressions
-import inference.util.collections.{Collections, SeqMap}
 import inference.util.solver.Solver
 import viper.silver.ast
-
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * A hypothesis solver that encodes samples and (hopefully) returns a suitable model.
@@ -165,10 +162,7 @@ trait HypothesisSolver {
    */
   private def encodeAtMost(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
     val options = encodeOptions(record, default)
-    val constraints = Collections
-      .pairs(options)
-      .map { case (left, right) => ast.Not(ast.And(left, right)())() }
-    Expressions.makeAnd(constraints)
+    Expressions.makeAtMost(options)
   }
 
   /**
@@ -181,12 +175,27 @@ trait HypothesisSolver {
    */
   private def encodeOptions(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[ast.Exp] = {
     val state = record.state
-    Guards
+    val options = Guards
       .effective(record)
       .flatMap { case (_, effective) =>
-        effective.map { guards => encodeOption(guards, state, default) }
+        // encode options for syntactic group
+        // TODO: Only if in positive position?
+        val group = effective.map { guards => encodeOption(guards, state, default) }
+        // add syntactic upperbound if enabled
+        if (configuration.useSyntacticBounds && group.length > 1) {
+          val upperbound = Expressions.makeAtMost(group)
+          solver.addConstraint(upperbound)
+        }
+        group
       }
       .toSeq
+    // add semantic upperbound if enabled
+    if (configuration.useSemanticBounds && options.length > 1) {
+      val upperbound = Expressions.makeAtMost(options)
+      solver.addConstraint(upperbound)
+    }
+    // return option encodings
+    options
   }
 
   /**

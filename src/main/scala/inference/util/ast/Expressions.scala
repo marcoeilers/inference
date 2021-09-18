@@ -8,6 +8,7 @@
 
 package inference.util.ast
 
+import inference.util.collections.Collections
 import viper.silver.ast
 import viper.silver.ast.utility.rewriter.Traverse
 
@@ -56,6 +57,20 @@ object Expressions {
     expressions
       .reduceOption(ast.Or(_, _)())
       .getOrElse(ast.FalseLit()())
+
+  /**
+   * Returns an expression which is true if at most one of the given expressions is true.
+   *
+   * @param expressions The expressions.
+   * @return The encoding.
+   */
+  def makeAtMost(expressions: Iterable[ast.Exp]): ast.Exp = {
+    val constraints = Collections
+      .pairs(expressions)
+      .map { case (left, right) => ast.Not(ast.And(left, right)())() }
+    makeAnd(constraints)
+  }
+
 
   /**
    * Returns the sum of the given expressions.
