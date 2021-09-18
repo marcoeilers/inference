@@ -220,11 +220,15 @@ trait SampleExtractor {
    */
   private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess, Option[InferenceInfo[Any]]) = {
     // extract counterexample
-    val counter = error.counterexample match {
-      case Some(value: Counter) => value
-      case Some(_) => sys.error("Unsupported counterexample.")
-      case _ => sys.error("No counterexample.")
-    }
+    val counters = error
+      .failureContexts
+      .flatMap(_.counterExample)
+      .collect {
+        case counter: Counter => counter
+        case _ => sys.error(s"Unsupported counterexample")
+      }
+    assert(counters.length == 1)
+    val counter = counters.head
     // extract offending location
     val offending = error.reason match {
       case InsufficientPermission(location) => location
