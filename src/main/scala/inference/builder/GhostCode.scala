@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Check, Input}
+import inference.input.{Check, Hint, Input}
 import viper.silver.ast
 
 /**
@@ -57,7 +57,7 @@ trait GhostCode extends Builder with Simplification {
    * @param hypothesis The current hypothesis.
    */
   protected def fold(expression: ast.Exp, simplify: Boolean = false)
-                    (implicit hypothesis: Hypothesis): Unit =
+                    (implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
     if (simplify) simplified(fold(expression))
     else {
       // TODO: Depth
@@ -172,17 +172,28 @@ trait GhostCode extends Builder with Simplification {
         val exhales = makeScope(adaptiveExhale(right, depth))
         emitConditional(left, exhales)
       case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
-        // recursive exhales
-        val recursive = makeScope {
-          val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          adaptiveExhale(body, depth - 1)
+        // conditions capturing whether we have permissions to access arguments
+        val framed =
+          predicate
+            .args
+            .collect { case x: ast.FieldAccess => somePermission(x) }
+        // ghost code body
+        val exhales = makeScope {
+          // recursive exhales
+          val recursive = makeScope {
+            val instance = input.instance(predicate)
+            val body = hypothesis.getBody(instance)
+            adaptiveExhale(body, depth - 1)
+          }
+          // direct exhale
+          val direct = makeScope(emitExhale(resource, info))
+          // exhale adaptively
+          val condition = noPermission(predicate)
+          emitConditional(condition, recursive, direct)
         }
-        // direct exhale
-        val direct = makeScope(emitExhale(resource, info))
-        // exhale adaptively
-        val condition = noPermission(predicate)
-        emitConditional(condition, recursive, direct)
+        // only exhale predicate if it is framed. if it is not there will be a subsequent exhale of the missing
+        // permission that we want to fail (since specifications are well-formed)
+        emitConditional(framed, exhales)
       case other =>
         emitExhale(other, info)
     }
@@ -191,11 +202,23 @@ trait GhostCode extends Builder with Simplification {
    * Returns an expression representing the condition that there is no permission for the given location access.
    *
    * @param access The location access.
-   * @return The expression.
+   * @return The expression representing the condition.
    */
   private def noPermission(access: ast.ResourceAccess): ast.Exp = {
     val current = ast.CurrentPerm(access)()
     val write = ast.FullPerm()()
     ast.PermLtCmp(current, write)()
+  }
+
+  /**
+   * Returns an expression representing the condition that there is some permission for the given location access.
+   *
+   * @param access The location access.
+   * @return The expression representing the condition.
+   */
+  private def somePermission(access: ast.ResourceAccess): ast.Exp = {
+    val current = ast.CurrentPerm(access)()
+    val write = ast.NoPerm()()
+    ast.PermGtCmp(current, write)()
   }
 }
