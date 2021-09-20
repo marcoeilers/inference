@@ -7,7 +7,6 @@ method copy_first(x: Ref)
     c := x
     while (c != null)
     {
-        __down__(c)
         c.val := x.val
         c := c.next
     }

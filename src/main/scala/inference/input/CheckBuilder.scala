@@ -287,13 +287,7 @@ trait CheckBuilder extends Builder with Atoms {
                 else variable
               case access@ast.FieldAccess(receiver, _) =>
                 // save value of field access and get receiver as a variable
-                val variable = save(access)
-                val old = asVariable(receiver)
-                // add hint
-                val hint = Hint(Names.downHint, variable, old)
-                addHint(hint)
-                // return variable
-                variable
+                save(access)
               case other =>
                 sys.error(s"Unexpected argument: $other")
             }

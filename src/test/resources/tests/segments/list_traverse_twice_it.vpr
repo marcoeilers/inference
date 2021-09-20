@@ -8,14 +8,14 @@ method main(a: Ref)
     c := a
     while (c != null)
     {
-        __down__(c)
+        __append__(c)
         c := c.next
     }
 
     c := a
     while (c != null)
     {
-        __down__(c)
+        __append__(c)
         c := c.next
     }
 }

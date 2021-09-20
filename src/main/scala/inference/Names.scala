@@ -45,46 +45,14 @@ object Names {
   val appendLemma = "append_lemma"
 
   /**
-   * The name of the down hint.
+   * The name of the append hint.
    */
-  val downHint = "__down__"
-
-  /**
-   * The name of the up hint.
-   */
-  val upHint = "__up__"
-
-  /**
-   * The name of the push back hint.
-   */
-  val popFrontHint = "__pop_front__"
-
-  /**
-   * The name of the push front hint.
-   */
-  val pushFrontHint = "__push_front__"
-
-  /**
-   * The name of the push back hint.
-   */
-  val pushBackHint = "__push_back__"
-
-  /**
-   * The name of the pop back hint.
-   */
-  val popBackHint = "__pop_back__"
+  val append = "__append__"
 
   /**
    * All hint names.
    */
-  val hints = Seq(
-    downHint,
-    upHint,
-    popFrontHint,
-    pushFrontHint,
-    pushBackHint,
-    popBackHint
-  )
+  val hints = Seq(append)
 
   /**
    * Returns whether the given name corresponds to the recursive predicate.

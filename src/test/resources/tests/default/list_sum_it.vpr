@@ -8,7 +8,6 @@ method sum(x: Ref) returns (r: Int)
     r := 0
     while (c != null)
     {
-        __down__(c)
         r := r + c.val
         c := c.next
     }
