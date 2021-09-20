@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.input.{Cut, LoopCheck}
-import inference.util.ast.{Expressions, Statements}
+import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -99,7 +99,8 @@ trait Builder {
    * @param info       The info to attach to the exhale statement.
    */
   protected def emitExhale(expression: ast.Exp, info: ast.Info = ast.NoInfo): Unit = {
-    val exhale = ast.Exhale(expression)(info = info)
+    val position = virtualPosition(info)
+    val exhale = ast.Exhale(expression)(pos = position, info = info)
     emit(exhale)
   }
 
@@ -143,7 +144,8 @@ trait Builder {
    * @param info     The info to attach to the fold statement.
    */
   protected def emitFold(resource: ast.PredicateAccessPredicate, info: ast.Info = ast.NoInfo): Unit = {
-    val fold = ast.Fold(resource)(info = info)
+    val position = virtualPosition(info)
+    val fold = ast.Fold(resource)(pos = position, info = info)
     emit(fold)
   }
 
@@ -188,4 +190,16 @@ trait Builder {
     val cut = Cut(loop)
     emit(cut)
   }
+
+  /**
+   * Tries to create a virtual position based on the given info.
+   *
+   * @param info The info.
+   * @return The position.
+   */
+  private def virtualPosition(info: ast.Info): ast.Position =
+    info match {
+      case InstanceInfo(instance) => ast.VirtualPosition(instance.toString)
+      case _ => ast.NoPosition
+    }
 }
