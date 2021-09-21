@@ -71,7 +71,6 @@ object Expressions {
     makeAnd(constraints)
   }
 
-
   /**
    * Returns the sum of the given expressions.
    *

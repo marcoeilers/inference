@@ -36,6 +36,7 @@ case object Configuration {
       maxClauses = options.maxClauses(),
       useBatching = options.batching(),
       useBranching = options.branching(),
+      useUpperbounds = options.upperbounds(),
       useSyntacticBounds = options.syntacticBounds(),
       useSemanticBounds = options.semanticBounds(),
       simplifyQueries = options.simplifyQueries(),
@@ -110,16 +111,26 @@ case object Configuration {
         hidden = true
       )
 
+    val upperbounds: ScallopOption[Boolean] =
+      toggle(
+        name = "upperbounds",
+        descrYes = "Enables upper bound samples.",
+        descrNo = "Disables upper bound samples.",
+        default = Some(true),
+      )
+
     val syntacticBounds: ScallopOption[Boolean] =
       opt[Boolean](
         name = "syntacticBounds",
-        descr = "Enables the use of syntactic upper bounds."
+        descr = "Enables the use of syntactic implicit upper bounds.",
+        hidden = true
       )
 
     val semanticBounds: ScallopOption[Boolean] =
       opt[Boolean](
         name = "semanticBounds",
-        descr = "Enables the use of semantic upper bounds."
+        descr = "Enables the use of semantic implicit upper bounds.",
+        hidden = true
       )
 
     val simplifyQueries: ScallopOption[Boolean] =
@@ -166,8 +177,9 @@ case object Configuration {
  * @param maxClauses         The maximal number of clauses that may appear in specifications.
  * @param useBatching        The flag indicating whether batch processing of checks is enabled.
  * @param useBranching       The flag indicating whether branching is enabled.
- * @param useSyntacticBounds The flag indicating whether syntactic upper bounds are enabled.
- * @param useSemanticBounds  The flag indicating whether semantic upper bounds are enabled.
+ * @param useUpperbounds     The flag indicating whether upper bound samples are enabled.
+ * @param useSyntacticBounds The flag indicating whether syntactic implicit upper bounds are enabled.
+ * @param useSemanticBounds  The flag indicating whether semantic implicit upper bounds are enabled.
  * @param simplifyQueries    The flag indicating whether the simplification of queries is enabled.
  * @param simplifyExtended   The flag indicating whether the simplification of extended programs is enabled.
  */
@@ -180,6 +192,7 @@ case class Configuration(file: String,
                          maxClauses: Int,
                          useBatching: Boolean,
                          useBranching: Boolean,
+                         useUpperbounds: Boolean,
                          useSyntacticBounds: Boolean,
                          useSemanticBounds: Boolean,
                          simplifyQueries: Boolean,

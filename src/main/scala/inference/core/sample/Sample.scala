@@ -33,6 +33,20 @@ sealed trait Bound extends Sample {
 }
 
 /**
+ * Lower bound companion object.
+ */
+object LowerBound {
+  /**
+   * Returns a lower bound sample with the given record.
+   *
+   * @param record The record.
+   * @return The lower bound.
+   */
+  def apply(record: Record): LowerBound =
+    LowerBound(Seq(record))
+}
+
+/**
  * A sample imposing a strict lower bound.
  *
  * @param records The records.
@@ -61,9 +75,9 @@ case class UpperBound(record: Record) extends Bound {
  * @param left  The left-hand side of the implication.
  * @param right The right-hand side of the implication.
  */
-case class Implication(left: Record, right: LowerBound) extends Sample {
+case class Implication(left: LowerBound, right: LowerBound) extends Sample {
   override def records: Seq[Record] =
-    left +: right.records
+    left.records ++ right.records
 
   override def toString: String =
     s"$left => $right"

@@ -95,7 +95,7 @@ trait HypothesisSolver {
         val bound = ast.IntLit(sample.bound)()
         ast.GtCmp(difference, bound)()
       case Implication(left, right) =>
-        val leftEncoding = encodeAtLeast(left, !default)
+        val leftEncoding = encodeSample(left, !default)
         val rightEncoding = encodeSample(right, default)
         ast.Implies(leftEncoding, rightEncoding)()
       case UpperBound(record) =>

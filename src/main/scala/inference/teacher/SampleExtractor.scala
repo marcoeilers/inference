@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.Logger
 import inference.core.{Hypothesis, Instance}
 import inference.core.sample._
 import inference.input.{Configuration, Input}
-import inference.teacher.state.{Adaptor, ModelEvaluator, PermissionEvaluator, Snapshot, StateEvaluator}
+import inference.teacher.state._
 import inference.util.ast.{InferenceInfo, InstanceInfo, LocationInfo}
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
@@ -92,13 +92,14 @@ trait SampleExtractor {
       // create left-hand side of implication
       val left = {
         val resource = abstractLocation(location, adaptor)
-        ExhaledRecord(placeholder, state, resource, 0)
+        val record = ExhaledRecord(placeholder, state, resource, 0)
+        LowerBound(record)
       }
       // create right-hand side of implication
       val right = {
         val resource = abstractLocation(offending, adaptor)
         val record = InhaledRecord(placeholder, state, resource, 0)
-        LowerBound(Seq(record))
+        LowerBound(record)
       }
       // create implication sample
       Implication(left, right)
@@ -192,13 +193,27 @@ trait SampleExtractor {
         val failing = recordify(snapshot)
         // if the failing specification exhales more than one permission we want to impose an upper bound, otherwise we
         // want to require the missing permission from an upstream specification
-        if (failing.delta < -1) {
+        if (configuration.useUpperbounds && failing.delta < -1) {
           // create upper bound sample
           UpperBound(failing)
         } else {
+          // left-hand side of implication
+          val left = failing match {
+            case ExhaledRecord(placeholder, state, resource, amount) =>
+              val adapted = amount - 1
+              assert(adapted < 2)
+              val record = InhaledRecord(placeholder, state, resource, adapted)
+              LowerBound(record)
+            case _ =>
+              sys.error(s"Inhaled specifications should not fail.")
+          }
+          // right-hand side of implication
+          val right = {
+            val others = otherSnapshots.map(recordify)
+            LowerBound(others)
+          }
           // create implication sample
-          val others = otherSnapshots.map(recordify)
-          Implication(failing, LowerBound(others))
+          Implication(left, right)
         }
       // if there is no failing snapshot the error was caused by some original program code
       case None =>
@@ -267,7 +282,7 @@ trait SampleExtractor {
    */
   def evaluatePermission(resource: ResourceAbstraction, instance: Instance, hypothesis: Hypothesis, state: StateEvaluator): Int = {
     val evaluator = new PermissionEvaluator(input, hypothesis, state)
-    evaluator.evaluate(resource, instance, depth = 2)
+    evaluator.evaluate(resource, instance, depth = 3)
   }
 
   /**
