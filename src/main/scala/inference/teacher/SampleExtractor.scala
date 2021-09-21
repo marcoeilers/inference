@@ -92,7 +92,7 @@ trait SampleExtractor {
       // create left-hand side of implication
       val left = {
         val resource = abstractLocation(location, adaptor)
-        val record = ExhaledRecord(placeholder, state, resource, 0)
+        val record = InhaledRecord(placeholder, state, resource, 0)
         LowerBound(record)
       }
       // create right-hand side of implication
