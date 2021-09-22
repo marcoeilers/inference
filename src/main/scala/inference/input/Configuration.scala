@@ -197,6 +197,11 @@ case class Configuration(file: String,
                          useSemanticBounds: Boolean,
                          simplifyQueries: Boolean,
                          simplifyExtended: Boolean) {
-  def useBounds: Boolean =
+  /**
+   * Returns whether the use of syntactic or semantic implicit upper bounds is enabled.
+   *
+   * @return True if implicit upper bounds are enabled.
+   */
+  def useImplicitBounds: Boolean =
     useSemanticBounds || useSyntacticBounds
 }

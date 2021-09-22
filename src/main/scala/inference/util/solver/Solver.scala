@@ -179,10 +179,15 @@ class Z3Solver(path: String) extends Solver {
       case ast.Implies(left, right) => s"(=> ${convert(left)} ${convert(right)})"
       case ast.IntLit(value) => if (value < 0) s"(- ${-value})" else value.toString
       case ast.EqCmp(left, right) => s"(= ${convert(left)} ${convert(right)})"
+      case ast.NeCmp(left, right) => s"(not (= ${convert(left)} ${convert(right)}))"
       case ast.GeCmp(left, right) => s"(>= ${convert(left)} ${convert(right)})"
       case ast.GtCmp(left, right) => s"(> ${convert(left)} ${convert(right)})"
+      case ast.LeCmp(left, right) => s"(<= ${convert(left)} ${convert(right)})"
+      case ast.LtCmp(left, right) => s"(< ${convert(left)} ${convert(right)})"
       case ast.CondExp(condition, left, right) => s"(ite ${convert(condition)} ${convert(left)} ${convert(right)})"
+      case ast.Minus(argument) => s"(- ${convert(argument)})"
       case ast.Add(left, right) => s"(+ ${convert(left)} ${convert(right)})"
+      case ast.Sub(left, right) => s"(- ${convert(left)} ${convert(right)})"
       case _ => sys.error(s"Unexpected expression: $expression")
     }
 

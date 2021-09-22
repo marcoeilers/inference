@@ -190,29 +190,29 @@ trait SampleExtractor {
       // if there is a failing snapshot the error was caused by some specification
       case Some(snapshot) =>
         // compute record corresponding to failing specification
-        val failing = recordify(snapshot)
-        // if the failing specification exhales more than one permission we want to impose an upper bound, otherwise we
-        // want to require the missing permission from an upstream specification
-        if (configuration.useUpperbounds && failing.delta < -1) {
-          // create upper bound sample
-          UpperBound(failing)
-        } else {
-          // left-hand side of implication
-          val left = failing match {
+        val failing = {
+          recordify(snapshot) match {
             case ExhaledRecord(placeholder, state, resource, amount) =>
               val adapted = amount - 1
-              assert(adapted < 2)
-              val record = InhaledRecord(placeholder, state, resource, adapted)
-              LowerBound(record)
+              assert(adapted <= 1)
+              InhaledRecord(placeholder, state, resource, adapted)
             case _ =>
               sys.error(s"Inhaled specifications should not fail.")
           }
-          // right-hand side of implication
+        }
+        // if the failing specification exhales more than one permission (strict lower bound is at least 1) we might
+        // want to impose an upper bound, otherwise we want to require the missing permission from an upstream
+        // specification
+        if (configuration.useUpperbounds && failing.delta >= 1) {
+          // create upper bound sample
+          UpperBound(failing)
+        } else {
+          // create implication sample
+          val left = LowerBound(failing)
           val right = {
             val others = otherSnapshots.map(recordify)
             LowerBound(others)
           }
-          // create implication sample
           Implication(left, right)
         }
       // if there is no failing snapshot the error was caused by some original program code

@@ -98,104 +98,93 @@ trait HypothesisSolver {
         val leftEncoding = encodeSample(left, !default)
         val rightEncoding = encodeSample(right, default)
         ast.Implies(leftEncoding, rightEncoding)()
-      case UpperBound(record) =>
-        encodeAtMost(record, default)
+      case sample@UpperBound(record) =>
+        val difference = encodeDifference(record, default)
+        val bound = ast.IntLit(sample.bound)()
+        ast.LeCmp(difference, bound)()
     }
 
   /**
-   * Encodes the permission difference corresponding to the given records under consideration of the implicitly passed
-   * predicate templates.
+   * Encodes the permission differences corresponding to the given records.
    *
    * @param records   The records.
-   * @param default   The default value to assume for unknown atomic predicate values (approximation).
-   * @param templates The predicate templates
-   * @return
+   * @param default   The default value to assume for unknown predicate values (approximation).
+   * @param templates The predicate templates.
+   * @return The permission difference.
    */
   private def encodeDifference(records: Seq[Record], default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
-    val differences = records.map { record => encodeDifference(record, default) }
-    Expressions.makeSum(differences)
+    // encode permission differences
+    val deltas = records.map { record => encodeDifference(record, default) }
+    // return sum of differences
+    Expressions.makeSum(deltas)
   }
 
   /**
-   * Encodes the permission difference corresponding to the given record under consideration of the implicitly passed
-   * predicate templates.
+   * Encodes the permission difference corresponding to the given record.
    *
    * @param record    The record.
-   * @param default   The default value to assume for unknown atomic predicate values (approximation).
+   * @param default   The default value to assume for unknown predicate values (approximation).
    * @param templates The predicate templates.
-   * @return The encoding.
+   * @return The permission difference.
    */
   private def encodeDifference(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
-    // permission difference
-    val delta = record match {
-      case inhaledRecord: InhaledRecord =>
-        val condition = encodeAtLeast(inhaledRecord, default)
-        ast.CondExp(condition, ast.IntLit(1)(), ast.IntLit(0)())()
-      case exhaledRecord: ExhaledRecord =>
-        val condition = encodeAtLeast(exhaledRecord, !default)
-        ast.CondExp(condition, ast.IntLit(-1)(), ast.IntLit(0)())()
+    // encode permission differences
+    val deltas = record match {
+      case inhaled: InhaledRecord =>
+        encodeGroupedDifferences(inhaled, default)
+      case exhaled: ExhaledRecord =>
+        val unsigned = encodeGroupedDifferences(exhaled, !default)
+        unsigned.map { delta => ast.Minus(delta)() }
     }
-    // return auxiliary variable holding difference
-    auxiliary(delta, prefix = "d")
+    // return sum of differences
+    Expressions.makeSum(deltas)
   }
 
   /**
-   * Encodes that at least one of the options to provide permissions for the given record should be picked.
+   * Encodes the permission differences corresponding to the given record. Depending on the configuration, the encodings
+   * are either syntactically or semantically grouped.
    *
    * @param record    The record.
    * @param default   The default value to assume for unknown predicate values (approximation).
    * @param templates The predicate templates.
-   * @return The encoding.
+   * @return The grouped permission differences.
    */
-  private def encodeAtLeast(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
-    val options = encodeOptions(record, default)
-    Expressions.makeOr(options)
+  private def encodeGroupedDifferences(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[ast.Exp] = {
+    val groups = encodeGroupedOptions(record, default)
+    groups.map { group =>
+      // implicit bounds for group
+      if (configuration.useImplicitBounds) {
+        val upperbound = Expressions.makeAtMost(group)
+        solver.addConstraint(upperbound)
+      }
+      // permission difference
+      val condition = Expressions.makeOr(group)
+      val delta = ast.CondExp(condition, ast.IntLit(1)(), ast.IntLit(0)())()
+      // return auxiliary variable holding difference
+      auxiliary(delta, prefix = "d")
+    }
   }
 
   /**
-   * Encodes that at most one of the options to provide permissions for the given record should be picked.
+   * Encodes all options to provide permissions for the given record. Depending on the configuration, the encodings are
+   * either syntactically or semantically grouped.
    *
    * @param record    The record.
    * @param default   The default value to assume for unknown predicate values (approximation).
    * @param templates The predicate templates.
-   * @return The encoding.
+   * @return The grouped options.
    */
-  private def encodeAtMost(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): ast.Exp = {
-    val options = encodeOptions(record, default)
-    Expressions.makeAtMost(options)
-  }
-
-  /**
-   * Encodes all options to provide permissions for the given record.
-   *
-   * @param record    The record.
-   * @param default   The default value to assume for unknown predicate values (approximation).
-   * @param templates The predicate templates.
-   * @return The encoding.
-   */
-  private def encodeOptions(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[ast.Exp] = {
-    val state = record.state
-    val options = Guards
+  private def encodeGroupedOptions(record: Record, default: Boolean)(implicit templates: Map[String, PredicateTemplate]): Seq[Seq[ast.Exp]] = {
+    // encode options
+    val groups = Guards
       .effective(record)
-      .flatMap { case (_, effective) =>
-        // encode options for syntactic group
-        // TODO: Only if in positive position?
-        val group = effective.map { guards => encodeOption(guards, state, default) }
-        // add syntactic upperbound if enabled
-        if (configuration.useSyntacticBounds && group.length > 1) {
-          val upperbound = Expressions.makeAtMost(group)
-          solver.addConstraint(upperbound)
-        }
-        group
+      .map { case (_, effective) =>
+        effective.map { guards => encodeOption(guards, record.state, default) }
       }
       .toSeq
-    // add semantic upperbound if enabled
-    if (configuration.useSemanticBounds && options.length > 1) {
-      val upperbound = Expressions.makeAtMost(options)
-      solver.addConstraint(upperbound)
-    }
-    // return option encodings
-    options
+    // flatten syntactic group into one semantic group if semantic bounds are enabled
+    if (configuration.useSemanticBounds) Seq(groups.flatten)
+    else groups
   }
 
   /**
