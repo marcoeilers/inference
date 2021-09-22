@@ -247,14 +247,15 @@ trait SampleExtractor {
     // extract offending location
     val offending = error.reason match {
       case InsufficientPermission(location) => location
-      case reason => sys.error(s"Unexpected reason: $reason")
+      case other => sys.error(s"Unexpected reason: $other")
     }
     // extract attached info value
     val info = error.offendingNode match {
       case node: ast.Infoed =>
         node.info match {
           case info: InferenceInfo[Any] => Some(info)
-          case _ => None
+          case ast.NoInfo => None
+          case other => sys.error(s"Unexpected info: $other")
         }
       case _ => None
     }

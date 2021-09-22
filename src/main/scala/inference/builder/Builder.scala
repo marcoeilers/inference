@@ -49,6 +49,19 @@ trait Builder {
   }
 
   /**
+   * Returns all statements emitted by the given expression with the given comment attached.
+   *
+   * @param comment The comment.
+   * @param emitter The statement emitting expression.
+   * @return The commented statements.
+   */
+  protected def commented(comment: String)(emitter: => Unit): ast.Seqn = {
+    val statements = scoped(emitter)
+    val info = ast.SimpleInfo(Seq(comment))
+    Statements.makeSequence(statements, info)
+  }
+
+  /**
    * Returns a sequence containing the statements emitted by the given expression.
    *
    * @param emitter The statement emitting expression.

@@ -249,9 +249,13 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
-    // inhale specification
+    // get body of instance
     val body = hypothesis.getBody(instance)
-    emitInhale(body)
+    // inhale specification
+    val inhales = commented(instance.toString) {
+      emitInhale(body)
+    }
+    emit(inhales)
     // unfold predicates appearing in specification
     if (configuration.useBranching) {
       // unfold and track accesses
@@ -273,12 +277,16 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
+    // get body of instance
+    val body = hypothesis.getBody(instance)
     // save state snapshot
     saveSnapshot(instance, exhaled = true)
     // exhale specification
-    val body = hypothesis.getBody(instance)
-    implicit val info: ast.Info = InstanceInfo(instance)
-    exhale(body, configuration.simplifyQueries)
+    val exhales = commented(instance.toString) {
+      implicit val info: ast.Info = InstanceInfo(instance)
+      exhale(body, configuration.simplifyQueries)
+    }
+    emit(exhales)
   }
 
   /**

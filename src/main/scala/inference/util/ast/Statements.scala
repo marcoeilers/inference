@@ -63,11 +63,12 @@ object Statements {
    * Returns a sequence with the given statements.
    *
    * @param statements The statements.
+   * @param info       The info to attach to the sequence.
    * @return The sequence.
    */
   @inline
-  def makeSequence(statements: Seq[ast.Stmt]): ast.Seqn =
-    ast.Seqn(statements, Seq.empty)()
+  def makeSequence(statements: Seq[ast.Stmt], info: ast.Info = ast.NoInfo): ast.Seqn =
+    ast.Seqn(statements, Seq.empty)(info = info)
 
   /**
    * Returns the given sequence but with all the undeclared variables declared.
