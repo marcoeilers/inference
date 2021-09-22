@@ -280,21 +280,33 @@ trait CheckBuilder extends Builder with Atoms {
         } else {
           // instrument method call
           instrumented {
-            // make sure all arguments are variables and different from targets
-            val variables = arguments.map {
-              case variable: ast.LocalVar =>
-                if (targets.contains(variable)) save(variable)
-                else variable
-              case access@ast.FieldAccess(receiver, _) =>
-                // save value of field access and get receiver as a variable
-                save(access)
-              case other =>
-                sys.error(s"Unexpected argument: $other")
-            }
+            // make sure all reference-typed arguments are variables and different from targets
+            val variables = arguments
+              .map { argument =>
+                if (argument.isSubtype(ast.Ref)) {
+                  // process reference-typed argument
+                  argument match {
+                    case variable: ast.LocalVar =>
+                      if (targets.contains(variable)) save(variable)
+                      else variable
+                    case field: ast.FieldAccess =>
+                      save(field)
+                    case other =>
+                      sys.error(s"Unexpected argument: $other")
+                  }
+                } else {
+                  // leave non-reference arguments untouched
+                  argument
+                }
+              }
+            // update method call
+            val updated = call.copy(
+              args = variables
+            )(call.pos, call.info, call.errT)
             // exhale precondition and inhale postcondition
             val (precondition, postcondition) = specifications(name)
             emitExhale(precondition.asInstance(variables).asResource)
-            emit(call)
+            emit(updated)
             emitInhale(postcondition.asInstance(variables ++ targets).asResource)
           }
         }
@@ -337,18 +349,6 @@ trait CheckBuilder extends Builder with Atoms {
     val statement = Instrumented(body, hints.toSeq)
     emit(statement)
   }
-
-  /**
-   * Returns the given expression as a variable.
-   *
-   * @param expression The expression.
-   * @return The variable.
-   */
-  private def asVariable(expression: ast.Exp): ast.LocalVar =
-    expression match {
-      case variable: ast.LocalVar => variable
-      case other => sys.error(s"Unexpected expression: $other")
-    }
 
   /**
    * Saves the value of the given expression by assigning it to a local variable.

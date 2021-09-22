@@ -82,9 +82,9 @@ object Statements {
     val undeclared = sequence
       .undeclLocalVars
       .map { variable => ast.LocalVarDecl(variable.name, variable.typ)() }
-      .diff(ignore)
+    val difference = undeclared.diff(ignore)
     // declare undeclared variables
-    val declarations = sequence.scopedDecls ++ undeclared
+    val declarations = sequence.scopedDecls ++ difference
     sequence.copy(scopedDecls = declarations)(sequence.pos, sequence.info, sequence.errT)
   }
 

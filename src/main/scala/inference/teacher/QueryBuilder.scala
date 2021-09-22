@@ -302,12 +302,16 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // save values of variables
     instance
       .arguments
-      .foreach {
-        case variable: ast.LocalVar =>
-          val name = s"${label}_${variable.name}"
-          emitAssignment(name, variable)
-        case other =>
-          sys.error(s"Unexpected argument to instance: $other")
+      .foreach { argument =>
+        if (argument.isSubtype(ast.Ref)) {
+          argument match {
+            case variable: ast.LocalVar =>
+              val name = s"${label}_${variable.name}"
+              emitAssignment(name, variable)
+            case other =>
+              sys.error(s"Unexpected argument to instance: $other")
+          }
+        }
       }
     // emit label
     emitLabel(label)
