@@ -321,19 +321,19 @@ trait CheckBuilder extends Builder with Atoms {
     }
 
   /**
-   * Returns the result computed by the given function and also captures all hints produced during the computation.
+   * Returns the result computed by the given method and also captures all hints produced during the computation.
    *
-   * @param function The function computing the result.
+   * @param method The method computing the result.
    * @tparam R The type of the result.
    * @return The result and the collected hints.
    */
-  private def scopedHints[R](function: => R): (R, Seq[Hint]) = {
+  private def scopedHints[R](method: => R): (R, Seq[Hint]) = {
     // save and reset hints
     val outer = hints
     val inner = ListBuffer.empty[Hint]
     hints = inner
     // compute result
-    val result = function
+    val result = method
     // restore hints and return result
     hints = outer
     (result, inner.toSeq)
