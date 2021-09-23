@@ -12,7 +12,7 @@ import inference.Names
 import viper.silver.ast
 
 /**
- * A folding hint.
+ * A ghost code hint.
  *
  * @param name       The name of the hint.
  * @param argument   The argument for which the hint is meant.

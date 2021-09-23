@@ -10,6 +10,7 @@ package inference.builder
 
 import inference.core.Hypothesis
 import inference.input.{Check, Hint, Input}
+import inference.util.ast.Statements
 import viper.silver.ast
 
 /**
@@ -62,6 +63,8 @@ trait GhostCode extends Builder with Simplification {
     else {
       // TODO: Depth
       val depth = 2
+      implicit val exhale: Boolean = false
+      implicit val info: ast.Info = ast.NoInfo
       recursiveFold(expression, depth)
     }
 
@@ -71,15 +74,17 @@ trait GhostCode extends Builder with Simplification {
    * @param expression The expression to exhale.
    * @param simplify   The flag indicating whether the emitted code should be simplified.
    * @param hypothesis The current hypothesis.
+   * @param hints      The hints.
    * @param info       The info to attach to exhaled resources.
    */
   protected def exhale(expression: ast.Exp, simplify: Boolean = false)
-                      (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+                      (implicit hypothesis: Hypothesis, hints: Seq[Hint], info: ast.Info): Unit =
     if (simplify) simplified(exhale(expression))
     else {
       // TODO: Depth
       val depth = 2
-      adaptiveExhale(expression, depth)
+      implicit val exhale: Boolean = true
+      recursiveFold(expression, depth)
     }
 
   /**
@@ -122,80 +127,71 @@ trait GhostCode extends Builder with Simplification {
     }
 
   /**
-   * Recursively folds the given expression up to the given depth.
+   * Recursively folds (or exhales) the given expression up to the given depth. Moreover, it uses the given hints to
+   * potentially apply some lemmas.
    *
    * @param expression The expression to fold.
-   * @param depth      The current depth.
-   * @param guards     The collected guards.
+   * @param hints      The hints.
+   * @param depth      The depth.
    * @param hypothesis The current hypothesis.
+   * @param exhale     The flag indicating whether the expression should be exhaled instead of folded.
+   * @param info       The info to attach to the fold (or exhale) statements.
    */
-  private def recursiveFold(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty)
-                           (implicit hypothesis: Hypothesis): Unit =
-    expression match {
-      case ast.And(left, right) =>
-        recursiveFold(right, depth, guards)
-        recursiveFold(left, depth, guards)
-      case ast.Implies(left, right) =>
-        val updatedGuards = guards :+ left
-        recursiveFold(right, depth, updatedGuards)
-      case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
-        // create folds
-        val folds = makeScope {
-          // recursively fold predicates appearing in body
-          val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          recursiveFold(body, depth - 1)
-          // fold predicate
-          emitFold(resource)
-        }
-        // conditionally fold
-        val condition = noPermission(predicate)
-        emitConditional(guards :+ condition, folds)
-      case _ => // do nothing
-    }
+  private def foldWithHints(expression: ast.Exp, hints: Seq[Hint], depth: Int)
+                           (implicit hypothesis: Hypothesis, exhale: Boolean, info: ast.Info): Unit = {
+    // TODO: Process hints
+    recursiveFold(expression, depth)
+  }
 
   /**
-   * Adaptively exhales the given expression up to the given depth.
+   * Recursively folds (or exhales) the given expression up to the given depth.
    *
-   * @param expression The expression to exhale.
-   * @param depth      The current depth.
+   * @param expression The expression to fold .
+   * @param depth      The depth.
    * @param hypothesis The current hypothesis.
-   * @param info       The info to attach to exhaled resources.
+   * @param exhale     The flag indicating whether the expression should be exhaled instead of folded.
+   * @param info       The info to attach to the fold (or exhale) statements.
    */
-  private def adaptiveExhale(expression: ast.Exp, depth: Int)
-                            (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+  private def recursiveFold(expression: ast.Exp,
+                            depth: Int)
+                           (implicit hypothesis: Hypothesis, exhale: Boolean, info: ast.Info): Unit =
     expression match {
       case ast.And(left, right) =>
-        adaptiveExhale(right, depth)
-        adaptiveExhale(left, depth)
+        recursiveFold(right, depth)
+        recursiveFold(left, depth)
       case ast.Implies(left, right) =>
-        val exhales = makeScope(adaptiveExhale(right, depth))
-        emitConditional(left, exhales)
+        val inner = makeScope(recursiveFold(right, depth))
+        emitConditional(left, inner)
       case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
-        // conditions capturing whether we have permissions to access arguments
-        val framed =
-          predicate
-            .args
-            .collect { case x: ast.FieldAccess => somePermission(x) }
-        // ghost code body
-        val exhales = makeScope {
-          // recursive exhales
-          val recursive = makeScope {
+        // ghost code
+        val code = {
+          // action to perform if the predicate instance is present
+          val thenBody = makeScope {
+            // recursively process instances appearing in predicate body
             val instance = input.instance(predicate)
             val body = hypothesis.getBody(instance)
-            adaptiveExhale(body, depth - 1)
+            recursiveFold(body, depth - 1)
+            // fold predicate (unless we exhale everything)
+            if (!exhale) emitFold(resource, info)
           }
-          // direct exhale
-          val direct = makeScope(emitExhale(resource, info))
-          // exhale adaptively
+          // action to perform if the predicate instance is not present
+          val b = makeScope {
+            if (exhale) emitExhale(resource, info)
+          }
+          // create conditional statement
           val condition = noPermission(predicate)
-          emitConditional(condition, recursive, direct)
+          Statements.makeConditional(condition, thenBody, b)
         }
         // only exhale predicate if it is framed. if it is not there will be a subsequent exhale of the missing
         // permission that we want to fail (since specifications are well-formed)
-        emitConditional(framed, exhales)
+        if (exhale) {
+          val framed = predicate
+            .args
+            .collect { case field: ast.FieldAccess => somePermission(field) }
+          emitConditional(framed, code)
+        } else emit(code)
       case other =>
-        emitExhale(other, info)
+        if (exhale) emitExhale(other, info)
     }
 
   /**
