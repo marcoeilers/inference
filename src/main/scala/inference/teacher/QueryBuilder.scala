@@ -32,6 +32,9 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private def configuration: Configuration =
     input.configuration
 
+  override protected val exhale: Boolean =
+    true
+
   /**
    * The namespace used to generate unique identifiers.
    */
@@ -209,7 +212,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         ast.Method(name, Seq.empty, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
     }
 
-  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
+  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, annotations: Seq[Annotation]): Unit =
     statement match {
       case ast.Seqn(statements, _) =>
         statements.foreach(processInstrumented)
@@ -248,7 +251,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param instance   The instance.
    * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
+  private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Annotation]): Unit = {
     // get body of instance
     val body = hypothesis.getBody(instance)
     // inhale specification
@@ -276,7 +279,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param instance   The instance.
    * @param hypothesis The implicitly passed current hypothesis.
    */
-  private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit = {
+  private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Annotation]): Unit = {
     // get body of instance
     val body = hypothesis.getBody(instance)
     // save state snapshot
@@ -284,7 +287,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // exhale specification
     val exhales = commented(instance.toString) {
       implicit val info: ast.Info = InstanceInfo(instance)
-      exhale(body, configuration.simplifyQueries)
+      // actually exhales the body since the corresponding flag is set appropriately
+      fold(body, configuration.simplifyQueries)
     }
     emit(exhales)
   }

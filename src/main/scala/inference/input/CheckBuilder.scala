@@ -28,9 +28,9 @@ trait CheckBuilder extends Builder with Atoms {
   private var namespace: Namespace = _
 
   /**
-   * The list used to accumulate hints.
+   * The list used to accumulate annotations.
    */
-  private var hints: mutable.Buffer[Hint] =
+  private var annotations: mutable.Buffer[Annotation] =
     ListBuffer.empty
 
   /**
@@ -155,7 +155,7 @@ trait CheckBuilder extends Builder with Atoms {
         val name = method.name
         val (precondition, postcondition) = specifications(name)
         // process method body
-        val (processed, _) = scopedHints {
+        val (processed, _) = scpoedAnnotations {
           updateScope(body) {
             // inhale precondition
             instrumented(emitInhale(precondition.asResource))
@@ -186,7 +186,7 @@ trait CheckBuilder extends Builder with Atoms {
     // process loop body
     val body = loop.body
     val invariant = placeholder.asResource
-    val (processed, _) = scopedHints {
+    val (processed, _) = scpoedAnnotations {
       updateScope(body) {
         instrumented {
           emitInhale(invariant)
@@ -249,16 +249,16 @@ trait CheckBuilder extends Builder with Atoms {
         emit(processed)
       case conditional@ast.If(condition, thenBranch, elseBranch) =>
         // process branches
-        val (thenProcessed, thenHints) = scopedHints(processSequence(thenBranch, declarations))
-        val (elseProcessed, elseHints) = scopedHints(processSequence(elseBranch, declarations))
+        val (thenProcessed, thenAnnotations) = scpoedAnnotations(processSequence(thenBranch, declarations))
+        val (elseProcessed, elseAnnotations) = scpoedAnnotations(processSequence(elseBranch, declarations))
         // update conditional
         val processed = conditional.copy(
           thn = thenProcessed,
           els = elseProcessed
         )(conditional.pos, conditional.info, conditional.errT)
         emit(processed)
-        thenHints.foreach { hint => addHint(hint.withCondition(condition)) }
-        elseHints.foreach { hint => addHint(hint.withCondition(ast.Not(condition)())) }
+        thenAnnotations.foreach { annotation => addAnnotation(annotation.withCondition(condition)) }
+        elseAnnotations.foreach { annotation => addAnnotation(annotation.withCondition(ast.Not(condition)())) }
       case loop@ast.While(condition, _, _) =>
         // create check corresponding to loop
         val check = processLoop(loop, declarations)
@@ -271,12 +271,12 @@ trait CheckBuilder extends Builder with Atoms {
           emitInhale(ast.Not(condition)())
         }
       case call@ast.MethodCall(name, arguments, targets) =>
-        if (Names.isHint(name)) {
-          // process hint
+        if (Names.isAnnotation(name)) {
+          // process annotation
           val argument = arguments.head
           val old = save(argument)
-          val hint = Hint(name, argument, old)
-          addHint(hint)
+          val annotation = Annotation(name, argument, old)
+          addAnnotation(annotation)
         } else {
           // instrument method call
           instrumented {
@@ -321,21 +321,21 @@ trait CheckBuilder extends Builder with Atoms {
     }
 
   /**
-   * Returns the result computed by the given method and also captures all hints produced during the computation.
+   * Returns the result computed by the given method and also captures all annotations produced during the computation.
    *
    * @param method The method computing the result.
    * @tparam R The type of the result.
-   * @return The result and the collected hints.
+   * @return The result and the collected annotations.
    */
-  private def scopedHints[R](method: => R): (R, Seq[Hint]) = {
-    // save and reset hints
-    val outer = hints
-    val inner = ListBuffer.empty[Hint]
-    hints = inner
+  private def scpoedAnnotations[R](method: => R): (R, Seq[Annotation]) = {
+    // save and reset annotations
+    val outer = annotations
+    val inner = ListBuffer.empty[Annotation]
+    annotations = inner
     // compute result
     val result = method
-    // restore hints and return result
-    hints = outer
+    // restore annotations and return result
+    annotations = outer
     (result, inner.toSeq)
   }
 
@@ -346,7 +346,7 @@ trait CheckBuilder extends Builder with Atoms {
    */
   private def instrumented(emitter: => Unit): Unit = {
     val body = makeScope(emitter)
-    val statement = Instrumented(body, hints.toSeq)
+    val statement = Instrumented(body, annotations.toSeq)
     emit(statement)
   }
 
@@ -367,10 +367,10 @@ trait CheckBuilder extends Builder with Atoms {
   }
 
   /**
-   * Adds the given hint.
+   * Adds the given annotations.
    *
-   * @param hint The hint to add.
+   * @param annotation The annotation to add.
    */
-  private def addHint(hint: Hint): Unit =
-    hints.append(hint)
+  private def addAnnotation(annotation: Annotation): Unit =
+    annotations.append(annotation)
 }

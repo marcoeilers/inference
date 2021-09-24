@@ -86,7 +86,7 @@ object Input extends CheckBuilder {
     val methods = {
       // create dummy method for each hint
       val dummies = Names
-        .hints
+        .annotations
         .map { hint =>
           val name = PIdnDef(hint)()
           val arguments = Seq(PFormalArgDecl(PIdnDef("x")(), TypeHelper.Ref)())
@@ -108,7 +108,7 @@ object Input extends CheckBuilder {
     // filter out dummy methods
     val methods = input
       .methods
-      .filterNot { method => Names.isHint(method.name) }
+      .filterNot { method => Names.isAnnotation(method.name) }
     // update input program
     input.copy(methods = methods)(input.pos, input.info, input.errT)
   }

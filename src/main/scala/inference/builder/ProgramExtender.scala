@@ -10,7 +10,7 @@ package inference.builder
 
 import inference.Names
 import inference.core.Hypothesis
-import inference.input.{Check, Configuration, Cut, Hint, Input}
+import inference.input.{Check, Configuration, Cut, Annotation, Input}
 import inference.util.ast.Statements
 import viper.silver.ast
 
@@ -27,6 +27,9 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
    */
   private def configuration: Configuration =
     input.configuration
+
+  override protected val exhale: Boolean =
+    false
 
   /**
    * Extends the input program with specifications corresponding to the given hypothesis.
@@ -109,7 +112,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
   override protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): ast.Seqn =
     extendSequence(check.body)
 
-  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit =
+  override protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, annotations: Seq[Annotation]): Unit =
     statement match {
       case ast.Seqn(statements, _) =>
         statements.foreach(processInstrumented)

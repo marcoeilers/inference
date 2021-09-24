@@ -100,10 +100,10 @@ sealed trait InferenceStatement extends ast.ExtensionStmt {
 /**
  * An auxiliary statement used to mark instrumented statements.
  *
- * @param body  The body containing the instrumented statements.
- * @param hints Some hints (only present if annotations are enabled).
+ * @param body        The body containing the instrumented statements.
+ * @param annotations Some annotations (only present if annotations are enabled).
  */
-case class Instrumented(body: ast.Seqn, hints: Seq[Hint]) extends InferenceStatement {
+case class Instrumented(body: ast.Seqn, annotations: Seq[Annotation]) extends InferenceStatement {
   override def prettyPrint: PrettyPrintPrimitives#Cont =
     text("instrumented") <+> showBlock(body)
 }

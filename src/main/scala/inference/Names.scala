@@ -45,14 +45,19 @@ object Names {
   val appendLemma = "append_lemma"
 
   /**
-   * The name of the append hint.
+   * The name of the append annotation.
    */
   val append = "__append__"
 
   /**
-   * All hint names.
+   * The name of the concat annotation.
    */
-  val hints = Seq(append)
+  val concat = "__concat__"
+
+  /**
+   * All annotation names.
+   */
+  val annotations = Seq(append, concat)
 
   /**
    * Returns whether the given name corresponds to the recursive predicate.
@@ -64,13 +69,13 @@ object Names {
     name == recursive
 
   /**
-   * Returns whether the given name corresponds to a hint.
+   * Returns whether the given name corresponds to a annotation.
    *
    * @param name The name to check.
-   * @return True if the name corresponds to a hint.
+   * @return True if the name corresponds to a annotation.
    */
-  def isHint(name: String): Boolean =
-    hints.contains(name)
+  def isAnnotation(name: String): Boolean =
+    annotations.contains(name)
 
   /**
    * Returns the variable name used for the activation of a clause.

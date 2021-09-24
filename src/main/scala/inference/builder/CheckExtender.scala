@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Check, Cut, Hint, Instrumented}
+import inference.input.{Check, Cut, Annotation, Instrumented}
 import viper.silver.ast
 
 /**
@@ -30,7 +30,7 @@ trait CheckExtender[R] extends Builder with GhostCode {
    * Extends the given check.
    *
    * @param check      The check to extend.
-   * @param hypothesis THe implicitly passed current hypothesis.
+   * @param hypothesis The current hypothesis.
    * @return The extended check.
    */
   protected def extendCheck(check: Check)(implicit hypothesis: Hypothesis): R = {
@@ -48,7 +48,7 @@ trait CheckExtender[R] extends Builder with GhostCode {
    * Processes the given check.
    *
    * @param check      The check to process.
-   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hypothesis The current hypothesis.
    * @return The processed check.
    */
   protected def processCheck(check: Check)(implicit hypothesis: Hypothesis): R
@@ -57,7 +57,7 @@ trait CheckExtender[R] extends Builder with GhostCode {
    * Extends the given sequence.
    *
    * @param sequence   The sequence to extend.
-   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hypothesis The current hypothesis.
    * @return
    */
   protected def extendSequence(sequence: ast.Seqn)(implicit hypothesis: Hypothesis): ast.Seqn =
@@ -67,7 +67,7 @@ trait CheckExtender[R] extends Builder with GhostCode {
    * Extends the given statement.
    *
    * @param statement  The statement to extend.
-   * @param hypothesis The implicitly passed current hypothesis.
+   * @param hypothesis The current hypothesis.
    */
   protected def extendStatement(statement: ast.Stmt)(implicit hypothesis: Hypothesis): Unit =
     statement match {
@@ -85,8 +85,8 @@ trait CheckExtender[R] extends Builder with GhostCode {
           els = elseExtended
         )(conditional.pos, conditional.info, conditional.errT)
         emit(extended)
-      case Instrumented(body, hints) =>
-        processInstrumented(body)(hypothesis, hints)
+      case Instrumented(body, annotations) =>
+        processInstrumented(body)(hypothesis, annotations)
       case cut: Cut =>
         processCut(cut)
       case other =>
@@ -96,17 +96,17 @@ trait CheckExtender[R] extends Builder with GhostCode {
   /**
    * Processes the given instrumented statement.
    *
-   * @param statement  The instrumented statement.
-   * @param hypothesis The implicitly passed current hypothesis.
-   * @param hints      The implicitly passed hints.
+   * @param statement   The instrumented statement.
+   * @param hypothesis  The current hypothesis.
+   * @param annotations The annotations.
    */
-  protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, hints: Seq[Hint]): Unit
+  protected def processInstrumented(statement: ast.Stmt)(implicit hypothesis: Hypothesis, annotations: Seq[Annotation]): Unit
 
   /**
    * Processes the given cut statement.
    *
    * @param cut        The cut.
-   * @param hypothesis THe implicitly passed current hypothesis.
+   * @param hypothesis The current hypothesis.
    */
   protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit
 }
