@@ -27,7 +27,7 @@ case class Annotation(name: String, argument: ast.Exp, old: ast.LocalVar, condit
    */
   @inline
   def isAppend: Boolean =
-    name == Names.append
+    name == Names.appendAnnotation
 
   /**
    * Returns whether this is a concat annotation.
@@ -36,7 +36,7 @@ case class Annotation(name: String, argument: ast.Exp, old: ast.LocalVar, condit
    */
   @inline
   def isConcat: Boolean =
-    name == Names.concat
+    name == Names.concatAnnotation
 
   /**
    * Returns the annotation with the given condition added.

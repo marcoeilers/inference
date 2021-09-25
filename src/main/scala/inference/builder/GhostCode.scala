@@ -8,9 +8,10 @@
 
 package inference.builder
 
+import inference.Names
 import inference.core.Hypothesis
 import inference.input.{Annotation, Check, Configuration, Input}
-import inference.util.ast.Statements
+import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
 /**
@@ -31,7 +32,6 @@ trait GhostCode extends Builder with Simplification {
    */
   private def configuration: Configuration =
     input.configuration
-
 
   /**
    * Returns the check currently being processed.
@@ -146,8 +146,29 @@ trait GhostCode extends Builder with Simplification {
           annotations.foldRight(without) {
             // handle append annotation
             case (annotation, result) if annotation.isAppend =>
-              // TODO: Implement me.
-              ???
+              // get predicate arguments
+              val Seq(start, end) = predicate.args
+              // condition under which to apply append lemma
+              val condition = {
+                val inequality = ast.NeCmp(start, end)()
+                val equality = ast.EqCmp(annotation.argument, end)()
+                Expressions.makeAnd(annotation.conditions ++ Seq(inequality, equality))
+              }
+              // create lemma application
+              val application = makeScope {
+                // get lemma instance
+                val arguments = Seq(start, annotation.old, end)
+                val instance = input.instance(Names.appendLemma, arguments)
+                // establish lemma precondition
+                val precondition = hypothesis.getLemmaPrecondition(instance)
+                foldWithoutAnnotations(precondition, depth)
+                // apply lemma
+                if (!exhale) {
+                  emitCall(instance)
+                }
+              }
+              // conditionally apply lemma
+              Statements.makeConditional(condition, application, result)
             case (annotation, _) if annotation.isConcat =>
               // TODO: Implement me.
               ???
@@ -180,11 +201,15 @@ trait GhostCode extends Builder with Simplification {
             val body = hypothesis.getBody(instance)
             foldWithoutAnnotations(body, depth - 1)
             // fold predicate (unless we exhale everything)
-            if (!exhale) emitFold(resource, info)
+            if (!exhale) {
+              emitFold(resource, info)
+            }
           }
           // action to perform if the predicate instance is not present
           val elseBranch = makeScope {
-            if (exhale) emitExhale(resource, info)
+            if (exhale) {
+              emitExhale(resource, info)
+            }
           }
           // create conditional st
           val condition = noPermission(predicate)
@@ -199,7 +224,9 @@ trait GhostCode extends Builder with Simplification {
           emitConditional(framed, folds)
         } else emit(folds)
       case other =>
-        if (exhale) emitExhale(other, info)
+        if (exhale) {
+          emitExhale(other, info)
+        }
     }
 
   /**

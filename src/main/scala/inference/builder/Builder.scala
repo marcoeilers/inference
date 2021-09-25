@@ -8,6 +8,7 @@
 
 package inference.builder
 
+import inference.core.Instance
 import inference.input.{Cut, LoopCheck}
 import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import viper.silver.ast
@@ -128,6 +129,18 @@ trait Builder {
   }
 
   /**
+   * Emits a statement that folds the given resource.
+   *
+   * @param resource The resource to fold.
+   * @param info     The info to attach to the fold statement.
+   */
+  protected def emitFold(resource: ast.PredicateAccessPredicate, info: ast.Info = ast.NoInfo): Unit = {
+    val position = virtualPosition(info)
+    val fold = ast.Fold(resource)(pos = position, info = info)
+    emit(fold)
+  }
+
+  /**
    * Emits a conditional statement with the given condition and body.
    *
    * @param conditions The conditions.
@@ -148,18 +161,6 @@ trait Builder {
   protected def emitConditional(condition: ast.Exp, thenBranch: ast.Stmt, elseBranch: ast.Stmt = Statements.makeSkip): Unit = {
     val conditional = Statements.makeConditional(condition, thenBranch, elseBranch)
     emit(conditional)
-  }
-
-  /**
-   * Emits a statement that folds the given resource.
-   *
-   * @param resource The resource to fold.
-   * @param info     The info to attach to the fold statement.
-   */
-  protected def emitFold(resource: ast.PredicateAccessPredicate, info: ast.Info = ast.NoInfo): Unit = {
-    val position = virtualPosition(info)
-    val fold = ast.Fold(resource)(pos = position, info = info)
-    emit(fold)
   }
 
   /**
@@ -192,6 +193,28 @@ trait Builder {
   protected def emitLabel(name: String): Unit = {
     val label = ast.Label(name, Seq.empty)()
     emit(label)
+  }
+
+  /**
+   * Emits a method call corresponding to the given instance.
+   *
+   * @param instance The instance.
+   */
+  protected def emitCall(instance: Instance): Unit = {
+    val name = instance.name
+    val arguments = instance.arguments
+    emitCall(name, arguments)
+  }
+
+  /**
+   * Emits a method call calling the method with the given name and arguments.
+   *
+   * @param name      The method name.
+   * @param arguments The arguments.
+   */
+  protected def emitCall(name: String, arguments: Seq[ast.Exp]): Unit = {
+    val call = ast.MethodCall(name, arguments, Seq.empty)(ast.NoPosition, ast.NoInfo, ast.NoTrafos)
+    emit(call)
   }
 
   /**

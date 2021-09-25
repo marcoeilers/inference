@@ -45,19 +45,24 @@ object Names {
   val appendLemma = "append_lemma"
 
   /**
+   * The name used for the concat lemma.
+   */
+  val concatLemma = "concat_lemma"
+
+  /**
    * The name of the append annotation.
    */
-  val append = "__append__"
+  val appendAnnotation = "__append__"
 
   /**
    * The name of the concat annotation.
    */
-  val concat = "__concat__"
+  val concatAnnotation = "__concat__"
 
   /**
    * All annotation names.
    */
-  val annotations = Seq(append, concat)
+  val annotations = Seq(appendAnnotation, concatAnnotation)
 
   /**
    * Returns whether the given name corresponds to the recursive predicate.
