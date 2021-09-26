@@ -120,29 +120,29 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
         expression match {
           case resource@ast.PredicateAccessPredicate(predicate, _) =>
             val instance = input.instance(predicate)
+            // check if this is a user-defined predicate
             if (instance.isPredicate) {
               // inhale and unfold predicate
               emitInhale(resource)
               emitUnfold(resource)
-            } else {
-              // unfold predicates appearing in specification
-              val body = hypothesis.getBody(instance)
-              unfold(body, configuration.simplifyExtended)
             }
+            // unfold predicates appearing in specification
+            val body = hypothesis.getBody(instance)
+            unfold(body, configuration.simplifyExtended)
           case _ => // do nothing
         }
       case ast.Exhale(expression) =>
         expression match {
           case resource@ast.PredicateAccessPredicate(predicate, _) =>
             val instance = input.instance(predicate)
+            // fold predicates appearing in specification
+            val body = hypothesis.getBody(instance)
+            fold(body, configuration.simplifyExtended)
+            // check if this is a user-defined predicate
             if (instance.isPredicate) {
               // fold and exhale predicate
               emitFold(resource)
               emitExhale(resource)
-            } else {
-              // fold predicates appearing in specification
-              val body = hypothesis.getBody(instance)
-              fold(body, configuration.simplifyExtended)
             }
           case _ => // do nothing
         }
