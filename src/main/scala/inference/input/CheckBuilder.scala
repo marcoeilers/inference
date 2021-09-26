@@ -286,6 +286,8 @@ trait CheckBuilder extends Builder with Atoms {
                 if (argument.isSubtype(ast.Ref)) {
                   // process reference-typed argument
                   argument match {
+                    case literal: ast.NullLit =>
+                      literal
                     case variable: ast.LocalVar =>
                       if (targets.contains(variable)) save(variable)
                       else variable

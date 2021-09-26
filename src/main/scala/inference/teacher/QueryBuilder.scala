@@ -309,6 +309,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       .foreach { argument =>
         if (argument.isSubtype(ast.Ref)) {
           argument match {
+            case literal: ast.NullLit =>
+              literal
             case variable: ast.LocalVar =>
               val name = s"${label}_${variable.name}"
               emitAssignment(name, variable)
