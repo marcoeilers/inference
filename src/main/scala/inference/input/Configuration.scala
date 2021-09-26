@@ -34,6 +34,8 @@ case object Configuration {
       iterations = options.iterations(),
       maxLength = options.maxLength(),
       maxClauses = options.maxClauses(),
+      unfoldDepth = options.unfoldDepth(),
+      foldDepth = options.foldDepth(),
       useBatching = options.batching(),
       useBranching = options.branching(),
       useUpperbounds = options.upperbounds(),
@@ -91,6 +93,20 @@ case object Configuration {
         name = "maxClauses",
         descr = "The maximal number of clauses that may appear in conditions.",
         default = Some(1)
+      )
+
+    val unfoldDepth: ScallopOption[Int] =
+      opt[Int](
+        name = "unfoldDepth",
+        descr = "The depth up to which predicates should be unfolded.",
+        default = Some(1)
+      )
+
+    val foldDepth: ScallopOption[Int] =
+      opt[Int](
+        name = "foldDepth",
+        descr = "The depth up to which predicates should be folded.",
+        default = Some(2)
       )
 
     val batching: ScallopOption[Boolean] =
@@ -175,6 +191,8 @@ case object Configuration {
  * @param iterations         The maximal number of iterations.
  * @param maxLength          The maximal length of access paths that may appear in specifications.
  * @param maxClauses         The maximal number of clauses that may appear in specifications.
+ * @param unfoldDepth        The depth up to which predicates should be unfolded.
+ * @param foldDepth          The depth up to which predicates should be folded.
  * @param useBatching        The flag indicating whether batch processing of checks is enabled.
  * @param useBranching       The flag indicating whether branching is enabled.
  * @param useUpperbounds     The flag indicating whether upper bound samples are enabled.
@@ -190,6 +208,8 @@ case class Configuration(file: String,
                          iterations: Int,
                          maxLength: Int,
                          maxClauses: Int,
+                         unfoldDepth: Int,
+                         foldDepth: Int,
                          useBatching: Boolean,
                          useBranching: Boolean,
                          useUpperbounds: Boolean,

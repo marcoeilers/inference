@@ -61,8 +61,7 @@ trait GhostCode extends Builder with Simplification {
                        default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     if (simplify) simplified(unfold(expression))
     else {
-      // TODO: Depth
-      val depth = 1
+      val depth = configuration.unfoldDepth
       recursiveUnfold(expression, depth)
     }
 
@@ -78,8 +77,7 @@ trait GhostCode extends Builder with Simplification {
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation]): Unit =
     if (simplify) simplified(fold(expression))
     else {
-      // TODO: Depth
-      val depth = 2
+      val depth = configuration.foldDepth
       implicit val info: ast.Info = ast.NoInfo
       if (configuration.useSegments) {
         foldWithAnnotations(expression, annotations, depth)
