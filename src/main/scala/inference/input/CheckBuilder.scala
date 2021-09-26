@@ -280,8 +280,8 @@ trait CheckBuilder extends Builder with Atoms {
         } else {
           // instrument method call
           instrumented {
-            // make sure all reference-typed arguments are variables and different from targets
-            val variables = arguments
+            // make sure all reference-typed arguments are variables or literals and different from targets
+            val expressions = arguments
               .map { argument =>
                 if (argument.isSubtype(ast.Ref)) {
                   // process reference-typed argument
@@ -303,13 +303,13 @@ trait CheckBuilder extends Builder with Atoms {
               }
             // update method call
             val updated = call.copy(
-              args = variables
+              args = expressions
             )(call.pos, call.info, call.errT)
             // exhale precondition and inhale postcondition
             val (precondition, postcondition) = specifications(name)
-            emitExhale(precondition.asInstance(variables).asResource)
+            emitExhale(precondition.asInstance(expressions).asResource)
             emit(updated)
-            emitInhale(postcondition.asInstance(variables ++ targets).asResource)
+            emitInhale(postcondition.asInstance(expressions ++ targets).asResource)
           }
         }
       case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
