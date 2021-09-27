@@ -69,6 +69,23 @@ trait HypothesisSolver {
         .collect { case template: PredicateTemplate => template.name -> template }
         .toMap
 
+    // encode choices
+    map
+      .flatMap { case (_, template) => collectChoices(template.body) }
+      .foreach {
+        case Choice(choiceId, _, options, _) =>
+          // variables corresponding to options
+          val variables = options
+            .indices
+            .map { index =>
+              val name = Names.choiceActivation(choiceId, index)
+              makeBoolean(name)
+            }
+          // encode that exactly one option per choice can be picked
+          val encoding = Expressions.makeExactly(variables)
+          solver.addConstraint(encoding)
+      }
+
     // encode samples
     samples.foreach { sample =>
       solver.addComment(sample.toString)
@@ -79,6 +96,26 @@ trait HypothesisSolver {
     // solve constraints and return model
     solver.solve()
   }
+
+  /**
+   * Collects all choices appearing in the given template expression.
+   *
+   * @param expression The template expression.
+   * @return The choices.
+   */
+  private def collectChoices(expression: TemplateExpression): Seq[Choice] =
+    expression match {
+      case Wrapped(expression) =>
+        Seq.empty
+      case Conjunction(conjuncts) =>
+        conjuncts.flatMap(collectChoices)
+      case Guarded(_, body) =>
+        collectChoices(body)
+      case choice: Choice =>
+        Seq(choice)
+      case Truncated(_, body) =>
+        collectChoices(body)
+    }
 
   /**
    * Encodes the given sample under consideration of the implicitly passed predicate templates.
@@ -201,9 +238,8 @@ trait HypothesisSolver {
       case ResourceGuard(guardId, atoms) =>
         val values = state.evaluate(atoms)
         encodeState(guardId, values, default)
-      case ChoiceGuard(_, _) =>
-        // TODO: Implement me.
-        ???
+      case ChoiceGuard(choiceId, index) =>
+        encodeChoice(choiceId, index)
       case TruncationGuard(condition) =>
         state
           .evaluate(condition)
@@ -226,16 +262,23 @@ trait HypothesisSolver {
   private def encodeState(guardId: Int, values: Seq[Option[Boolean]], default: Boolean): ast.Exp = {
     // encode clauses
     val clauses = for (clauseIndex <- 0 until configuration.maxClauses) yield {
-      val clauseActivation = makeBoolean(Names.clauseActivation(guardId, clauseIndex))
+      val clauseActivation = {
+        val name = Names.clauseActivation(guardId, clauseIndex)
+        makeBoolean(name)
+      }
       val clauseEncoding = {
         // encode literals
         val literals = values
           .zipWithIndex
           .map { case (value, literalIndex) =>
-            val literalActivation = makeBoolean(Names.literalActivation(guardId, clauseIndex, literalIndex))
+            val literalActivation = {
+              val name = Names.literalActivation(guardId, clauseIndex, literalIndex)
+              makeBoolean(name)
+            }
             val literalEncoding = value match {
               case Some(sign) =>
-                val positive = makeBoolean(Names.literalSign(guardId, clauseIndex, literalIndex))
+                val name = Names.literalSign(guardId, clauseIndex, literalIndex)
+                val positive = makeBoolean(name)
                 if (sign) positive else ast.Not(positive)()
               case None =>
                 ast.BoolLit(default)()
@@ -249,6 +292,18 @@ trait HypothesisSolver {
     }
     // disjoin clauses
     Expressions.makeOr(clauses)
+  }
+
+  /**
+   * Encodes the given choice.
+   *
+   * @param choiceId The choice id.
+   * @param index    The index of the choice.
+   * @return The encoding.
+   */
+  private def encodeChoice(choiceId: Int, index: Int): ast.Exp = {
+    val name = Names.choiceActivation(choiceId, index)
+    makeBoolean(name)
   }
 
   /**

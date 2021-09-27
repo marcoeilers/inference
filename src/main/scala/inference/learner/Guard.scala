@@ -122,15 +122,43 @@ object Guards {
       case Conjunction(conjuncts) =>
         conjuncts
           .map { conjunct => processExpression(conjunct, depth, view, guards, atoms) }
-          .reduceOption(SeqMap.marge[ast.Exp, Seq[Guard]])
+          .reduceOption(SeqMap.merge[ast.Exp, Seq[Guard]])
           .getOrElse(Map.empty)
       case Guarded(guardId, body) =>
-        val guard = ResourceGuard(guardId, atoms)
-        val updatedGuards = guards :+ guard
+        // compute updated guards
+        val updatedGuards = {
+          val guard = ResourceGuard(guardId, atoms)
+          guards :+ guard
+        }
+        // process body
         processExpression(body, depth, view, updatedGuards, atoms)
+      case Choice(choiceId, variable, options, body) =>
+        options
+          .zipWithIndex
+          .map { case (option, index) =>
+            // compute updated view according to current option
+            val updatedView = {
+              val name = variable.name
+              val expression = view.adapt(option)
+              view.updated(name, expression)
+            }
+            // compute update guards according to current option
+            val updatedGuards = {
+              val guard = ChoiceGuard(choiceId, index)
+              guards :+ guard
+            }
+            // process body
+            processExpression(body, depth, updatedView, updatedGuards, atoms)
+          }
+          .reduceOption(SeqMap.merge[ast.Exp, Seq[Guard]])
+          .getOrElse(Map.empty)
       case Truncated(condition, body) =>
-        val guard = TruncationGuard(view.adapt(condition))
-        val updatedGuards = guards :+ guard
+        // compute updated guards
+        val updatedGuards = {
+          val guard = TruncationGuard(view.adapt(condition))
+          guards :+ guard
+        }
+        // process body
         processExpression(body, depth, view, updatedGuards, atoms)
     }
 

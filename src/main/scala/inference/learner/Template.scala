@@ -40,6 +40,7 @@ sealed trait Template {
 
   /**
    * Returns the atoms that may be used for the specification.
+   *
    * @return The atoms.
    */
   def atoms: Seq[ast.Exp] =
@@ -105,6 +106,19 @@ case class Conjunction(conjuncts: Seq[TemplateExpression]) extends TemplateExpre
 case class Guarded(guardId: Int, body: TemplateExpression) extends TemplateExpression {
   override def toString: String =
     s"(phi_$guardId -> $body)"
+}
+
+/**
+ * A template expression representing a choice for a variable.
+ *
+ * @param choiceId The id of the choice.
+ * @param variable The variable.
+ * @param options  The options.
+ * @param body     The template expression for which the choice has to be made.
+ */
+case class Choice(choiceId: Int, variable: ast.LocalVar, options: Seq[ast.Exp], body: TemplateExpression) extends TemplateExpression {
+  override def toString: String =
+    s"(choose $variable from {${options.mkString(", ")} in $body)"
 }
 
 /**

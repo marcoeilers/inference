@@ -19,7 +19,7 @@ object SeqMap {
    * @return The merged map.
    */
   @inline
-  def marge[K, V](map1: Map[K, Seq[V]], map2: Map[K, Seq[V]]): Map[K, Seq[V]] =
+  def merge[K, V](map1: Map[K, Seq[V]], map2: Map[K, Seq[V]]): Map[K, Seq[V]] =
     map2.foldLeft(map1) { case (map, (key, values)) => addAll(map, key, values) }
 
   /**

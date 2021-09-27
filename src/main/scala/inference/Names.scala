@@ -116,4 +116,14 @@ object Names {
   @inline
   def literalSign(guardId: Int, clauseIndex: Int, literalIndex: Int): String =
     s"s-$guardId-$clauseIndex-$literalIndex"
+
+  /**
+   * Returns the variable name used for the activation of the given choice.
+   *
+   * @param choiceId The choice id.
+   * @param index    The index of the choice.
+   * @return The variable name.
+   */
+  def choiceActivation(choiceId: Int, index: Int): String =
+    s"c-$choiceId-$index"
 }

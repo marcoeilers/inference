@@ -215,10 +215,31 @@ trait TemplateGenerator extends AbstractLearner {
    * @param id         The implicitly passed counter used to generate unique ids.
    * @return The template expressions.
    */
-  private def createPredicateResources(predicates: Set[ast.PredicateAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] =
-    predicates
-      .toSeq
-      .map(createGuarded)
+  private def createPredicateResources(predicates: Set[ast.PredicateAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] = {
+    if (configuration.useSegments) {
+      // group predicate instances by their start argument and introduce choices for all possible end arguments
+      predicates
+        .foldLeft(Map.empty[ast.Exp, Set[ast.Exp]]) {
+          case (map, predicate) =>
+            assert(Names.isRecursive(predicate.predicateName))
+            val Seq(start, end) = predicate.args
+            SetMap.add(map, start, end)
+        }
+        .map { case (start, options) =>
+          // TODO: Optimize if there is only one option.
+          val choiceId = id.getAndIncrement()
+          val variable = ast.LocalVar(s"c_$choiceId", ast.Ref)()
+          val predicate = makeSegment(start, variable)
+          val body = createGuarded(predicate)
+          Choice(choiceId, variable, options.toSeq, body)
+        }
+        .toSeq
+    } else {
+      predicates
+        .toSeq
+        .map(createGuarded)
+    }
+  }
 
   /**
    * Creates a template for the append lemma based on the given template for the recursive predicate.
@@ -257,6 +278,9 @@ trait TemplateGenerator extends AbstractLearner {
         case Guarded(guardId, body) =>
           val processed = process(body)
           Guarded(guardId, processed)
+        case Choice(choiceId, variable, options, body) =>
+          val processed = process(body)
+          Choice(choiceId, variable, options, processed)
         case Truncated(condition, body) =>
           val instantiated = instance.instantiate(condition)
           val processed = process(body)

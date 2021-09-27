@@ -133,6 +133,16 @@ trait HypothesisBuilder {
         val guard = buildGuard(guardId, atoms)
         val guarded = buildExpression(body, atoms)
         ast.Implies(guard, guarded)()
+      case Choice(choiceId, variable, options, body) =>
+        // build body
+        val built = buildExpression(body, atoms)
+        // get choice
+        val choice = getChoice(choiceId, options)
+        // update body according to picked choice
+        val name = variable.name
+        built.transform {
+          case ast.LocalVar(`name`, _) => choice
+        }
       case Truncated(condition, body) =>
         val expression = buildExpression(body, atoms)
         ast.Implies(condition, expression)()
@@ -171,4 +181,21 @@ trait HypothesisBuilder {
     // disjoin clauses
     Expressions.makeOr(clauses)
   }
+
+  /**
+   * Returns the choice with the given choice id and options corresponding to the given model.
+   *
+   * @param choiceId The choice id.
+   * @param options  The options.
+   * @param model    The model.
+   * @return The choice.
+   */
+  private def getChoice(choiceId: Int, options: Seq[ast.Exp])(implicit model: Map[String, Boolean]): ast.Exp =
+    options.zipWithIndex
+      .find { case (_, index) =>
+        val name = Names.choiceActivation(choiceId, index)
+        model.getOrElse(name, false)
+      }
+      .map { case (option, _) => option }
+      .get
 }

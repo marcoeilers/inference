@@ -72,6 +72,18 @@ object Expressions {
   }
 
   /**
+   * Returns an expression which is true if exactly one of the given expressions is true.
+   *
+   * @param expressions The expressions.
+   * @return The encoding.
+   */
+  def makeExactly(expressions: Iterable[ast.Exp]): ast.Exp = {
+    val lower = makeOr(expressions)
+    val upper = makeAtMost(expressions)
+    ast.And(lower, upper)()
+  }
+
+  /**
    * Returns the sum of the given expressions.
    *
    * @param expressions The expressions to add up.
