@@ -226,12 +226,18 @@ trait TemplateGenerator extends AbstractLearner {
             SetMap.add(map, start, end)
         }
         .map { case (start, options) =>
-          // TODO: Optimize if there is only one option.
-          val choiceId = id.getAndIncrement()
-          val variable = ast.LocalVar(s"c_$choiceId", ast.Ref)()
-          val predicate = makeSegment(start, variable)
-          val body = createGuarded(predicate)
-          Choice(choiceId, variable, options.toSeq, body)
+          if (options.size == 1) {
+            // no choice needed if there is only one option
+            val predicate = makeSegment(start, options.head)
+            createGuarded(predicate)
+          } else {
+            // introduce choice
+            val choiceId = id.getAndIncrement()
+            val variable = ast.LocalVar(s"c_$choiceId", ast.Ref)()
+            val predicate = makeSegment(start, variable)
+            val body = createGuarded(predicate)
+            Choice(choiceId, variable, options.toSeq, body)
+          }
         }
         .toSeq
     } else {
