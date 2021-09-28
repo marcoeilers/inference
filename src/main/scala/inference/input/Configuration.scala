@@ -224,4 +224,13 @@ case class Configuration(file: String,
    */
   def useImplicitBounds: Boolean =
     useSemanticBounds || useSyntacticBounds
+
+  /**
+   * TODO: Keep or remove.
+   * Experimental flag that allows to introduce choices.
+   *
+   * @return True if additional choices may be introduced.
+   */
+  def introduceChoices: Boolean =
+    false
 }

@@ -168,7 +168,7 @@ trait TemplateGenerator extends AbstractLearner {
       // create resources for all predicate access
       val predicates = {
         val accesses = locations.collect { case predicate: ast.PredicateAccess => predicate }
-        createPredicateResources(accesses)
+        createPredicateResources(placeholder, accesses)
       }
       Conjunction(fields ++ predicates)
     }
@@ -209,22 +209,35 @@ trait TemplateGenerator extends AbstractLearner {
   }
 
   /**
-   * Creates template expressions for the given predicate accesses
+   * Creates template expressions for the given specification placeholder and predicate accesses.
    *
-   * @param predicates The predicate accesses.
-   * @param id         The implicitly passed counter used to generate unique ids.
+   * @param placeholder The specification placeholder.
+   * @param predicates  The predicate accesses.
+   * @param id          The implicitly passed counter used to generate unique ids.
    * @return The template expressions.
    */
-  private def createPredicateResources(predicates: Set[ast.PredicateAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] = {
+  private def createPredicateResources(placeholder: Placeholder, predicates: Set[ast.PredicateAccess])
+                                      (implicit id: AtomicInteger): Seq[TemplateExpression] = {
     if (configuration.useSegments) {
       // group predicate instances by their start argument and introduce choices for all possible end arguments
-      predicates
-        .foldLeft(Map.empty[ast.Exp, Set[ast.Exp]]) {
-          case (map, predicate) =>
-            assert(Names.isRecursive(predicate.predicateName))
-            val Seq(start, end) = predicate.args
-            SetMap.add(map, start, end)
+      val choice =
+        if (configuration.introduceChoices && !placeholder.isRecursive) {
+          val options = {
+            val variables = placeholder.variables
+            val references = variables.filter(_.isSubtype(ast.Ref))
+            references :+ ast.NullLit()()
+          }
+          predicates.map { predicate => predicate.args.head -> options }
+        } else {
+          predicates.foldLeft(Map.empty[ast.Exp, Set[ast.Exp]]) {
+            case (map, predicate) =>
+              assert(Names.isRecursive(predicate.predicateName))
+              val Seq(start, end) = predicate.args
+              SetMap.add(map, start, end)
+          }
         }
+      // process choices
+      choice
         .map { case (start, options) =>
           if (options.size == 1) {
             // no choice needed if there is only one option

@@ -105,7 +105,7 @@ trait HypothesisSolver {
    */
   private def collectChoices(expression: TemplateExpression): Seq[Choice] =
     expression match {
-      case Wrapped(expression) =>
+      case Wrapped(_) =>
         Seq.empty
       case Conjunction(conjuncts) =>
         conjuncts.flatMap(collectChoices)
