@@ -136,6 +136,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
           case resource@ast.PredicateAccessPredicate(predicate, _) =>
             val instance = input.instance(predicate)
             // fold predicates appearing in specification
+            implicit val info: ast.Info = ast.NoInfo
             val body = hypothesis.getBody(instance)
             fold(body, configuration.simplifyExtended)
             // check if this is a user-defined predicate

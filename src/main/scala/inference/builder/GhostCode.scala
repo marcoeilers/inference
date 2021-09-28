@@ -72,13 +72,13 @@ trait GhostCode extends Builder with Simplification {
    * @param simplify    The flag indicating whether the emitted code should be simplified.
    * @param hypothesis  The current hypothesis.
    * @param annotations The annotations.
+   * @param info        The info to attach to fold or exhale statements.
    */
   protected def fold(expression: ast.Exp, simplify: Boolean = false)
-                    (implicit hypothesis: Hypothesis, annotations: Seq[Annotation]): Unit =
+                    (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     if (simplify) simplified(fold(expression))
     else {
       val depth = configuration.foldDepth
-      implicit val info: ast.Info = ast.NoInfo
       if (configuration.useSegments) {
         foldWithAnnotations(expression, annotations, depth)
       } else {
