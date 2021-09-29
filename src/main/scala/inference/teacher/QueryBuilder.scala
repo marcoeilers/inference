@@ -141,10 +141,15 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     val original = input.program
 
     // create predicates
-    val predicates = {
-      val placeholders = input.placeholders
-      placeholders.map(hypothesis.getPredicate)
-    }
+    val predicates =
+      input.placeholders.flatMap { placeholder =>
+        if (placeholder.isPredicate) {
+          val predicate = hypothesis.getPredicate(placeholder)
+          Some(predicate)
+        } else {
+          None
+        }
+      }
 
     // create methods
     val methods = {

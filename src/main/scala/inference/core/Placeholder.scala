@@ -9,7 +9,7 @@
 package inference.core
 
 import inference.Names
-import inference.core.Kind.Kind
+import inference.core.Kind.{Kind, Lemma, Predicate}
 import inference.core.sample.{AccessAbstraction, ExplicitSet, FieldAbstraction, PredicateAbstraction, ResourceAbstraction}
 import viper.silver.ast
 
@@ -36,6 +36,22 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
    */
   def isRecursive: Boolean =
     Names.isRecursive(name)
+
+  /**
+   * Returns whether this placeholder corresponds to a predicate.
+   *
+   * @return True if this placeholder corresponds to a predicat.
+   */
+  def isPredicate: Boolean =
+    kind == Predicate
+
+  /**
+   * Returns whether this placeholder corresponds to a lemma.
+   *
+   * @return True if this placeholder corresponds to a lemma.
+   */
+  def isLemma: Boolean =
+    kind == Lemma
 
   /**
    * Returns an instance of the specification placeholder.
