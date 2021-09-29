@@ -146,16 +146,26 @@ trait GhostCode extends Builder with Simplification {
             case (annotation, result) if annotation.isAppend =>
               // get predicate arguments
               val Seq(start, end) = predicate.args
+              // get old variable and get link
+              val old = annotation.old
+              val link = {
+                val arguments = Seq(old, end)
+                val instance = input.instance(Names.recursive, arguments)
+                val links = hypothesis.getLinks(instance)
+                // make sure there is only one recursive link
+                if (links.size == 1) links.head
+                else sys.error(s"There is more than one recursive link.")
+              }
               // condition under which to apply append lemma
               val condition = {
                 val inequality = ast.NeCmp(start, end)()
-                val equality = ast.EqCmp(annotation.argument, end)()
+                val equality = ast.EqCmp(link, end)()
                 Expressions.makeAnd(annotation.conditions ++ Seq(inequality, equality))
               }
               // create lemma application
               val application = makeScope {
                 // get lemma instance
-                val arguments = Seq(start, annotation.old, end)
+                val arguments = Seq(start, old, end)
                 val instance = input.instance(Names.appendLemma, arguments)
                 // establish lemma precondition
                 val precondition = hypothesis.getLemmaPrecondition(instance)

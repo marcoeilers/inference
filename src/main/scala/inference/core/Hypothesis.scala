@@ -8,6 +8,7 @@
 
 package inference.core
 
+import inference.Names
 import inference.util.ast.Expressions
 import viper.silver.ast
 
@@ -106,6 +107,39 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
     instance.instantiate(postcondition)
   }
 
+  /**
+   * Returns a list containing all recursive links appearing in the given recursive predicate instance.
+   *
+   * @param instance The recursive predicate instance.
+   * @return The list of links.
+   */
+  def getLinks(instance: Instance): Seq[ast.FieldAccess] = {
+    assert(instance.isRecursive)
+    val body = getBody(instance)
+    getLinks(body)
+  }
+
+  /**
+   * Returns a list containing all recursive links appearing in the given expression.
+   *
+   * @param expression The expression.
+   * @return The list of links.
+   */
+  private def getLinks(expression: ast.Exp): Seq[ast.FieldAccess] =
+    expression match {
+      case ast.And(left, right) =>
+        getLinks(left) ++ getLinks(right)
+      case ast.Implies(_, right) =>
+        getLinks(right)
+      case ast.PredicateAccessPredicate(ast.PredicateAccess(arguments, name), _) =>
+        assert(Names.isRecursive(name))
+        arguments.head match {
+          case access: ast.FieldAccess => Seq(access)
+          case other => sys.error(s"Unexpected link: $other")
+        }
+      case _ =>
+        Seq.empty
+    }
 
   override def toString: String =
     if (predicates.isEmpty) "Hypothesis()"
