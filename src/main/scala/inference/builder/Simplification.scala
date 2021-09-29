@@ -55,8 +55,9 @@ trait Simplification extends Builder {
         }
         // lazily compute simplified else branch
         lazy val simplifiedElse = {
-          val updatedPositive = positive ++ collectedNegative
-          val updatedNegative = negative ++ collectedPositive
+          // TODO: collect atoms from simplified negated condition?
+          val updatedPositive = positive
+          val updatedNegative = negative
           simplifyStatement(elseBranch, updatedPositive, updatedNegative)
         }
         // simplify conditional based on simplified condition
