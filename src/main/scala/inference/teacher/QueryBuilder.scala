@@ -153,12 +153,15 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
     // create methods
     val methods = {
-      // lemma methods
-      val lemmas = hypothesis.lemmas
-      // dummy methods for method not contained in batch
+      // dummy methods
       val dummies = {
+        // state consolidation method
+        val consolidate =
+          if (configuration.stateConsolidation) Seq(consolidateMethod)
+          else Seq.empty
+        // methods for method not contained in batch
         val names = batch.map(_.name).toSet
-        original
+        val unchecked = original
           .methods
           .flatMap { method =>
             if (names.contains(method.name)) None
@@ -167,12 +170,16 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
               Some(dummy)
             }
           }
+        // concatenate all dummy methods
+        consolidate ++ unchecked
       }
+      // lemma methods
+      val lemmas = hypothesis.lemmas
       // instrument methods
       implicit val current: Hypothesis = hypothesis
       val extended = batch.map(extendCheck)
       // combine lemma, dummy and instrumented methods
-      lemmas ++ dummies ++ extended
+      dummies ++ lemmas ++ extended
     }
 
     // create program
@@ -227,6 +234,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
             // get and inhale instance
             val instance = input.instance(predicate)
             inhaleInstance(instance)
+            // consolidate state if enabled
+            if (configuration.stateConsolidation) {
+              emitConsolidate()
+            }
           case condition =>
             emitInhale(condition)
         }

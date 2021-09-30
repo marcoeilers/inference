@@ -8,6 +8,7 @@
 
 package inference.builder
 
+import inference.Names
 import inference.core.Instance
 import inference.input.{Cut, LoopCheck}
 import inference.util.ast.{Expressions, InstanceInfo, Statements}
@@ -23,8 +24,14 @@ trait Builder {
   /**
    * The magic field that enables the fold heuristics.
    */
-  protected val magic: ast.Field =
-    ast.Field("__CONFIG_HEURISTICS", ast.Bool)()
+  protected val heuristicsField: ast.Field =
+    ast.Field(Names.siliconHeuristics, ast.Bool)()
+
+  /**
+   * The dummy method used for state consolidation.
+   */
+  protected val consolidateMethod: ast.Method =
+    ast.Method(Names.siliconConsolidate, Seq.empty, Seq.empty, Seq.empty, Seq.empty, None)()
 
   /**
    * The buffer used to accumulate the statements of the current scope.
@@ -218,6 +225,17 @@ trait Builder {
   }
 
   /**
+   * Emits a method call calling the given method with the given arguments.
+   *
+   * @param method    The method to call.
+   * @param arguments The arguments.
+   */
+  protected def emitCall(method: ast.Method, arguments: Seq[ast.Exp]): Unit = {
+    val call = ast.MethodCall(method, arguments, Seq.empty)()
+    emit(call)
+  }
+
+  /**
    * Emits a statement cutting out the loop corresponding to the given check.
    *
    * @param loop The loop check.
@@ -226,6 +244,12 @@ trait Builder {
     val cut = Cut(loop)
     emit(cut)
   }
+
+  /**
+   * Emits a call to the state consolidation method.
+   */
+  protected def emitConsolidate(): Unit =
+    emitCall(consolidateMethod, Seq.empty)
 
   /**
    * Tries to create a virtual position based on the given info.

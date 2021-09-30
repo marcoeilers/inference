@@ -42,7 +42,8 @@ case object Configuration {
       useSyntacticBounds = options.syntacticBounds(),
       useSemanticBounds = options.semanticBounds(),
       simplifyQueries = options.simplifyQueries(),
-      simplifyExtended = options.simplifyExtended())
+      simplifyExtended = options.simplifyExtended(),
+      stateConsolidation = options.stateConsolidation())
   }
 
   /**
@@ -164,6 +165,15 @@ case object Configuration {
         descrNo = "Disables simplifications for extended program.",
         hidden = true)
 
+    val stateConsolidation: ScallopOption[Boolean] =
+      toggle(
+        name = "stateConsolidation",
+        descrYes = "Enables Silicon's state consolidation.",
+        descrNo = "Disables Silicon's state consolidation",
+        default = Some(false),
+        hidden = true
+      )
+
     val file: ScallopOption[String] =
       trailArg[String](
         name = "file",
@@ -200,6 +210,7 @@ case object Configuration {
  * @param useSemanticBounds  The flag indicating whether semantic implicit upper bounds are enabled.
  * @param simplifyQueries    The flag indicating whether the simplification of queries is enabled.
  * @param simplifyExtended   The flag indicating whether the simplification of extended programs is enabled.
+ * @param stateConsolidation The flag indicating whether Silicon's state consolidation is enabled.
  */
 case class Configuration(file: String,
                          z3Exe: String,
@@ -216,7 +227,8 @@ case class Configuration(file: String,
                          useSyntacticBounds: Boolean,
                          useSemanticBounds: Boolean,
                          simplifyQueries: Boolean,
-                         simplifyExtended: Boolean) {
+                         simplifyExtended: Boolean,
+                         stateConsolidation: Boolean) {
   /**
    * Returns whether the use of syntactic or semantic implicit upper bounds is enabled.
    *

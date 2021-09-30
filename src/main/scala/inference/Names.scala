@@ -60,6 +60,15 @@ object Names {
   val concatAnnotation = "__concat__"
 
   /**
+   * The name of the field that can be added to a Silicon program in order to enable fold heuristics.
+   */
+  val siliconHeuristics = "__CONFIG_HEURISTICS"
+  /**
+   * The name of the method that can be used to trigger a state consolidation in Silicon.
+   */
+  val siliconConsolidate = "___silicon_hack510_consolidate_state"
+
+  /**
    * All annotation names.
    */
   val annotations = Seq(appendAnnotation, concatAnnotation)
