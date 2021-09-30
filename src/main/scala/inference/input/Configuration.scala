@@ -41,8 +41,9 @@ case object Configuration {
       useUpperbounds = options.upperbounds(),
       useSyntacticBounds = options.syntacticBounds(),
       useSemanticBounds = options.semanticBounds(),
-      simplifyQueries = options.simplifyQueries(),
-      simplifyExtended = options.simplifyExtended(),
+      querySimplification = options.querySimplification(),
+      outputSimplification = options.outputSimplification(),
+      choiceIntroduction = options.choiceIntroduction(),
       stateConsolidation = options.stateConsolidation())
   }
 
@@ -133,7 +134,8 @@ case object Configuration {
         name = "upperbounds",
         descrYes = "Enables upper bound samples.",
         descrNo = "Disables upper bound samples.",
-        default = Some(true),
+        default = Some(false),
+        hidden = true
       )
 
     val syntacticBounds: ScallopOption[Boolean] =
@@ -150,20 +152,31 @@ case object Configuration {
         hidden = true
       )
 
-    val simplifyQueries: ScallopOption[Boolean] =
+    val querySimplification: ScallopOption[Boolean] =
       toggle(
-        name = "simplifyQueries",
+        name = "querySimplification",
         descrYes = "Enables simplifications for queries.",
         descrNo = "Disables simplifications for queries.",
+        default = Some(true),
         hidden = true
       )
 
-    val simplifyExtended: ScallopOption[Boolean] =
+    val outputSimplification: ScallopOption[Boolean] =
       toggle(
-        name = "simplifyExtended",
+        name = "outputSimplification",
         descrYes = "Enables simplifications for extended program.",
         descrNo = "Disables simplifications for extended program.",
+        default = Some(true),
         hidden = true)
+
+    val choiceIntroduction: ScallopOption[Boolean] =
+      toggle(
+        name = "choiceIntroduction",
+        descrYes = "Enables the introduction of choices for the second predicate argument.",
+        descrNo = "Disables the introduction of choices for the second predicate argument.",
+        default = Some(true),
+        hidden = true
+      )
 
     val stateConsolidation: ScallopOption[Boolean] =
       toggle(
@@ -194,23 +207,24 @@ case object Configuration {
 /**
  * A configuration object for the inference.
  *
- * @param file               The path to the input file.
- * @param z3Exe              The path to the Z3 executable.
- * @param useRecursive       The flag indicating whether the use of recursive predicate is enabled.
- * @param useSegments        The flag indicating whether the us of predicate segments is enabled.
- * @param iterations         The maximal number of iterations.
- * @param maxLength          The maximal length of access paths that may appear in specifications.
- * @param maxClauses         The maximal number of clauses that may appear in specifications.
- * @param unfoldDepth        The depth up to which predicates should be unfolded.
- * @param foldDepth          The depth up to which predicates should be folded.
- * @param useBatching        The flag indicating whether batch processing of checks is enabled.
- * @param useBranching       The flag indicating whether branching is enabled.
- * @param useUpperbounds     The flag indicating whether upper bound samples are enabled.
- * @param useSyntacticBounds The flag indicating whether syntactic implicit upper bounds are enabled.
- * @param useSemanticBounds  The flag indicating whether semantic implicit upper bounds are enabled.
- * @param simplifyQueries    The flag indicating whether the simplification of queries is enabled.
- * @param simplifyExtended   The flag indicating whether the simplification of extended programs is enabled.
- * @param stateConsolidation The flag indicating whether Silicon's state consolidation is enabled.
+ * @param file                 The path to the input file.
+ * @param z3Exe                The path to the Z3 executable.
+ * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
+ * @param useSegments          The flag indicating whether the us of predicate segments is enabled.
+ * @param iterations           The maximal number of iterations.
+ * @param maxLength            The maximal length of access paths that may appear in specifications.
+ * @param maxClauses           The maximal number of clauses that may appear in specifications.
+ * @param unfoldDepth          The depth up to which predicates should be unfolded.
+ * @param foldDepth            The depth up to which predicates should be folded.
+ * @param useBatching          The flag indicating whether batch processing of checks is enabled.
+ * @param useBranching         The flag indicating whether branching is enabled.
+ * @param useUpperbounds       The flag indicating whether upper bound samples are enabled.
+ * @param useSyntacticBounds   The flag indicating whether syntactic implicit upper bounds are enabled.
+ * @param useSemanticBounds    The flag indicating whether semantic implicit upper bounds are enabled.
+ * @param querySimplification  The flag indicating whether the simplification of queries is enabled.
+ * @param outputSimplification The flag indicating whether the simplification of output programs is enabled.
+ * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate isenabled.
+ * @param stateConsolidation   The flag indicating whether Silicon's state consolidation is enabled.
  */
 case class Configuration(file: String,
                          z3Exe: String,
@@ -226,8 +240,9 @@ case class Configuration(file: String,
                          useUpperbounds: Boolean,
                          useSyntacticBounds: Boolean,
                          useSemanticBounds: Boolean,
-                         simplifyQueries: Boolean,
-                         simplifyExtended: Boolean,
+                         querySimplification: Boolean,
+                         outputSimplification: Boolean,
+                         choiceIntroduction: Boolean,
                          stateConsolidation: Boolean) {
   /**
    * Returns whether the use of syntactic or semantic implicit upper bounds is enabled.
@@ -236,13 +251,4 @@ case class Configuration(file: String,
    */
   def useImplicitBounds: Boolean =
     useSemanticBounds || useSyntacticBounds
-
-  /**
-   * TODO: Keep or remove.
-   * Experimental flag that allows to introduce choices.
-   *
-   * @return True if additional choices may be introduced.
-   */
-  def introduceChoices: Boolean =
-    false
 }

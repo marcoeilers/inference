@@ -279,11 +279,11 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     if (configuration.useBranching) {
       // unfold and track accesses
       resetAccesses(instance)
-      unfold(body, configuration.simplifyQueries)(hypothesis, trackAccesses)
+      unfold(body, configuration.querySimplification)(hypothesis, trackAccesses)
       // branch on accesses
       branchOnAccesses()
     } else {
-      unfold(body, configuration.simplifyQueries)
+      unfold(body, configuration.querySimplification)
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -304,7 +304,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     val exhales = commented(instance.toString) {
       implicit val info: ast.Info = InstanceInfo(instance)
       // actually exhales the body since the corresponding flag is set appropriately
-      fold(body, configuration.simplifyQueries)
+      fold(body, configuration.querySimplification)
     }
     emit(exhales)
   }

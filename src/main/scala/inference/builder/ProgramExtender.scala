@@ -128,7 +128,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             }
             // unfold predicates appearing in specification
             val body = hypothesis.getBody(instance)
-            unfold(body, configuration.simplifyExtended)
+            unfold(body, configuration.outputSimplification)
           case _ => // do nothing
         }
       case ast.Exhale(expression) =>
@@ -138,7 +138,7 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             // fold predicates appearing in specification
             implicit val info: ast.Info = ast.NoInfo
             val body = hypothesis.getBody(instance)
-            fold(body, configuration.simplifyExtended)
+            fold(body, configuration.outputSimplification)
             // check if this is a user-defined predicate
             if (instance.isPredicate) {
               // fold and exhale predicate

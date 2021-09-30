@@ -221,7 +221,7 @@ trait TemplateGenerator extends AbstractLearner {
     if (configuration.useSegments) {
       // group predicate instances by their start argument and introduce choices for all possible end arguments
       val choice =
-        if (configuration.introduceChoices && !placeholder.isRecursive) {
+        if (configuration.choiceIntroduction && !placeholder.isRecursive) {
           val options = {
             val variables = placeholder.variables
             val references = variables.filter(_.isSubtype(ast.Ref))

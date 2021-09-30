@@ -21,10 +21,8 @@ object Main extends PrintRunner {
   val baseOptions: Seq[String] =
     Seq(
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
-      "--simplifyQueries",
-      "--simplifyExtended",
       "--syntacticBounds",
-      "--nobranching")
+    )
 
   /**
    * The default options for the inference.
