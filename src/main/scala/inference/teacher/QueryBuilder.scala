@@ -41,9 +41,36 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private var namespace: Namespace = _
 
   /**
-   * The accesses collected by the tracking method.
+   * The map used to collect leaf access predicates, i.e., the access predicates present in the state after unfolding
+   * the specification at hand. Each access predicate maps to the condition under which it is present in the state.
    */
-  private var accesses: Map[ast.Exp, ast.Exp] = _
+  private var leaves: Map[ast.AccessPredicate, ast.Exp] = _
+
+  /**
+   * Clears all leaves.
+   */
+  private def clearLeaves(): Unit =
+    leaves = Map.empty
+
+  /**
+   * Adds the given leaf expression if it is an access predicate.
+   *
+   * @param leaf   The leaf to add.
+   * @param guards The guards.
+   */
+  private def addLeaf(leaf: ast.Exp, guards: Seq[ast.Exp]): Unit =
+    leaf match {
+      case leaf: ast.AccessPredicate =>
+        // combine existing condition with guards
+        val condition = Expressions.makeAnd(guards)
+        val combined = leaves
+          .get(leaf)
+          .map { existing => ast.Or(existing, condition)() }
+          .getOrElse(condition)
+        // update laves
+        leaves = leaves.updated(leaf, combined)
+      case _ => // do nothing
+    }
 
   /**
    * The partial query.
@@ -234,10 +261,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
             // get and inhale instance
             val instance = input.instance(predicate)
             inhaleInstance(instance)
-            // consolidate state if enabled
-            if (configuration.stateConsolidation) {
-              emitConsolidate()
-            }
           case condition =>
             emitInhale(condition)
         }
@@ -276,14 +299,15 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     }
     emit(inhales)
     // unfold predicates appearing in specification
+    clearLeaves()
+    unfold(body, configuration.querySimplification)(hypothesis, addLeaf)
+    // branch on accesses
     if (configuration.useBranching) {
-      // unfold and track accesses
-      resetAccesses(instance)
-      unfold(body, configuration.querySimplification)(hypothesis, trackAccesses)
-      // branch on accesses
-      branchOnAccesses()
-    } else {
-      unfold(body, configuration.querySimplification)
+      branch(instance)
+    }
+    // consolidate state if enabled
+    if (configuration.stateConsolidation) {
+      consolidateState()
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -340,41 +364,28 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   }
 
   /**
-   * Resets the tracked accesses to the arguments of the given instance.
+   * Branches on atomic predicates that can be formed from the accesses appearing in the given instance and collected
+   * leaves.
    *
    * @param instance The instance.
    */
-  private def resetAccesses(instance: Instance): Unit =
-    accesses = instance
-      .arguments
-      .filter(_.isSubtype(ast.Ref))
-      .map { argument => argument -> ast.TrueLit()() }
-      .toMap
-
-  /**
-   * A helper method used to track unfolded field accesses.
-   *
-   * @param expression The unfolded expression.
-   * @param guards     The collected guards.
-   */
-  private def trackAccesses(expression: ast.Exp, guards: Seq[ast.Exp]): Unit =
-    expression match {
-      case ast.FieldAccessPredicate(access, _) if access.isSubtype(ast.Ref) =>
-        // combine existing condition with guards
-        val condition = Expressions.makeAnd(guards)
-        val effective = accesses
-          .get(access)
-          .map { existing => ast.Or(existing, condition)() }
-          .getOrElse(condition)
-        // update accesses
-        accesses = accesses.updated(access, effective)
-      case _ => // do nothing
+  private def branch(instance: Instance): Unit = {
+    // collected accesses
+    val accesses = {
+      // variables appearing in instance
+      val variables = instance
+        .arguments
+        .filter(_.isSubtype(ast.Ref))
+        .map { argument => argument -> ast.TrueLit()() }
+      // collected field accesses
+      val fields = leaves.collect {
+        case (ast.FieldAccessPredicate(access, _), condition) =>
+          access -> condition
+      }
+      // combine variables and fields
+      variables ++ fields
     }
-
-  /**
-   * Branches on the accesses collected by the tracking method.
-   */
-  private def branchOnAccesses(): Unit = {
+    // dummy statement
     val dummy = makeScope(emitInhale(ast.TrueLit()()))
     // branch on nullity
     accesses.foreach {
@@ -389,6 +400,31 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         val atom = ast.NeCmp(access1, access2)()
         val condition = Expressions.makeAnd(Seq(effective1, effective2, atom))
         emitConditional(condition, dummy)
+    }
+  }
+
+  /**
+   * Consolidates the state.
+   */
+  private def consolidateState(): Unit = {
+    // collect leaf predicates
+    val predicates = leaves.collect {
+      case (predicate: ast.PredicateAccessPredicate, condition) =>
+        predicate -> condition
+    }
+    // unfold leaf predicates
+    predicates.foreach {
+      case (predicate, condition) =>
+        val unfold = ast.Unfold(predicate)()
+        emitConditional(condition, unfold)
+    }
+    // consolidate state
+    emitConsolidate()
+    // fold leaf predicates
+    predicates.foreach {
+      case (predicate, condition) =>
+        val fold = ast.Fold(predicate)()
+        emitConditional(condition, fold)
     }
   }
 }

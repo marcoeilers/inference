@@ -183,7 +183,7 @@ case object Configuration {
         name = "stateConsolidation",
         descrYes = "Enables Silicon's state consolidation.",
         descrNo = "Disables Silicon's state consolidation",
-        default = Some(false),
+        default = Some(true),
         hidden = true
       )
 

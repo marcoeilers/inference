@@ -248,6 +248,7 @@ trait Builder {
   /**
    * Emits a call to the state consolidation method.
    */
+  @inline
   protected def emitConsolidate(): Unit =
     emitCall(consolidateMethod, Seq.empty)
 
