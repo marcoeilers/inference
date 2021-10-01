@@ -379,7 +379,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         .map { argument => argument -> ast.TrueLit()() }
       // collected field accesses
       val fields = leaves.collect {
-        case (ast.FieldAccessPredicate(access, _), condition) =>
+        case (ast.FieldAccessPredicate(access, _), condition) if access.isSubtype(ast.Ref) =>
           access -> condition
       }
       // combine variables and fields
