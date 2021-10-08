@@ -35,7 +35,7 @@ case object Configuration {
       maxLength = options.maxLength(),
       maxClauses = options.maxClauses(),
       unfoldDepth = options.unfoldDepth(),
-      foldDepth = options.foldDepth(),
+      foldDelta = options.foldDelta(),
       useBatching = options.batching(),
       useBranching = options.branching(),
       useUpperbounds = options.upperbounds(),
@@ -104,11 +104,11 @@ case object Configuration {
         default = Some(1)
       )
 
-    val foldDepth: ScallopOption[Int] =
+    val foldDelta: ScallopOption[Int] =
       opt[Int](
-        name = "foldDepth",
-        descr = "The depth up to which predicates should be folded.",
-        default = Some(2)
+        name = "foldDelta",
+        descr = "The difference between the adaptive fold depth and the unfold depth.",
+        default = Some(1)
       )
 
     val batching: ScallopOption[Boolean] =
@@ -182,7 +182,7 @@ case object Configuration {
       toggle(
         name = "stateConsolidation",
         descrYes = "Enables Silicon's state consolidation.",
-        descrNo = "Disables Silicon's state consolidation",
+        descrNo = "Disables Silicon's state consolidation.",
         default = Some(true),
         hidden = true
       )
@@ -215,7 +215,7 @@ case object Configuration {
  * @param maxLength            The maximal length of access paths that may appear in specifications.
  * @param maxClauses           The maximal number of clauses that may appear in specifications.
  * @param unfoldDepth          The depth up to which predicates should be unfolded.
- * @param foldDepth            The depth up to which predicates should be folded.
+ * @param foldDelta            The difference between the adaptive fold depth and the unfold depth.
  * @param useBatching          The flag indicating whether batch processing of checks is enabled.
  * @param useBranching         The flag indicating whether branching is enabled.
  * @param useUpperbounds       The flag indicating whether upper bound samples are enabled.
@@ -234,7 +234,7 @@ case class Configuration(file: String,
                          maxLength: Int,
                          maxClauses: Int,
                          unfoldDepth: Int,
-                         foldDepth: Int,
+                         foldDelta: Int,
                          useBatching: Boolean,
                          useBranching: Boolean,
                          useUpperbounds: Boolean,
@@ -244,6 +244,14 @@ case class Configuration(file: String,
                          outputSimplification: Boolean,
                          choiceIntroduction: Boolean,
                          stateConsolidation: Boolean) {
+  /**
+   * Returns the depth up to which predicates should be adaptively folded.
+   *
+   * @return The fold depth.
+   */
+  def foldDepth: Int =
+    unfoldDepth + foldDelta
+
   /**
    * Returns whether the use of syntactic or semantic implicit upper bounds is enabled.
    *
