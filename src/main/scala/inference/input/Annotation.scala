@@ -15,11 +15,11 @@ import viper.silver.ast
  * A ghost code annotation.
  *
  * @param name       The name of the annotation.
- * @param argument   The argument for which the annotation is meant.
- * @param old        The variable holding the old value of the argument.
+ * @param arguments  The arguments for which the annotation is meant.
+ * @param old        The variables holding the old values of the arguments.
  * @param conditions The conditions under which the annotation is relevant.
  */
-case class Annotation(name: String, argument: ast.Exp, old: ast.LocalVar, conditions: Seq[ast.Exp] = Seq.empty) {
+case class Annotation(name: String, arguments: Seq[ast.Exp], old: Seq[ast.LocalVar], conditions: Seq[ast.Exp] = Seq.empty) {
   /**
    * Returns whether this is an append annotation.
    *

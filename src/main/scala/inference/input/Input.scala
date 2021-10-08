@@ -87,9 +87,18 @@ object Input extends CheckBuilder {
       // create dummy method for each hint
       val dummies = Names
         .annotations
-        .map { hint =>
-          val name = PIdnDef(hint)()
-          val arguments = Seq(PFormalArgDecl(PIdnDef("x")(), TypeHelper.Ref)())
+        .map { annotation =>
+          val name = PIdnDef(annotation)()
+          val arguments = {
+            // number of arguments
+            val count = {
+              if (annotation == Names.appendAnnotation) 2
+              else if (annotation == Names.concatAnnotation) 3
+              else sys.error(s"Unknown annotation: $annotation")
+            }
+            for (i <- 0 until count)
+              yield PFormalArgDecl(PIdnDef(s"x_$i")(), TypeHelper.Ref)()
+          }
           PMethod(name, arguments, Seq.empty, Seq.empty, Seq.empty, None)()
         }
       input.methods ++ dummies

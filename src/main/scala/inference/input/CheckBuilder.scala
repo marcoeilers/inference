@@ -273,9 +273,8 @@ trait CheckBuilder extends Builder with Atoms {
       case call@ast.MethodCall(name, arguments, targets) =>
         if (Names.isAnnotation(name)) {
           // process annotation
-          val argument = arguments.head
-          val old = save(argument)
-          val annotation = Annotation(name, argument, old)
+          val old = arguments.map(save)
+          val annotation = Annotation(name, arguments, old)
           addAnnotation(annotation)
         } else {
           // instrument method call

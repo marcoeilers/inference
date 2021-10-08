@@ -145,28 +145,25 @@ trait GhostCode extends Builder with Simplification {
             // handle append annotation
             case (annotation, result) if annotation.isAppend =>
               // get predicate arguments
-              val Seq(start, end) = predicate.args
-              // get old variable and get link
-              val old = annotation.old
-              val link = {
-                val arguments = Seq(old, end)
-                val instance = input.instance(Names.recursive, arguments)
-                val links = hypothesis.getLinks(instance)
-                // make sure there is only one recursive link
-                if (links.size == 1) links.head
-                else sys.error(s"There is more than one recursive link.")
-              }
-              // condition under which to apply append lemma
+              val arguments = predicate.args
+              val Seq(start, end) = arguments
+              // condition under which to apply the lemma
               val condition = {
                 val inequality = ast.NeCmp(start, end)()
-                val equality = ast.EqCmp(link, end)()
-                Expressions.makeAnd(annotation.conditions ++ Seq(inequality, equality))
+                val equalities = arguments
+                  .zip(annotation.arguments)
+                  .map { case (left, right) => ast.EqCmp(left, right)() }
+                Expressions.makeAnd(annotation.conditions ++ Seq(inequality) ++ equalities)
               }
-              // create lemma application
+              // lemma application
               val application = makeScope {
                 // get lemma instance
-                val arguments = Seq(start, old, end)
-                val instance = input.instance(Names.appendLemma, arguments)
+                val instance = {
+                  val name = Names.appendLemma
+                  val old = annotation.old(1)
+                  val arguments = Seq(start, old, end)
+                  input.instance(name, arguments)
+                }
                 // establish lemma precondition
                 val precondition = hypothesis.getLemmaPrecondition(instance)
                 foldWithoutAnnotations(precondition, depth)
