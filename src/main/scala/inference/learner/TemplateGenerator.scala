@@ -227,7 +227,11 @@ trait TemplateGenerator extends AbstractLearner {
             val references = variables.filter(_.isSubtype(ast.Ref))
             references :+ ast.NullLit()()
           }
-          predicates.map { predicate => predicate.args.head -> options }
+          predicates.map { predicate =>
+            val start = predicate.args.head
+            val end = options.filter(_ != start)
+            start -> end
+          }
         } else {
           predicates.foldLeft(Map.empty[ast.Exp, Set[ast.Exp]]) {
             case (map, predicate) =>
