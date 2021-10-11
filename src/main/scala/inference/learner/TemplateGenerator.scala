@@ -23,22 +23,10 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 trait TemplateGenerator extends AbstractLearner {
   /**
-   * Returns the input to the inference.
-   *
-   * @return The input.
+   * The map from placeholder names to location accesses.
    */
-  protected def input: Input
-
   private var map: Map[String, Set[ast.LocationAccess]] =
     Map.empty
-
-  /**
-   * Returns the configuration.
-   *
-   * @return The configuration.
-   */
-  private def configuration: Configuration =
-    input.configuration
 
   override def addSample(sample: Sample): Unit = {
     super.addSample(sample)

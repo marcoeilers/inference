@@ -9,8 +9,8 @@
 package inference.learner
 
 import inference.Names
+import inference.core.AbstractLearner
 import inference.core.sample._
-import inference.input.{Configuration, Input}
 import inference.util.Namespace
 import inference.util.ast.Expressions
 import inference.util.solver.Solver
@@ -19,22 +19,7 @@ import viper.silver.ast
 /**
  * A hypothesis solver that encodes samples and (hopefully) returns a suitable model.
  */
-trait HypothesisSolver {
-  /**
-   * Returns the input to the inference.
-   *
-   * @return The input.
-   */
-  protected def input: Input
-
-  /**
-   * Returns the configuration.
-   *
-   * @return The configuration.
-   */
-  private def configuration: Configuration =
-    input.configuration
-
+trait HypothesisSolver extends AbstractLearner {
   /**
    * The solver.
    */
@@ -236,7 +221,10 @@ trait HypothesisSolver {
     // create conjuncts corresponding to guards
     val conjuncts = guards.map {
       case ResourceGuard(guardId, atoms) =>
-        val values = state.evaluate(atoms)
+        // if the number of clauses is zero, we still want to be able to make the guard true
+        val values =
+          if (clauseCount > 0) state.evaluate(atoms)
+          else Seq(Some(true))
         encodeState(guardId, values, default)
       case ChoiceGuard(choiceId, index) =>
         encodeChoice(choiceId, index)
@@ -260,8 +248,10 @@ trait HypothesisSolver {
    * @return The encoding.
    */
   private def encodeState(guardId: Int, values: Seq[Option[Boolean]], default: Boolean): ast.Exp = {
+    // if the number of clauses is zero, we still want to be able to make the guard true
+    val count = math.max(clauseCount, 1)
     // encode clauses
-    val clauses = for (clauseIndex <- 0 until configuration.maxClauses) yield {
+    val clauses = for (clauseIndex <- 0 until count) yield {
       val clauseActivation = {
         val name = Names.clauseActivation(guardId, clauseIndex)
         makeBoolean(name)

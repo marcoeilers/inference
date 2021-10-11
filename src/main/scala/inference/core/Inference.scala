@@ -10,7 +10,7 @@ package inference.core
 
 import com.typesafe.scalalogging.Logger
 import inference.core.sample.Sample
-import inference.input.Input
+import inference.input.{Configuration, Input}
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier
 
@@ -124,10 +124,34 @@ trait AbstractLearner {
     Logger("root.learner")
 
   /**
+   * Returns the input to the inference.
+   *
+   * @return The input.
+   */
+  protected def input: Input
+
+  /**
+   * Returns the configuration.
+   *
+   * @return The configuration.
+   */
+  protected def configuration: Configuration =
+    input.configuration
+
+  /**
    * The sequence of samples.
    */
   protected var samples: Seq[Sample] =
     Seq.empty
+
+  /**
+   * Returns the number of clauses that may be used per guard.
+   *
+   * @return The number of clauses.
+   */
+  protected def clauseCount: Int =
+    if (configuration.escalation) 0
+    else configuration.maxClauses
 
   /**
    * Adds the given sample.

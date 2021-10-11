@@ -8,23 +8,15 @@
 
 package inference.learner
 
-import com.typesafe.scalalogging.Logger
 import inference.Names
-import inference.core.Hypothesis
+import inference.core.{AbstractLearner, Hypothesis}
 import inference.util.ast.Expressions
 import viper.silver.ast
 
 /**
  * A hypothesis builder that takes a model and builds a hypothesis.
  */
-trait HypothesisBuilder {
-  /**
-   * Returns the logger.
-   *
-   * @return The logger.
-   */
-  protected def logger: Logger
-
+trait HypothesisBuilder extends AbstractLearner {
   /**
    * Builds a hypothesis corresponding to the given templates under the given model.
    *
@@ -130,7 +122,13 @@ trait HypothesisBuilder {
         val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms) }
         Expressions.makeAnd(mapped)
       case Guarded(guardId, body) =>
-        val guard = buildGuard(guardId, atoms)
+        val guard = {
+          // if the number of clauses is zero, we still want to be able to make the guard true
+          val expressions =
+            if (clauseCount > 0) atoms
+            else Seq(ast.TrueLit()())
+          buildGuard(guardId, expressions)
+        }
         val guarded = buildExpression(body, atoms)
         ast.Implies(guard, guarded)()
       case Choice(choiceId, variable, options, body) =>
@@ -157,9 +155,10 @@ trait HypothesisBuilder {
    * @return The guard.
    */
   private def buildGuard(guardId: Int, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): ast.Exp = {
-    val maxClauses = 1
+    // if the number of clauses is zero, we still want to be able to make the guard true
+    val count = math.max(clauseCount, 1)
     // build clauses
-    val clauses = for (clauseIndex <- 0 until maxClauses) yield {
+    val clauses = for (clauseIndex <- 0 until count) yield {
       val clauseActivation = model.getOrElse(Names.clauseActivation(guardId, clauseIndex), false)
       if (clauseActivation) {
         val literals = atoms

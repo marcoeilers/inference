@@ -102,7 +102,7 @@ case object Configuration {
     val maxClauses: ScallopOption[Int] =
       opt[Int](
         name = "maxClauses",
-        descr = "The maximal number of clauses that may appear in conditions.",
+        descr = "The maximal number of clauses that may be used per guard.",
         default = Some(1)
       )
 
@@ -223,7 +223,7 @@ case object Configuration {
  * @param iterations           The maximal number of iterations.
  * @param escalation           The flag indicating whether template complexity escalation is enabled.
  * @param maxLength            The maximal length of access paths that may appear in specifications.
- * @param maxClauses           The maximal number of clauses that may appear in specifications.
+ * @param maxClauses           The maximal number of clauses that may be used per guard.
  * @param unfoldDepth          The depth up to which predicates should be unfolded.
  * @param foldDelta            The difference between the adaptive fold depth and the unfold depth.
  * @param useBatching          The flag indicating whether batch processing of checks is enabled.
@@ -233,7 +233,7 @@ case object Configuration {
  * @param useSemanticBounds    The flag indicating whether semantic implicit upper bounds are enabled.
  * @param querySimplification  The flag indicating whether the simplification of queries is enabled.
  * @param outputSimplification The flag indicating whether the simplification of output programs is enabled.
- * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate isenabled.
+ * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate is enabled.
  * @param stateConsolidation   The flag indicating whether Silicon's state consolidation is enabled.
  */
 case class Configuration(file: String,
