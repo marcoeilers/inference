@@ -32,6 +32,7 @@ case object Configuration {
       useRecursive = options.recursive(),
       useSegments = options.segments(),
       iterations = options.iterations(),
+      escalation = options.escalation(),
       maxLength = options.maxLength(),
       maxClauses = options.maxClauses(),
       unfoldDepth = options.unfoldDepth(),
@@ -82,6 +83,14 @@ case object Configuration {
         name = "iterations",
         descr = "The number of iterations after which the learner gets exhausted and gives up.",
         default = Some(20)
+      )
+
+    val escalation: ScallopOption[Boolean] =
+      toggle(
+        name = "escalation",
+        descrYes = "Enables template complexity escalation.",
+        descrNo = "Disables template complexity escalation.",
+        default = Some(true)
       )
 
     val maxLength: ScallopOption[Int] =
@@ -212,6 +221,7 @@ case object Configuration {
  * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
  * @param useSegments          The flag indicating whether the us of predicate segments is enabled.
  * @param iterations           The maximal number of iterations.
+ * @param escalation           The flag indicating whether template complexity escalation is enabled.
  * @param maxLength            The maximal length of access paths that may appear in specifications.
  * @param maxClauses           The maximal number of clauses that may appear in specifications.
  * @param unfoldDepth          The depth up to which predicates should be unfolded.
@@ -231,6 +241,7 @@ case class Configuration(file: String,
                          useRecursive: Boolean,
                          useSegments: Boolean,
                          iterations: Int,
+                         escalation: Boolean,
                          maxLength: Int,
                          maxClauses: Int,
                          unfoldDepth: Int,
