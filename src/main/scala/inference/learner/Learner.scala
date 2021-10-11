@@ -12,6 +12,8 @@ import inference.core.{AbstractLearner, Hypothesis}
 import inference.input.Input
 import inference.util.solver.Solver
 
+import scala.annotation.tailrec
+
 /**
  * The default implementation of the learner.
  *
@@ -31,9 +33,31 @@ class Learner(protected val input: Input, protected val solver: Solver)
     } else {
       // generate templates
       val templates = generateTemplates()
-      // encode guards, solve constraints and build hypothesis
-      val model = solve(templates)
-      model.map { model => buildHypothesis(templates, model) }
+      // compute hypothesis
+      hypothesis(templates)
+    }
+  }
+
+  /**
+   * Computes a hypothesis based on the given templates.
+   *
+   * @param templates The templates.
+   * @return The hypothesis
+   */
+  @tailrec
+  private def hypothesis(templates: Seq[Template]): Option[Hypothesis] = {
+    // solve constraints
+    val model = solve(templates)
+    // build model or escalate
+    model match {
+      case Some(model) =>
+        val result = buildHypothesis(templates, model)
+        Some(result)
+      case None =>
+        if (canEscalate) {
+          escalate()
+          hypothesis(templates)
+        } else None
     }
   }
 }

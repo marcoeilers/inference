@@ -139,10 +139,29 @@ trait AbstractLearner {
     input.configuration
 
   /**
+   * The current escalation level.
+   */
+  protected var level: Int = 0
+
+  /**
    * The sequence of samples.
    */
   protected var samples: Seq[Sample] =
     Seq.empty
+
+  /**
+   * Returns whether there is a higher template complexity level.
+   *
+   * @return True if it is possible to escalate.
+   */
+  protected def canEscalate: Boolean =
+    configuration.escalation && level < configuration.maxClauses
+
+  /**
+   * Escalates the template complexity level.
+   */
+  protected def escalate(): Unit =
+    level = level + 1
 
   /**
    * Returns the number of clauses that may be used per guard.
@@ -150,7 +169,7 @@ trait AbstractLearner {
    * @return The number of clauses.
    */
   protected def clauseCount: Int =
-    if (configuration.escalation) 0
+    if (configuration.escalation) level
     else configuration.maxClauses
 
   /**
