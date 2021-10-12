@@ -32,9 +32,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   private def configuration: Configuration =
     input.configuration
 
-  override protected val exhale: Boolean =
-    true
-
   /**
    * The namespace used to generate unique identifiers.
    */
@@ -311,15 +308,19 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def exhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Annotation]): Unit = {
-    // get body of instance
-    val body = hypothesis.getBody(instance)
     // save state snapshot
     saveSnapshot(instance, exhaled = true)
     // exhale specification
     val exhales = commented(instance.toString) {
+      // get body of instance
+      val body = hypothesis.getBody(instance)
+      // get fold depth
+      val depth = configuration.foldDepth
+      // fold and exhale body
       implicit val info: ast.Info = InstanceInfo(instance)
-      // actually exhales the body since the corresponding flag is set appropriately
-      fold(body, configuration.querySimplification)
+      if (configuration.querySimplification) simplified(exhale(body, depth))
+      else exhale(body, depth)
+
     }
     emit(exhales)
   }

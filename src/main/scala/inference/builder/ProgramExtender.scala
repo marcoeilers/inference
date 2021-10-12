@@ -28,9 +28,6 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
   private def configuration: Configuration =
     input.configuration
 
-  override protected val exhale: Boolean =
-    false
-
   /**
    * Extends the input program with specifications corresponding to the given hypothesis.
    *
@@ -135,10 +132,14 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
         expression match {
           case resource@ast.PredicateAccessPredicate(predicate, _) =>
             val instance = input.instance(predicate)
+            // get body of instance
+            val body = hypothesis.getBody(instance)
+            // get fold depth
+            val depth = configuration.foldDepth
             // fold predicates appearing in specification
             implicit val info: ast.Info = ast.NoInfo
-            val body = hypothesis.getBody(instance)
-            fold(body, configuration.outputSimplification)
+            if (configuration.outputSimplification) simplified(fold(body, depth))
+            else fold(body, depth)
             // check if this is a user-defined predicate
             if (instance.isPredicate) {
               // fold and exhale predicate

@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Annotation, Check, Configuration, Input}
+import inference.input.{Check, Configuration, Input}
 import viper.silver.ast
 
 /**
@@ -39,14 +39,6 @@ trait GhostCode extends Builder with Simplification {
   protected def check: Check
 
   /**
-   * Returns the flag indicating whether specifications should be folded or exhaled.
-   *
-   * @return True if specifications should be exhaled instead of folded.
-   */
-  @deprecated
-  protected def exhale: Boolean
-
-  /**
    * Unfolds the given expression.
    *
    * @param expression The expression to unfold.
@@ -62,32 +54,58 @@ trait GhostCode extends Builder with Simplification {
     else {
       val depth = configuration.unfoldDepth
       recursiveUnfold(expression, depth)
-
-
     }
 
   /**
-   * Folds or exhales the given expression.
+   * Recursively and adaptively folds the given expression up to the given depth and then exhales it.
    *
-   * @param expression  The expression to fold or exhale.
-   * @param simplify    The flag indicating whether the emitted code should be simplified.
-   * @param hypothesis  The current hypothesis.
-   * @param annotations The annotations.
-   * @param info        The info to attach to fold or exhale statements.
+   * @param expression The expression to fold and exhale.
+   * @param depth      THe depth.
+   * @param hypothesis The current hypothesis.
+   * @param info       The info to attach to the fold or exhale statements.
    */
-  protected def fold(expression: ast.Exp, simplify: Boolean = false)
-                    (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
-    if (simplify) simplified(fold(expression))
-    else {
-      // TODO: Use annotations
-      val depth = configuration.foldDepth
-      process(expression, reverse = true) {
-        case resource: ast.PredicateAccessPredicate if depth > 0 =>
-          recursiveFold(resource, depth)
-          if (exhale) emitExhale(resource, info)
-        case other =>
-          if (exhale) emitExhale(other, info)
-      }
+  protected def exhale(expression: ast.Exp, depth: Int)
+                      (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+    process(expression, reverse = true) {
+      case resource: ast.PredicateAccessPredicate =>
+        fold(resource, depth)
+        emitExhale(resource, info)
+      case other =>
+        emitExhale(other, info)
+    }
+
+  /**
+   * Recursively and adaptively folds the given expression up to the given depth.
+   *
+   * TODO: Use annotations!
+   *
+   * @param expression The expression to fold.
+   * @param depth      The depth.
+   * @param hypothesis The current hypothesis.
+   * @param info       The info to attach to the fold statements.
+   */
+  protected def fold(expression: ast.Exp, depth: Int)
+                    (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+    if (depth > 0) process(expression) {
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        // conditionally fold predicate instance
+        val condition = insufficient(resource)
+        val body = makeScope {
+          // recursively establish nested resources
+          val instance = input.instance(predicate)
+          val body = hypothesis.getBody(instance)
+          fold(body, depth - 1)
+          // fold predicate instance
+          emitFold(resource, info)
+        }
+        emitConditional(condition, body)
+      case resource: ast.FieldAccessPredicate =>
+        // TODO: Suppress in extended programs.
+        // provoke a permission failure if there are insufficient permissions
+        val condition = insufficient(resource)
+        val body = makeScope(emitExhale(resource, info))
+        emitConditional(condition, body)
+      case other => // do nothing
     }
 
   /**
@@ -101,12 +119,12 @@ trait GhostCode extends Builder with Simplification {
    * @param hypothesis The current hypothesis.
    * @param default    The default action for leaf expressions.
    */
-  private def recursiveUnfold(expression: ast.Exp,
-                              depth: Int,
-                              outer: Seq[ast.Exp] = Seq.empty,
-                              guards: Seq[ast.Exp] = Seq.empty)
-                             (implicit hypothesis: Hypothesis,
-                              default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
+  protected def recursiveUnfold(expression: ast.Exp,
+                                depth: Int,
+                                outer: Seq[ast.Exp] = Seq.empty,
+                                guards: Seq[ast.Exp] = Seq.empty)
+                               (implicit hypothesis: Hypothesis,
+                                default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
     expression match {
       case ast.And(left, right) =>
         recursiveUnfold(left, depth, outer, guards)
@@ -130,36 +148,6 @@ trait GhostCode extends Builder with Simplification {
         default(other, outer ++ guards)
     }
 
-  /**
-   * Recursively and adaptively folds the given expression up to the given depth.
-   *
-   * @param expression The expression to fold.
-   * @param depth      The depth.
-   * @param hypothesis The current hypothesis.
-   * @param info       The info to attach to the fold or exhale statements.
-   */
-  private def recursiveFold(expression: ast.Exp, depth: Int)
-                           (implicit hypothesis: Hypothesis, info: ast.Info): Unit = {
-    if (depth > 0) process(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
-        // conditionally fold predicate instance
-        val condition = insufficient(resource)
-        val body = makeScope {
-          // recursively establish nested resources
-          val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          recursiveFold(body, depth - 1)
-          // fold predicate instance
-          emitFold(resource, info)
-        }
-        emitConditional(condition, body)
-      case resource: ast.FieldAccessPredicate =>
-        // provoke a permission failure if there are insufficient permissions
-        val condition = insufficient(resource)
-        val body = makeScope(emitExhale(resource, info))
-        emitConditional(condition, body)
-    }
-  }
 
   /**
    * Processes the resources appearing in the given expression by applying the given action to them.
