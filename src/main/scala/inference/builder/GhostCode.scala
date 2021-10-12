@@ -8,10 +8,8 @@
 
 package inference.builder
 
-import inference.Names
 import inference.core.Hypothesis
 import inference.input.{Annotation, Check, Configuration, Input}
-import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
 /**
@@ -45,6 +43,7 @@ trait GhostCode extends Builder with Simplification {
    *
    * @return True if specifications should be exhaled instead of folded.
    */
+  @deprecated
   protected def exhale: Boolean
 
   /**
@@ -63,6 +62,8 @@ trait GhostCode extends Builder with Simplification {
     else {
       val depth = configuration.unfoldDepth
       recursiveUnfold(expression, depth)
+
+
     }
 
   /**
@@ -78,16 +79,20 @@ trait GhostCode extends Builder with Simplification {
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     if (simplify) simplified(fold(expression))
     else {
+      // TODO: Use annotations
       val depth = configuration.foldDepth
-      if (configuration.useSegments) {
-        foldWithAnnotations(expression, annotations, depth)
-      } else {
-        foldWithoutAnnotations(expression, depth)
+      process(expression, reverse = true) {
+        case resource: ast.PredicateAccessPredicate if depth > 0 =>
+          recursiveFold(resource, depth)
+          if (exhale) emitExhale(resource, info)
+        case other =>
+          if (exhale) emitExhale(other, info)
       }
     }
 
   /**
    * Recursively unfolds the given expression up to the given depth.
+   * TODO: Use process method?
    *
    * @param expression The expression to unfold.
    * @param depth      The current depth.
@@ -126,153 +131,68 @@ trait GhostCode extends Builder with Simplification {
     }
 
   /**
-   * Folds or exhales the given expression up to the given depth an potentially applies some lemmas depending on the
-   * given annotations.
+   * Recursively and adaptively folds the given expression up to the given depth.
    *
-   * @param expression  The expression to fold or exhale.
-   * @param annotations The annotations.
-   * @param depth       The depth.
-   * @param hypothesis  The current hypothesis.
-   * @param info        The info to attach to the fold or exhale statements.
-   */
-  private def foldWithAnnotations(expression: ast.Exp, annotations: Seq[Annotation], depth: Int)
-                                 (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
-    process(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
-        val folds = {
-          val without: ast.Stmt = makeScope(foldWithoutAnnotations(resource, depth))
-          annotations.foldRight(without) {
-            // handle append annotation
-            case (annotation, result) if annotation.isAppend =>
-              // get predicate arguments
-              val arguments = predicate.args
-              val Seq(start, end) = arguments
-              // condition under which to apply the lemma
-              val condition = {
-                val inequality = ast.NeCmp(start, end)()
-                val equalities = arguments
-                  .zip(annotation.arguments)
-                  .map { case (left, right) => ast.EqCmp(left, right)() }
-                Expressions.makeAnd(annotation.conditions ++ Seq(inequality) ++ equalities)
-              }
-              // lemma application
-              val application = makeScope {
-                // get lemma instance
-                val instance = {
-                  val name = Names.appendLemma
-                  val old = annotation.old(1)
-                  val arguments = Seq(start, old, end)
-                  input.instance(name, arguments)
-                }
-                // establish lemma precondition
-                val precondition = hypothesis.getLemmaPrecondition(instance)
-                foldWithoutAnnotations(precondition, depth)
-                // apply lemma
-                if (!exhale) {
-                  emitCall(instance)
-                }
-              }
-              // conditionally apply lemma
-              Statements.makeConditional(condition, application, result)
-            case (annotation, _) if annotation.isConcat =>
-              // TODO: Implement me.
-              ???
-            case (other, _) =>
-              sys.error(s"Unexpected annotation: $other")
-          }
-        }
-        emit(folds)
-      case other =>
-        foldWithoutAnnotations(other, depth)
-    }
-
-  /**
-   * Recursively folds or exhales the given expression up to the given depth.
-   *
-   * @param expression The expression to fold or exhale.
+   * @param expression The expression to fold.
    * @param depth      The depth.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to the fold or exhale statements.
    */
-  private def foldWithoutAnnotations(expression: ast.Exp, depth: Int)
-                                    (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
-    process(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
-        val folds = {
-          // action to perform if the predicate instance is present
-          val thenBranch = makeScope {
-            // recursively process instances appearing in the predicate body
-            val instance = input.instance(predicate)
-            val body = hypothesis.getBody(instance)
-            foldWithoutAnnotations(body, depth - 1)
-            // fold predicate (unless we exhale everything)
-            if (!exhale) {
-              emitFold(resource, info)
-            }
-          }
-          // action to perform if the predicate instance is not present
-          val elseBranch = makeScope {
-            if (exhale) {
-              emitExhale(resource, info)
-            }
-          }
-          // create conditional st
-          val condition = noPermission(predicate)
-          Statements.makeConditional(condition, thenBranch, elseBranch)
+  private def recursiveFold(expression: ast.Exp, depth: Int)
+                           (implicit hypothesis: Hypothesis, info: ast.Info): Unit = {
+    if (depth > 0) process(expression) {
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        // conditionally fold predicate instance
+        val condition = insufficient(resource)
+        val body = makeScope {
+          // recursively establish nested resources
+          val instance = input.instance(predicate)
+          val body = hypothesis.getBody(instance)
+          recursiveFold(body, depth - 1)
+          // fold predicate instance
+          emitFold(resource, info)
         }
-        // only exhale predicate if it is framed. if it is not there will be a subsequent exhale of the missing
-        // permission that we want to fail (since specifications are well-formed)
-        if (exhale) {
-          val framed = predicate
-            .args
-            .collect { case field: ast.FieldAccess => somePermission(field) }
-          emitConditional(framed, folds)
-        } else emit(folds)
-      case other =>
-        if (exhale) {
-          emitExhale(other, info)
-        }
+        emitConditional(condition, body)
+      case resource: ast.FieldAccessPredicate =>
+        // provoke a permission failure if there are insufficient permissions
+        val condition = insufficient(resource)
+        val body = makeScope(emitExhale(resource, info))
+        emitConditional(condition, body)
     }
+  }
 
   /**
-   * Processes the given expression by applying the given action to predicate instances and leaf expressions.
+   * Processes the resources appearing in the given expression by applying the given action to them.
    *
-   * @param expression The expression to process.
+   * @param expression The expression to express.
+   * @param reverse    The flag indicating whether the order of conjuncts should be reversed.
    * @param action     The action.
    */
-  private def process(expression: ast.Exp)(action: ast.Exp => Unit): Unit =
+  private def process(expression: ast.Exp, reverse: Boolean = false)(action: ast.Exp => Unit): Unit =
     expression match {
       case ast.And(left, right) =>
-        process(right)(action)
-        process(left)(action)
+        if (reverse) {
+          process(right, reverse)(action)
+          process(left, reverse)(action)
+        } else {
+          process(left, reverse)(action)
+          process(right, reverse)(action)
+        }
       case ast.Implies(left, right) =>
-        val processed = makeScope(process(right)(action))
+        val processed = makeScope(process(right, reverse)(action))
         emitConditional(left, processed)
       case other =>
         action(other)
     }
 
   /**
-   * Returns an expression representing the condition that there is no permission for the given location access.
+   * Returns a condition capturing whether there are insufficient permissions for the given resource.
    *
-   * @param access The location access.
-   * @return The expression representing the condition.
+   * @param resource The resource.
+   * @return The condition.
    */
-  private def noPermission(access: ast.ResourceAccess): ast.Exp = {
-    val current = ast.CurrentPerm(access)()
-    val write = ast.FullPerm()()
-    ast.PermLtCmp(current, write)()
-  }
-
-  /**
-   * Returns an expression representing the condition that there is some permission for the given location access.
-   *
-   * @param access The location access.
-   * @return The expression representing the condition.
-   */
-  private def somePermission(access: ast.ResourceAccess): ast.Exp = {
-    val current = ast.CurrentPerm(access)()
-    val write = ast.NoPerm()()
-    ast.PermGtCmp(current, write)()
+  private def insufficient(resource: ast.AccessPredicate): ast.Exp = {
+    val current = ast.CurrentPerm(resource.loc)()
+    ast.PermLtCmp(current, resource.perm)()
   }
 }
