@@ -12,7 +12,7 @@ import inference.Names
 import inference.builder.CheckExtender
 import inference.core.{Hypothesis, Instance}
 import inference.input._
-import inference.util.ast.{Expressions, InstanceInfo, LocationInfo, Statements}
+import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import inference.util.Namespace
 import inference.util.collections.Collections
 import viper.silver.ast
@@ -100,19 +100,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         case ast.Implies(guard, guarded) =>
           inhale(guarded, guards :+ guard)
         case conjunct =>
-          // create info carrying the location
-          val info = conjunct match {
-            case ast.FieldAccessPredicate(location, _) =>
-              LocationInfo(location)
-            case ast.PredicateAccessPredicate(location, _) =>
-              LocationInfo(location)
-            case other =>
-              sys.error(s"Unexpected conjunct: $other")
-          }
           // inhale conjunct
           val condition = Expressions.makeAnd(guards)
           val implication = ast.Implies(condition, conjunct)()
-          emitInhale(implication, info)
+          emitInhale(implication)
       }
 
     // reset

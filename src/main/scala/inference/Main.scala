@@ -22,7 +22,7 @@ object Main extends PrintRunner {
     Seq(
       "--z3Exe", "/usr/local/Viper/z3/bin/z3",
       "--syntacticBounds",
-      //"--unfoldDepth", "2"
+      // "--unfoldDepth", "2"
     )
 
   /**
@@ -49,7 +49,7 @@ object Main extends PrintRunner {
    */
   def main(arguments: Array[String]): Unit = {
     // inject default options if no arguments are specified
-    val injected = if (arguments.nonEmpty) arguments.toSeq else segmentsOptions :+ file
+    val injected = if (arguments.nonEmpty) arguments.toSeq else defaultOptions :+ file
     // run inference
     run(injected)
   }

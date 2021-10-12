@@ -10,7 +10,6 @@ package inference.util.ast
 
 import inference.core.Instance
 import viper.silver.ast
-import viper.silver.ast.LocationAccess
 
 /**
  * Utility object for infos.
@@ -49,7 +48,6 @@ trait InferenceInfo[+T] extends ast.Info {
     true
 }
 
-
 /**
  * An info carrying an instance.
  *
@@ -58,16 +56,6 @@ trait InferenceInfo[+T] extends ast.Info {
 case class InstanceInfo(instance: Instance) extends InferenceInfo[Instance] {
   override def value: Instance =
     instance
-}
-
-/**
- * An info carrying a location.
- *
- * @param location The location
- */
-case class LocationInfo(location: ast.LocationAccess) extends InferenceInfo[ast.LocationAccess] {
-  override def value: LocationAccess =
-    location
 }
 
 /**

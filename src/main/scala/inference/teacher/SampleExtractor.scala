@@ -13,11 +13,13 @@ import inference.core.{Hypothesis, Instance}
 import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.teacher.state._
-import inference.util.ast.{InferenceInfo, InstanceInfo, LocationInfo}
+import inference.util.ast.InferenceInfo
 import viper.silicon.interfaces.SiliconRawCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
 import viper.silver.verifier.reasons.InsufficientPermission
+
+import scala.annotation.tailrec
 
 /**
  * A sample extractor mixin.
@@ -58,13 +60,10 @@ trait SampleExtractor {
    * @return The extracted sample.
    */
   protected def extractFramingSample(query: Query, error: VerificationError): Sample = {
-    // extract counter-example and offending location
-    val (counter, offending, info) = extractInformation(error)
-
-    val location = info match {
-      case Some(LocationInfo(location)) => location
-      case other => sys.error(s"Location info expected but found $other.")
-    }
+    // extract information from counter-example
+    val counter = extractCounterExample(error)
+    val offending = extractOffending(error)
+    val reason = extractReason(error)
 
     // get label and instance
     val (label, instance) = {
@@ -91,7 +90,7 @@ trait SampleExtractor {
       val adaptor = Adaptor(state.state, snapshot)
       // create left-hand side of implication
       val left = {
-        val resource = abstractLocation(location, adaptor)
+        val resource = abstractLocation(reason, adaptor)
         val record = InhaledRecord(placeholder, state, resource, 0)
         LowerBound(record)
       }
@@ -120,7 +119,9 @@ trait SampleExtractor {
   protected def extractBasicSample(query: Query, error: VerificationError): Sample = {
     println(error)
     // extract counter-example and offending location
-    val (counter, offending, info) = extractInformation(error)
+    val counter = extractCounterExample(error)
+    val offending = extractOffending(error)
+    val info = extractInfo(error)
 
     // get silicon state and model
     val siliconState = counter.state
@@ -227,14 +228,13 @@ trait SampleExtractor {
   }
 
   /**
-   * Extracts information form the given verification error. The information consists of a counterexample, an offending
-   * location, and an optionally attached info.
+   * Extracts the counter-example from the given verification error.
    *
    * @param error The verification error.
-   * @return The extracted information.
+   * @return The counter-example.
    */
-  private def extractInformation(error: VerificationError): (Counter, ast.LocationAccess, Option[InferenceInfo[Any]]) = {
-    // extract counterexample
+  private def extractCounterExample(error: VerificationError): Counter = {
+    // extract counter-examples
     val counters = error
       .failureContexts
       .flatMap(_.counterExample)
@@ -242,15 +242,71 @@ trait SampleExtractor {
         case counter: Counter => counter
         case _ => sys.error(s"Unsupported counterexample")
       }
-    assert(counters.length == 1)
-    val counter = counters.head
-    // extract offending location
+    // check that there is exactly one counter-example
+    assert(counters.size == 1)
+    counters.head
+  }
+
+  /**
+   * Extracts the offending location from the given verification error.
+   *
+   * @param error The verification error.
+   * @return The offending location.
+   */
+  private def extractOffending(error: VerificationError): ast.LocationAccess = {
+    // get offending location
     val offending = error.reason match {
-      case InsufficientPermission(location) => location
+      case InsufficientPermission(offending) => offending
       case other => sys.error(s"Unexpected reason: $other")
     }
-    // extract attached info value
-    val info = error.offendingNode match {
+    // adapt offending location
+    error.offendingNode match {
+      case ast.Fold(ast.PredicateAccessPredicate(predicate, _)) =>
+        val instance = input.instance(predicate)
+        instance.instantiate(offending)
+      case _ =>
+        offending
+    }
+  }
+
+  /**
+   * Extracts the reason from the given verification error.
+   *
+   * @param error The verification error.
+   * @return The reason.
+   */
+  private def extractReason(error: VerificationError): ast.LocationAccess = {
+    /**
+     * Helper method that strips conditions guarding the reason.
+     *
+     * @param expression The expression to strip.
+     * @return The stripped reason.
+     */
+    @tailrec
+    def strip(expression: ast.Exp): ast.LocationAccess =
+      expression match {
+        case ast.Implies(_, right) => strip(right)
+        case ast.PredicateAccessPredicate(predicate, _) => predicate
+        case other => sys.error(s"Unexpected expression: $other")
+      }
+
+    // extract reason
+    error.offendingNode match {
+      case ast.Inhale(expression) => strip(expression)
+      case other => sys.error(s"Unexpected offending node: $other")
+    }
+  }
+
+  /**
+   * Extracts the info attached to the offending location from the given verification error.
+   *
+   * TODO: Is there a more elegant solution?
+   *
+   * @param error The verification error.
+   * @return The info.
+   */
+  private def extractInfo(error: VerificationError): Option[ast.Info] =
+    error.offendingNode match {
       case node: ast.Infoed =>
         node.info match {
           case info: InferenceInfo[Any] => Some(info)
@@ -259,17 +315,6 @@ trait SampleExtractor {
         }
       case _ => None
     }
-    // instantiate offending location
-    val instantiated = info match {
-      case Some(InstanceInfo(instance)) =>
-        if (instance.isRecursive) instance.instantiate(offending)
-        else offending
-      case _ =>
-        offending
-    }
-    // return information
-    (counter, instantiated, info)
-  }
 
   /**
    * Evaluates the permission amount for the given resource represented by the specification corresponding to the given
