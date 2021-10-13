@@ -37,6 +37,7 @@ case object Configuration {
       maxClauses = options.maxClauses(),
       unfoldDepth = options.unfoldDepth(),
       foldDelta = options.foldDelta(),
+      useAnnotations = options.annotations(),
       useBatching = options.batching(),
       useBranching = options.branching(),
       useUpperbounds = options.upperbounds(),
@@ -90,7 +91,7 @@ case object Configuration {
         name = "escalation",
         descrYes = "Enables template complexity escalation.",
         descrNo = "Disables template complexity escalation.",
-        default = Some(true)
+        default = Some(false)
       )
 
     val maxLength: ScallopOption[Int] =
@@ -118,6 +119,14 @@ case object Configuration {
         name = "foldDelta",
         descr = "The difference between the adaptive fold depth and the unfold depth.",
         default = Some(1)
+      )
+
+    val annotations: ScallopOption[Boolean] =
+      toggle(
+        name = "annotations",
+        descrYes = "Enables the use of annotations.",
+        descrNo = "Disables the use of annotations.",
+        default = Some(true)
       )
 
     val batching: ScallopOption[Boolean] =
@@ -226,6 +235,7 @@ case object Configuration {
  * @param maxClauses           The maximal number of clauses that may be used per guard.
  * @param unfoldDepth          The depth up to which predicates should be unfolded.
  * @param foldDelta            The difference between the adaptive fold depth and the unfold depth.
+ * @param useAnnotations       The flag indicating whether the use of annotations is enabled.
  * @param useBatching          The flag indicating whether batch processing of checks is enabled.
  * @param useBranching         The flag indicating whether branching is enabled.
  * @param useUpperbounds       The flag indicating whether upper bound samples are enabled.
@@ -246,6 +256,7 @@ case class Configuration(file: String,
                          maxClauses: Int,
                          unfoldDepth: Int,
                          foldDelta: Int,
+                         useAnnotations: Boolean,
                          useBatching: Boolean,
                          useBranching: Boolean,
                          useUpperbounds: Boolean,

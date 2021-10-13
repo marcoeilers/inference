@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Check, Input}
+import inference.input.{Annotation, Check, Configuration, Input}
 import viper.silver.ast
 
 /**
@@ -22,6 +22,14 @@ trait GhostCode extends Builder with Simplification {
    * @return The input.
    */
   protected def input: Input
+
+  /**
+   * Returns the configuration.
+   *
+   * @return The configuration.
+   */
+  private def configuration: Configuration =
+    input.configuration
 
   /**
    * Returns the check currently being processed.
@@ -53,13 +61,14 @@ trait GhostCode extends Builder with Simplification {
   /**
    * Recursively and adaptively folds the given expression up to the given depth and then exhales it.
    *
-   * @param expression The expression to fold and exhale.
-   * @param depth      The depth.
-   * @param hypothesis The current hypothesis.
-   * @param info       The info to attach to the fold or exhale statements.
+   * @param expression  The expression to fold and exhale.
+   * @param depth       The depth.
+   * @param hypothesis  The current hypothesis.
+   * @param annotations The annotations.
+   * @param info        The info to attach to the fold or exhale statements.
    */
   protected def exhale(expression: ast.Exp, depth: Int)
-                      (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+                      (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     process(expression, reverse = true) {
       case resource: ast.PredicateAccessPredicate =>
         fold(resource, depth)
@@ -71,37 +80,70 @@ trait GhostCode extends Builder with Simplification {
   /**
    * Recursively and adaptively folds the given expression up to the given depth.
    *
-   * TODO: Use annotations!
+   * @param expression  The expression to fold.
+   * @param depth       The depth.
+   * @param hypothesis  The current hypothesis.
+   * @param annotations The annotations.
+   * @param info        The info to attach to the fold statements.
+   */
+  protected def fold(expression: ast.Exp, depth: Int)
+                    (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
+    if (depth > 0)
+      process(expression) {
+        case resource: ast.PredicateAccessPredicate if configuration.useAnnotations =>
+          val strategy = getStrategy(resource, annotations)
+          foldWithStrategy(resource, depth, strategy)
+        case other =>
+          foldWithStrategy(other, depth, DefaultStrategy)
+      }
+
+  private def getStrategy(resource: ast.PredicateAccessPredicate, annotations: Seq[Annotation]): Strategy = {
+    // TODO: Use annotations
+    DefaultStrategy
+  }
+
+  /**
+   * Recursively and adaptively folds the given expression up to the given depth using the given strategy.
    *
    * @param expression The expression to fold.
    * @param depth      The depth.
+   * @param strategy   The strategy.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to the fold statements.
    */
-  protected def fold(expression: ast.Exp, depth: Int)
-                    (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
-    if (depth > 0) process(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
-        // conditionally fold predicate instance
-        val condition = insufficient(resource)
-        val body = makeScope {
-          // recursively fold nested predicate instances
-          val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          fold(body, depth - 1)
-          // fold predicate instance
-          emitFold(resource, info)
-        }
-        emitConditional(condition, body)
-      case resource: ast.FieldAccessPredicate =>
-        // TODO: Suppress in extended programs.
-        // provoke a permission failure if there are insufficient permissions
-        val condition = insufficient(resource)
-        val body = makeScope(emitExhale(resource, info))
-        emitConditional(condition, body)
-      case _ => // do nothing
-    }
-
+  private def foldWithStrategy(expression: ast.Exp, depth: Int, strategy: Strategy)
+                              (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+    if (depth > 0)
+      process(expression) {
+        case resource@ast.PredicateAccessPredicate(predicate, _) =>
+          val condition = insufficient(resource)
+          val body = {
+            // default strategy
+            val default = makeScope {
+              // recursively fold nested predicate instances
+              val instance = input.instance(predicate)
+              val body = hypothesis.getBody(instance)
+              foldWithStrategy(body, depth - 1, strategy)
+              // fold predicate instance
+              emitFold(resource, info)
+            }
+            // apply fold strategy
+            strategy match {
+              case DefaultStrategy =>
+                default
+              case other =>
+                sys.error(s"Unexpected strategy: $other")
+            }
+          }
+          emitConditional(condition, body)
+        case resource: ast.FieldAccessPredicate =>
+          // TODO: Suppress in extended programs.
+          // provoke a permission failure if there are insufficient permissions
+          val condition = insufficient(resource)
+          val body = makeScope(emitExhale(resource, info))
+          emitConditional(condition, body)
+        case _ => // do nothing
+      }
 
   /**
    * Processes the resources appearing in the given expression by applying the given action to them.
@@ -138,3 +180,13 @@ trait GhostCode extends Builder with Simplification {
     ast.PermLtCmp(current, resource.perm)()
   }
 }
+
+/**
+ * A fold strategy.
+ */
+sealed trait Strategy
+
+/**
+ * The default fold strategy.
+ */
+case object DefaultStrategy extends Strategy
