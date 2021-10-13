@@ -96,7 +96,7 @@ trait TemplateGenerator extends AbstractLearner {
               val access = ast.FieldAccess(from, field)()
               add(recursive, access)
               // add recursion to recursive predicate
-              val recursion = makeRecursive(ast.FieldAccess(from, next)() +: rest)
+              val recursion = Expressions.makeRecursive(ast.FieldAccess(from, next)() +: rest)
               add(recursive, recursion)
               // add instance to current specification
               val instance = makeInstance(root)
@@ -109,7 +109,7 @@ trait TemplateGenerator extends AbstractLearner {
         first match {
           case ast.FieldAccess(receiver, _) if !placeholder.isRecursive =>
             // add parent predicate
-            val parent = makeRecursive(receiver +: rest)
+            val parent = Expressions.makeRecursive(receiver +: rest)
             addLocation(placeholder, parent)
           case _ => // do nothing
         }
@@ -233,13 +233,13 @@ trait TemplateGenerator extends AbstractLearner {
         .map { case (start, options) =>
           if (options.size == 1) {
             // no choice needed if there is only one option
-            val predicate = makeSegment(start, options.head)
+            val predicate = Expressions.makeSegment(start, options.head)
             createGuarded(predicate)
           } else {
             // introduce choice
             val choiceId = id.getAndIncrement()
             val variable = ast.LocalVar(s"c_$choiceId", ast.Ref)()
-            val predicate = makeSegment(start, variable)
+            val predicate = Expressions.makeSegment(start, variable)
             val body = createGuarded(predicate)
             Choice(choiceId, variable, options.toSeq, body)
           }
@@ -300,12 +300,16 @@ trait TemplateGenerator extends AbstractLearner {
 
     // create lemma pre- and postcondition
     val precondition = {
-      val segment = wrap(makeSegment(start, stop))
+      val segment = Expressions.makeSegment(start, stop)
+      val wrapped = wrap(segment)
       val link = process(template.body)
-      val conjuncts = Seq(segment, link)
+      val conjuncts = Seq(wrapped, link)
       Conjunction(conjuncts)
     }
-    val postcondition = wrap(makeSegment(start, next))
+    val postcondition = {
+      val segment = Expressions.makeSegment(start, next)
+      wrap(segment)
+    }
     // create lemma template
     LemmaTemplate(placeholder, precondition, postcondition)
   }
@@ -349,28 +353,6 @@ trait TemplateGenerator extends AbstractLearner {
    */
   private def makeInstance(root: ast.Exp): ast.PredicateAccess = {
     val arguments = if (configuration.useSegments) Seq(root, ast.NullLit()()) else Seq(root)
-    makeRecursive(arguments)
+    Expressions.makeRecursive(arguments)
   }
-
-  /**
-   * Returns an instance of a recursive predicate segment with the given arguments.
-   *
-   * @param start The start argument.
-   * @param stop  The stop argument.
-   * @return The predicate instance.
-   */
-  private def makeSegment(start: ast.Exp, stop: ast.Exp): ast.PredicateAccess = {
-    val arguments = Seq(start, stop)
-    makeRecursive(arguments)
-  }
-
-  /**
-   * Returns an instance of the recursive predicate with the given arguments.
-   *
-   * @param arguments The arguments.
-   * @return The predicate instance.
-   */
-  @inline
-  private def makeRecursive(arguments: Seq[ast.Exp]): ast.PredicateAccess =
-    ast.PredicateAccess(arguments, Names.recursive)()
 }

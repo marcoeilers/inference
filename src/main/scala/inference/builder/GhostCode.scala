@@ -8,9 +8,13 @@
 
 package inference.builder
 
+import inference.Names
 import inference.core.Hypothesis
 import inference.input.{Annotation, Check, Configuration, Input}
+import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
+
+import scala.annotation.tailrec
 
 /**
  * A mixin providing methods to emit ghost code.
@@ -90,16 +94,34 @@ trait GhostCode extends Builder with Simplification {
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     if (depth > 0)
       process(expression) {
-        case resource: ast.PredicateAccessPredicate if configuration.useAnnotations =>
-          val strategy = getStrategy(resource, annotations)
+        case resource@ast.PredicateAccessPredicate(predicate, _) if configuration.useSegments && configuration.useAnnotations =>
+          val strategy = getStrategy(predicate, annotations)
           foldWithStrategy(resource, depth, strategy)
         case other =>
           foldWithStrategy(other, depth, DefaultStrategy)
       }
 
-  private def getStrategy(resource: ast.PredicateAccessPredicate, annotations: Seq[Annotation]): Strategy = {
-    // TODO: Use annotations
-    DefaultStrategy
+  /**
+   * Computes a fold strategy for the given predicate instance based on the given annotations.
+   *
+   * @param predicate   The predicate.
+   * @param annotations The annotations.
+   * @return The strategy.
+   */
+  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy = {
+    val strategies = annotations
+      .map { annotation =>
+        if (annotation.isAppend) {
+          val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
+          val old = annotation.old(1)
+          AppendStrategy(condition, old)
+        } else {
+          sys.error(s"Unsupported annotation: $annotation")
+        }
+      }
+    // TODO: Handle more than one annotations?
+    assert(strategies.length <= 1)
+    strategies.headOption.getOrElse(DefaultStrategy)
   }
 
   /**
@@ -131,6 +153,27 @@ trait GhostCode extends Builder with Simplification {
             strategy match {
               case DefaultStrategy =>
                 default
+              case AppendStrategy(_, old) =>
+                // TODO: Use condition?
+                // get predicate arguments
+                val arguments = predicate.args
+                val Seq(start, end) = arguments
+                // condition under which to apply lemma
+                val condition = {
+                  val segment = Expressions.makeSegment(start, old)
+                  sufficient(segment)
+                }
+                // lemma application
+                val application = makeScope {
+                  // get lemma instance
+                  val instance = {
+                    val name = Names.appendLemma
+                    val arguments = Seq(start, old, end)
+                    input.instance(name, arguments)
+                  }
+                  emitCall(instance)
+                }
+                Statements.makeConditional(condition, application, default)
               case other =>
                 sys.error(s"Unexpected strategy: $other")
             }
@@ -170,15 +213,43 @@ trait GhostCode extends Builder with Simplification {
     }
 
   /**
-   * Returns a condition capturing whether there are insufficient permissions for the given resource.
+   * Returns a condition capturing whether there are insufficient permissions for the given access.
    *
-   * @param resource The resource.
+   * @param access     The access.
+   * @param permission The permission amount.
    * @return The condition.
    */
-  private def insufficient(resource: ast.AccessPredicate): ast.Exp = {
-    val current = ast.CurrentPerm(resource.loc)()
-    ast.PermLtCmp(current, resource.perm)()
-  }
+  @tailrec
+  private def insufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
+    access match {
+      case ast.FieldAccessPredicate(field, permission) =>
+        insufficient(field, permission)
+      case ast.PredicateAccessPredicate(predicate, permission) =>
+        insufficient(predicate, permission)
+      case access: ast.ResourceAccess =>
+        val current = ast.CurrentPerm(access)()
+        ast.PermLtCmp(current, permission)()
+    }
+
+  /**
+   * Returns a condition capturing whether there are sufficient permissions for the given access.
+   *
+   * @param access     The access.
+   * @param permission The permission amount.
+   * @return The condition.
+   */
+  @tailrec
+  private def sufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
+    access match {
+      case ast.FieldAccessPredicate(field, permission) =>
+        sufficient(field, permission)
+      case ast.FieldAccessPredicate(predicate, permission) =>
+        sufficient(predicate, permission)
+      case access: ast.ResourceAccess =>
+        val current = ast.CurrentPerm(access)()
+        ast.PermGeCmp(current, permission)()
+    }
+
 }
 
 /**
@@ -190,3 +261,11 @@ sealed trait Strategy
  * The default fold strategy.
  */
 case object DefaultStrategy extends Strategy
+
+/**
+ * The fold strategy allowing the use of the append lemma.
+ *
+ * @param condition The condition under which the lemma may be applied.
+ * @param old       The old end parameter.
+ */
+case class AppendStrategy(condition: ast.Exp, old: ast.Exp) extends Strategy

@@ -8,6 +8,7 @@
 
 package inference.util.ast
 
+import inference.Names
 import inference.util.collections.Collections
 import viper.silver.ast
 import viper.silver.ast.utility.rewriter.Traverse
@@ -35,6 +36,28 @@ object Expressions {
       case ast.FieldAccess(receiver, _) => getDepth(receiver) + 1
       case _ => sys.error(s"Expression $path is not an access path.")
     }
+
+  /**
+   * Returns an instance of a recursive predicate segment with the given arguments.
+   *
+   * @param start The start argument.
+   * @param stop  The stop argument.
+   * @return The predicate instance.
+   */
+  def makeSegment(start: ast.Exp, stop: ast.Exp): ast.PredicateAccess = {
+    val arguments = Seq(start, stop)
+    makeRecursive(arguments)
+  }
+
+  /**
+   * Returns an instance of the recursive predicate with the given arguments.
+   *
+   * @param arguments The arguments.
+   * @return The predicate instance.
+   */
+  @inline
+  def makeRecursive(arguments: Seq[ast.Exp]): ast.PredicateAccess =
+    ast.PredicateAccess(arguments, Names.recursive)()
 
   /**
    * Returns the conjunction of the given expressions.
@@ -81,6 +104,20 @@ object Expressions {
     val lower = makeOr(expressions)
     val upper = makeAtMost(expressions)
     ast.And(lower, upper)()
+  }
+
+  /**
+   * Returns an expression which is true if all expressions of the two given sequences are equal.
+   *
+   * @param first  The first sequence of expressions.
+   * @param second The second sequence of expressions.
+   * @return The condition.
+   */
+  def makeEqual(first: Seq[ast.Exp], second: Seq[ast.Exp]): ast.Exp = {
+    val equalities = first
+      .zip(second)
+      .map { case (left, right) => ast.EqCmp(left, right)() }
+    makeAnd(equalities)
   }
 
   /**
