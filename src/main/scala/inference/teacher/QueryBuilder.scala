@@ -14,7 +14,7 @@ import inference.core.{Hypothesis, Instance}
 import inference.input._
 import inference.util.ast.{Expressions, InstanceInfo, Statements}
 import inference.util.Namespace
-import inference.util.collections.Collections
+import inference.util.collections.{Collections, SeqMap}
 import viper.silver.ast
 
 import scala.collection.mutable
@@ -36,38 +36,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * The namespace used to generate unique identifiers.
    */
   private var namespace: Namespace = _
-
-  /**
-   * The map used to collect leaf access predicates, i.e., the access predicates present in the state after unfolding
-   * the specification at hand. Each access predicate maps to the condition under which it is present in the state.
-   */
-  private var leaves: Map[ast.AccessPredicate, ast.Exp] = _
-
-  /**
-   * Clears all leaves.
-   */
-  private def clearLeaves(): Unit =
-    leaves = Map.empty
-
-  /**
-   * Adds the given leaf expression if it is an access predicate.
-   *
-   * @param leaf   The leaf to add.
-   * @param guards The guards.
-   */
-  private def addLeaf(leaf: ast.Exp, guards: Seq[ast.Exp]): Unit =
-    leaf match {
-      case leaf: ast.AccessPredicate =>
-        // combine existing condition with guards
-        val condition = Expressions.makeAnd(guards)
-        val combined = leaves
-          .get(leaf)
-          .map { existing => ast.Or(existing, condition)() }
-          .getOrElse(condition)
-        // update laves
-        leaves = leaves.updated(leaf, combined)
-      case _ => // do nothing
-    }
 
   /**
    * The partial query.
@@ -282,20 +250,24 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // get body of instance
     val body = hypothesis.getBody(instance)
     // inhale specification
+    val depth = configuration.unfoldDepth
     val inhales = commented(instance.toString) {
+      // inhale body
       emitInhale(body)
+      // unfold body
+      if (configuration.querySimplification) simplified(unfold(body, depth))
+      else unfold(body, depth)
     }
     emit(inhales)
-    // unfold predicates appearing in specification
-    clearLeaves()
-    unfold(body, configuration.querySimplification)(hypothesis, addLeaf)
+    // lazily compute leaves
+    lazy val leaves = collectLeaves(body, depth)
     // branch on accesses
     if (configuration.useBranching) {
-      branch(instance)
+      branch(instance, leaves)
     }
     // consolidate state if enabled
     if (configuration.stateConsolidation) {
-      consolidateState()
+      consolidateState(leaves)
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -320,7 +292,6 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       implicit val info: ast.Info = InstanceInfo(instance)
       if (configuration.querySimplification) simplified(exhale(body, depth))
       else exhale(body, depth)
-
     }
     emit(exhales)
   }
@@ -356,12 +327,44 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   }
 
   /**
+   * Collects all leaf access predicates, i.e., the access predicates present in the state after unfolding the
+   * specification at hand. Each access predicate maps to the condition under which it is present in the sate.
+   *
+   * @param expression The expression representing the specification.
+   * @param depth      The depth.
+   * @param guards     The current guards.
+   * @param hypothesis The current hypothesis.
+   * @return The map containing all leaves.
+   */
+  private def collectLeaves(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty)
+                           (implicit hypothesis: Hypothesis): Map[ast.AccessPredicate, Seq[ast.Exp]] =
+    expression match {
+      case ast.And(left, right) =>
+        val leftMap = collectLeaves(left, depth, guards)
+        val rightMap = collectLeaves(right, depth, guards)
+        SeqMap.merge(leftMap, rightMap)
+      case ast.Implies(left, right) =>
+        val updatedGuards = guards :+ left
+        collectLeaves(right, depth, updatedGuards)
+      case ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
+        val instance = input.instance(predicate)
+        val body = hypothesis.getBody(instance)
+        collectLeaves(body, depth - 1, guards)
+      case leaf: ast.AccessPredicate =>
+        val condition = Expressions.makeAnd(guards)
+        Map(leaf -> Seq(condition))
+      case _ =>
+        Map.empty
+    }
+
+  /**
    * Branches on atomic predicates that can be formed from the accesses appearing in the given instance and collected
    * leaves.
    *
    * @param instance The instance.
+   * @param leaves   The map containing all leaves.
    */
-  private def branch(instance: Instance): Unit = {
+  private def branch(instance: Instance, leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]]): Unit = {
     // collected accesses
     val accesses = {
       // variables appearing in instance
@@ -371,8 +374,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         .map { argument => argument -> ast.TrueLit()() }
       // collected field accesses
       val fields = leaves.collect {
-        case (ast.FieldAccessPredicate(access, _), condition) if access.isSubtype(ast.Ref) =>
-          access -> condition
+        case (ast.FieldAccessPredicate(access, _), conditions) if access.isSubtype(ast.Ref) =>
+          access -> Expressions.makeOr(conditions)
       }
       // combine variables and fields
       variables ++ fields
@@ -397,12 +400,14 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
   /**
    * Consolidates the state.
+   *
+   * @param leaves The map containing all leaves.
    */
-  private def consolidateState(): Unit = {
+  private def consolidateState(leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]]): Unit = {
     // collect leaf predicates
     val predicates = leaves.collect {
-      case (predicate: ast.PredicateAccessPredicate, condition) =>
-        predicate -> condition
+      case (predicate: ast.PredicateAccessPredicate, conditions) =>
+        predicate -> Expressions.makeOr(conditions)
     }
     // unfold leaf predicates
     predicates.foreach {

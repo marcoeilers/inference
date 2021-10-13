@@ -123,9 +123,13 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
               emitInhale(resource)
               emitUnfold(resource)
             }
-            // unfold predicates appearing in specification
+            // get body of instance
             val body = hypothesis.getBody(instance)
-            unfold(body, configuration.outputSimplification)
+            // get unfold depth
+            val depth = configuration.unfoldDepth
+            // unfold predicates appearing in specification
+            if (configuration.outputSimplification) simplified(unfold(body, depth))
+            else unfold(body, depth)
           case _ => // do nothing
         }
       case ast.Exhale(expression) =>

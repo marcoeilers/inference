@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.core.Hypothesis
-import inference.input.{Check, Configuration, Input}
+import inference.input.{Check, Input}
 import viper.silver.ast
 
 /**
@@ -24,14 +24,6 @@ trait GhostCode extends Builder with Simplification {
   protected def input: Input
 
   /**
-   * Returns the configuration.
-   *
-   * @return The configuration.
-   */
-  private def configuration: Configuration =
-    input.configuration
-
-  /**
    * Returns the check currently being processed.
    *
    * @return The current check.
@@ -39,28 +31,30 @@ trait GhostCode extends Builder with Simplification {
   protected def check: Check
 
   /**
-   * Unfolds the given expression.
+   * Recursively unfolds the given expression up to the given depth.
    *
    * @param expression The expression to unfold.
-   * @param simplify   The flag indicating whether the emitted code should be simplified.
+   * @param depth      The depth.
    * @param hypothesis The current hypothesis.
-   * @param default    The default action for leaf expressions.
    */
-  protected def unfold(expression: ast.Exp,
-                       simplify: Boolean = false)
-                      (implicit hypothesis: Hypothesis,
-                       default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
-    if (simplify) simplified(unfold(expression))
-    else {
-      val depth = configuration.unfoldDepth
-      recursiveUnfold(expression, depth)
+  protected def unfold(expression: ast.Exp, depth: Int)
+                      (implicit hypothesis: Hypothesis): Unit =
+    if (depth > 0) process(expression) {
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        // unfold predicate
+        emitUnfold(resource)
+        // recursively unfold nested predicate instances
+        val instance = input.instance(predicate)
+        val body = hypothesis.getBody(instance)
+        unfold(body, depth - 1)
+      case _ => // do nothing
     }
 
   /**
    * Recursively and adaptively folds the given expression up to the given depth and then exhales it.
    *
    * @param expression The expression to fold and exhale.
-   * @param depth      THe depth.
+   * @param depth      The depth.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to the fold or exhale statements.
    */
@@ -91,7 +85,7 @@ trait GhostCode extends Builder with Simplification {
         // conditionally fold predicate instance
         val condition = insufficient(resource)
         val body = makeScope {
-          // recursively establish nested resources
+          // recursively fold nested predicate instances
           val instance = input.instance(predicate)
           val body = hypothesis.getBody(instance)
           fold(body, depth - 1)
@@ -105,47 +99,7 @@ trait GhostCode extends Builder with Simplification {
         val condition = insufficient(resource)
         val body = makeScope(emitExhale(resource, info))
         emitConditional(condition, body)
-      case other => // do nothing
-    }
-
-  /**
-   * Recursively unfolds the given expression up to the given depth.
-   * TODO: Use process method?
-   *
-   * @param expression The expression to unfold.
-   * @param depth      The current depth.
-   * @param outer      The collected guards already handled by a conditional statement.
-   * @param guards     The collected guards not yet handled by a conditional statement.
-   * @param hypothesis The current hypothesis.
-   * @param default    The default action for leaf expressions.
-   */
-  protected def recursiveUnfold(expression: ast.Exp,
-                                depth: Int,
-                                outer: Seq[ast.Exp] = Seq.empty,
-                                guards: Seq[ast.Exp] = Seq.empty)
-                               (implicit hypothesis: Hypothesis,
-                                default: (ast.Exp, Seq[ast.Exp]) => Unit = (_, _) => ()): Unit =
-    expression match {
-      case ast.And(left, right) =>
-        recursiveUnfold(left, depth, outer, guards)
-        recursiveUnfold(right, depth, outer, guards)
-      case ast.Implies(left, right) =>
-        val updatedGuards = guards :+ left
-        recursiveUnfold(right, depth, outer, updatedGuards)
-      case resource@ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
-        // create unfolds
-        val unfolds = makeScope {
-          // unfold predicate
-          emitUnfold(resource)
-          // recursively unfold predicates appearing in body
-          val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          recursiveUnfold(body, depth - 1, outer ++ guards)
-        }
-        // conditionally unfold
-        emitConditional(guards, unfolds)
-      case other =>
-        default(other, outer ++ guards)
+      case _ => // do nothing
     }
 
 
