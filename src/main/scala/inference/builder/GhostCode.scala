@@ -95,12 +95,40 @@ trait GhostCode extends Builder with Simplification {
    */
   protected def fold(expression: ast.Exp, depth: Int)
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
-    if (depth > 0)
-      process(expression) {
-        case resource@ast.PredicateAccessPredicate(predicate, _) =>
-          val strategy = getStrategy(predicate, annotations)
-          foldWithStrategy(resource, depth, strategy)
-      }
+    process(expression) {
+      case ast.And(left, right) if depth > 0 =>
+        // fold left conjunct
+        fold(left, depth)
+        // temporarily take away predicate instances appearing in the left conjunct
+        val instances = collectInstances(left)
+        instances.foreach(emitExhale(_))
+        // fold right conjunct
+        fold(right, depth)
+        // re-add predicate instances
+        instances.foreach(emitInhale(_))
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        val strategy = getStrategy(predicate, annotations)
+        foldWithStrategy(resource, depth, strategy)
+    }
+
+  /**
+   * Collects all predicate instances appearing in the given expression.
+   *
+   * @param expression The expression.
+   * @return The predicate instances.
+   */
+  private def collectInstances(expression: ast.Exp): Seq[ast.Exp] =
+    expression match {
+      case _: ast.And =>
+        sys.error("Handle by re-associating conjuncts?!")
+      case ast.Implies(left, right) =>
+        val inner = collectInstances(right)
+        inner.map { instance => ast.Implies(left, instance)() }
+      case resource: ast.PredicateAccessPredicate =>
+        Seq(resource)
+      case _ =>
+        Seq.empty
+    }
 
   /**
    * Computes a fold strategy for the given predicate instance based on the given annotations.
