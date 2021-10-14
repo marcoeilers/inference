@@ -138,10 +138,10 @@ trait GhostCode extends Builder with Simplification {
     if (depth > 0)
       process(expression) {
         case resource@ast.PredicateAccessPredicate(predicate, _) =>
-          val condition = insufficient(resource)
-          val body = {
+          val foldCondition = insufficient(resource)
+          val foldBody = {
             // default strategy
-            val default = makeScope {
+            val defaultStrategy = makeScope {
               // recursively fold nested predicate instances
               val instance = input.instance(predicate)
               val body = hypothesis.getBody(instance)
@@ -152,19 +152,24 @@ trait GhostCode extends Builder with Simplification {
             // apply fold strategy
             strategy match {
               case DefaultStrategy =>
-                default
-              case AppendStrategy(_, old) =>
-                // TODO: Use condition?
+                defaultStrategy
+              case AppendStrategy(condition, old) =>
                 // get predicate arguments
                 val arguments = predicate.args
                 val Seq(start, end) = arguments
                 // condition under which to apply lemma
-                val condition = {
-                  val segment = Expressions.makeSegment(start, old)
-                  sufficient(segment)
+                val lemmaCondition = {
+                  // if the start and end parameter are equal we do not want to apply the lemma since the predicate
+                  // can trivially be folded
+                  val inequality = ast.NeCmp(start, end)()
+                  // the lemma application trigger is whether there is sufficient permission for the trimmed predicate
+                  val trimmed = Expressions.makeSegment(start, old)
+                  val trigger = sufficient(trimmed)
+                  // conjoin all partial conditions
+                  Expressions.makeAnd(Seq(condition, inequality, trigger))
                 }
                 // lemma application
-                val application = makeScope {
+                val lemmaApplication = makeScope {
                   // get lemma instance
                   val instance = {
                     val name = Names.appendLemma
@@ -173,12 +178,12 @@ trait GhostCode extends Builder with Simplification {
                   }
                   emitCall(instance)
                 }
-                Statements.makeConditional(condition, application, default)
+                Statements.makeConditional(lemmaCondition, lemmaApplication, defaultStrategy)
               case other =>
                 sys.error(s"Unexpected strategy: $other")
             }
           }
-          emitConditional(condition, body)
+          emitConditional(foldCondition, foldBody)
         case resource: ast.FieldAccessPredicate =>
           // TODO: Suppress in extended programs.
           // provoke a permission failure if there are insufficient permissions
