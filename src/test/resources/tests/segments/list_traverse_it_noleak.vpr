@@ -1,17 +1,15 @@
-field val: Int
 field next: Ref
+field val: Int
 
 method main(a: Ref)
 {
+    traverse(a)
+    traverse(a)
+}
+
+method traverse(a: Ref)
+{
     var c: Ref
-
-    c := a
-    while (c != null)
-    {
-        __append__(a, c)
-        c := c.next
-    }
-
     c := a
     while (c != null)
     {
