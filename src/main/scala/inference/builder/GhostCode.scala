@@ -51,16 +51,16 @@ trait GhostCode extends Builder with Simplification {
    */
   protected def unfold(expression: ast.Exp, depth: Int)
                       (implicit hypothesis: Hypothesis): Unit =
-    if (depth > 0) process(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
-        // unfold predicate
-        emitUnfold(resource)
-        // recursively unfold nested predicate instances
-        val instance = input.instance(predicate)
-        val body = hypothesis.getBody(instance)
-        unfold(body, depth - 1)
-      case _ => // do nothing
-    }
+    if (depth > 0)
+      process(expression) {
+        case resource@ast.PredicateAccessPredicate(predicate, _) =>
+          // unfold predicate
+          emitUnfold(resource)
+          // recursively unfold nested predicate instances
+          val instance = input.instance(predicate)
+          val body = hypothesis.getBody(instance)
+          unfold(body, depth - 1)
+      }
 
   /**
    * Recursively and adaptively folds the given expression up to the given depth and then exhales it.
@@ -77,8 +77,8 @@ trait GhostCode extends Builder with Simplification {
       case resource: ast.PredicateAccessPredicate =>
         fold(resource, depth)
         emitExhale(resource, info)
-      case other =>
-        emitExhale(other, info)
+      case resource: ast.FieldAccessPredicate =>
+        emitExhale(resource, info)
     }
 
   /**
@@ -97,8 +97,8 @@ trait GhostCode extends Builder with Simplification {
         case resource@ast.PredicateAccessPredicate(predicate, _) if configuration.useSegments && configuration.useAnnotations =>
           val strategy = getStrategy(predicate, annotations)
           foldWithStrategy(resource, depth, strategy)
-        case other =>
-          foldWithStrategy(other, depth, DefaultStrategy)
+        case resource: ast.AccessPredicate =>
+          foldWithStrategy(resource, depth, DefaultStrategy)
       }
 
   /**
@@ -190,18 +190,18 @@ trait GhostCode extends Builder with Simplification {
           val condition = insufficient(resource)
           val body = makeScope(emitExhale(resource, info))
           emitConditional(condition, body)
-        case _ => // do nothing
       }
 
   /**
-   * Processes the resources appearing in the given expression by applying the given action to them.
+   * Processes the given expression by applying the given action to them. By default conjunctions are processed one
+   * conjunct after another and implications are rewritten into conditionals.
    *
-   * @param expression The expression to express.
+   * @param expression The expression to process.
    * @param reverse    The flag indicating whether the order of conjuncts should be reversed.
-   * @param action     The action.
+   * @param action     The action to apply.
    */
-  private def process(expression: ast.Exp, reverse: Boolean = false)(action: ast.Exp => Unit): Unit =
-    expression match {
+  private def process(expression: ast.Exp, reverse: Boolean = false)(action: PartialFunction[ast.Exp, Unit]): Unit =
+    action.applyOrElse[ast.Exp, Unit](expression, {
       case ast.And(left, right) =>
         if (reverse) {
           process(right, reverse)(action)
@@ -213,9 +213,8 @@ trait GhostCode extends Builder with Simplification {
       case ast.Implies(left, right) =>
         val processed = makeScope(process(right, reverse)(action))
         emitConditional(left, processed)
-      case other =>
-        action(other)
-    }
+      case _ =>
+    })
 
   /**
    * Returns a condition capturing whether there are insufficient permissions for the given access.
@@ -254,7 +253,6 @@ trait GhostCode extends Builder with Simplification {
         val current = ast.CurrentPerm(access)()
         ast.PermGeCmp(current, permission)()
     }
-
 }
 
 /**
