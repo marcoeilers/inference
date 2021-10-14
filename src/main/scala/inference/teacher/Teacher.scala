@@ -63,7 +63,6 @@ class Teacher(protected val input: Input, verifier: Verifier) extends AbstractTe
   private def execute(query: Query, extract: VerificationError => Sample): Option[Seq[Sample]] = {
     // verify program
     val program = query.program
-    println(program)
     val result = verifier.verify(program)
     // extract sample from failure
     result match {
