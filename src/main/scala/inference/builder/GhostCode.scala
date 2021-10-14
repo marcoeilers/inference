@@ -74,8 +74,11 @@ trait GhostCode extends Builder with Simplification {
   protected def exhale(expression: ast.Exp, depth: Int)
                       (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     process(expression, reverse = true) {
-      case resource: ast.PredicateAccessPredicate =>
-        fold(resource, depth)
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        // fold predicate
+        val strategy = getStrategy(predicate, annotations)
+        foldWithStrategy(resource, depth, strategy)
+        // exhale predicate
         emitExhale(resource, info)
       case resource: ast.FieldAccessPredicate =>
         emitExhale(resource, info)
@@ -94,11 +97,9 @@ trait GhostCode extends Builder with Simplification {
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     if (depth > 0)
       process(expression) {
-        case resource@ast.PredicateAccessPredicate(predicate, _) if configuration.useSegments && configuration.useAnnotations =>
+        case resource@ast.PredicateAccessPredicate(predicate, _) =>
           val strategy = getStrategy(predicate, annotations)
           foldWithStrategy(resource, depth, strategy)
-        case resource: ast.AccessPredicate =>
-          foldWithStrategy(resource, depth, DefaultStrategy)
       }
 
   /**
@@ -108,21 +109,24 @@ trait GhostCode extends Builder with Simplification {
    * @param annotations The annotations.
    * @return The strategy.
    */
-  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy = {
-    val strategies = annotations
-      .map { annotation =>
-        if (annotation.isAppend) {
-          val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
-          val old = annotation.old(1)
-          AppendStrategy(condition, old)
-        } else {
-          sys.error(s"Unsupported annotation: $annotation")
+  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy =
+    if (configuration.useSegments && configuration.useAnnotations) {
+      val strategies = annotations
+        .map { annotation =>
+          if (annotation.isAppend) {
+            val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
+            val old = annotation.old(1)
+            AppendStrategy(condition, old)
+          } else {
+            sys.error(s"Unsupported annotation: $annotation")
+          }
         }
-      }
-    // TODO: Handle more than one annotations?
-    assert(strategies.length <= 1)
-    strategies.headOption.getOrElse(DefaultStrategy)
-  }
+      // TODO: Handle more than one annotations?
+      assert(strategies.length <= 1)
+      strategies.headOption.getOrElse(DefaultStrategy)
+    } else {
+      DefaultStrategy
+    }
 
   /**
    * Recursively and adaptively folds the given expression up to the given depth using the given strategy.
