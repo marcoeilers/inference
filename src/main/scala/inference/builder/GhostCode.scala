@@ -96,6 +96,10 @@ trait GhostCode extends Builder with Simplification {
   protected def fold(expression: ast.Exp, depth: Int)
                     (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
     process(expression) {
+      case ast.And(ast.And(first, second), right) if depth > 0 =>
+        // re-associate conjuncts
+        val rewritten = ast.And(first, ast.And(second, right)())()
+        fold(rewritten, depth)
       case ast.And(left, right) if depth > 0 =>
         // fold left conjunct
         fold(left, depth)
@@ -119,8 +123,10 @@ trait GhostCode extends Builder with Simplification {
    */
   private def collectInstances(expression: ast.Exp): Seq[ast.Exp] =
     expression match {
-      case _: ast.And =>
-        sys.error("Handle by re-associating conjuncts?!")
+      case ast.And(left, right) =>
+        val leftInstances = collectInstances(left)
+        val rightInstances = collectInstances(right)
+        leftInstances ++ rightInstances
       case ast.Implies(left, right) =>
         val inner = collectInstances(right)
         inner.map { instance => ast.Implies(left, instance)() }
