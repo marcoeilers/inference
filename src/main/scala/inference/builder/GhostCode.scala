@@ -70,13 +70,18 @@ trait GhostCode extends Builder with Simplification {
    * @param hypothesis  The current hypothesis.
    * @param annotations The annotations.
    * @param info        The info to attach to the fold or exhale statements.
+   * @param exhaled     The flag indicating whether the expression is being exhaled.
    */
   protected def exhale(expression: ast.Exp, depth: Int)
-                      (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
+                      (implicit hypothesis: Hypothesis,
+                       annotations: Seq[Annotation],
+                       info: ast.Info,
+                       exhaled: Boolean = true): Unit =
     process(expression, reverse = true) {
       case resource@ast.PredicateAccessPredicate(predicate, _) =>
         // fold predicate
         val strategy = getStrategy(predicate, annotations)
+        implicit val exhaled: Boolean = true
         foldWithStrategy(resource, depth, strategy)
         // exhale predicate
         emitExhale(resource, info)
@@ -92,74 +97,17 @@ trait GhostCode extends Builder with Simplification {
    * @param hypothesis  The current hypothesis.
    * @param annotations The annotations.
    * @param info        The info to attach to the fold statements.
+   * @param exhaled     The flag indicating whether the expression is being exhaled.
    */
   protected def fold(expression: ast.Exp, depth: Int)
-                    (implicit hypothesis: Hypothesis, annotations: Seq[Annotation], info: ast.Info): Unit =
-    process(expression) {
-      case ast.And(ast.And(first, second), right) if depth > 0 =>
-        // re-associate conjuncts
-        val rewritten = ast.And(first, ast.And(second, right)())()
-        fold(rewritten, depth)
-      case ast.And(left, right) if depth > 0 =>
-        // fold left conjunct
-        fold(left, depth)
-        // temporarily take away predicate instances appearing in the left conjunct
-        val instances = collectInstances(left)
-        instances.foreach(emitExhale(_))
-        // fold right conjunct
-        fold(right, depth)
-        // re-add predicate instances
-        instances.foreach(emitInhale(_))
+                    (implicit hypothesis: Hypothesis,
+                     annotations: Seq[Annotation],
+                     info: ast.Info,
+                     exhaled: Boolean = false): Unit =
+    processWithAdjustment(expression) {
       case resource@ast.PredicateAccessPredicate(predicate, _) =>
         val strategy = getStrategy(predicate, annotations)
         foldWithStrategy(resource, depth, strategy)
-    }
-
-  /**
-   * Collects all predicate instances appearing in the given expression.
-   *
-   * @param expression The expression.
-   * @return The predicate instances.
-   */
-  private def collectInstances(expression: ast.Exp): Seq[ast.Exp] =
-    expression match {
-      case ast.And(left, right) =>
-        val leftInstances = collectInstances(left)
-        val rightInstances = collectInstances(right)
-        leftInstances ++ rightInstances
-      case ast.Implies(left, right) =>
-        val inner = collectInstances(right)
-        inner.map { instance => ast.Implies(left, instance)() }
-      case resource: ast.PredicateAccessPredicate =>
-        Seq(resource)
-      case _ =>
-        Seq.empty
-    }
-
-  /**
-   * Computes a fold strategy for the given predicate instance based on the given annotations.
-   *
-   * @param predicate   The predicate.
-   * @param annotations The annotations.
-   * @return The strategy.
-   */
-  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy =
-    if (configuration.useSegments && configuration.useAnnotations) {
-      val strategies = annotations
-        .map { annotation =>
-          if (annotation.isAppend) {
-            val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
-            val old = annotation.old(1)
-            AppendStrategy(condition, old)
-          } else {
-            sys.error(s"Unsupported annotation: $annotation")
-          }
-        }
-      // TODO: Handle more than one annotations?
-      assert(strategies.length <= 1)
-      strategies.headOption.getOrElse(DefaultStrategy)
-    } else {
-      DefaultStrategy
     }
 
   /**
@@ -170,11 +118,12 @@ trait GhostCode extends Builder with Simplification {
    * @param strategy   The strategy.
    * @param hypothesis The current hypothesis.
    * @param info       The info to attach to the fold statements.
+   * @param exhaled    The flag indicating whether the expression is being exhaled.
    */
   private def foldWithStrategy(expression: ast.Exp, depth: Int, strategy: Strategy)
-                              (implicit hypothesis: Hypothesis, info: ast.Info): Unit =
+                              (implicit hypothesis: Hypothesis, info: ast.Info, exhaled: Boolean): Unit =
     if (depth > 0)
-      process(expression) {
+      processWithAdjustment(expression) {
         case resource@ast.PredicateAccessPredicate(predicate, _) =>
           val foldCondition = insufficient(resource)
           val foldBody = {
@@ -222,13 +171,41 @@ trait GhostCode extends Builder with Simplification {
             }
           }
           emitConditional(foldCondition, foldBody)
-        case resource: ast.FieldAccessPredicate =>
-          // TODO: Suppress in extended programs.
+        case resource: ast.FieldAccessPredicate if exhaled =>
           // provoke a permission failure if there are insufficient permissions
           val condition = insufficient(resource)
           val body = makeScope(emitExhale(resource, info))
           emitConditional(condition, body)
       }
+
+  /**
+   * Processes the given expression by applying the given action to them. By default conjunctions are processed one
+   * conjunct after another and implications are rewritten into conditionals.
+   *
+   * Moreover, if the expression is not being exhaled (indicated via implicitly passed flag), permissions for already
+   * processed conjuncts are temporarily taken away in order for the permission introspection to work properly.
+   *
+   * @param expression The expression to process.
+   * @param action     The action to apply.
+   * @param exhaled    The flag indicating whether the expression is being exhaled.
+   */
+  def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit])(implicit exhaled: Boolean): Unit =
+    process(expression)(action.orElse {
+      case ast.And(ast.And(first, second), right) if !exhaled =>
+        // re-associate conjuncts
+        val rewritten = ast.And(first, ast.And(second, right)())()
+        processWithAdjustment(rewritten)(action)
+      case ast.And(left, right) if !exhaled =>
+        // process left conjunct
+        processWithAdjustment(left)(action)
+        // temporarily take away predicate instances appearing in the left conjunct
+        val instances = collectInstances(left)
+        instances.foreach(emitExhale(_))
+        // process right conjunct
+        processWithAdjustment(right)(action)
+        // re-add predicate instances
+        instances.foreach(emitInhale(_))
+    })
 
   /**
    * Processes the given expression by applying the given action to them. By default conjunctions are processed one
@@ -241,18 +218,65 @@ trait GhostCode extends Builder with Simplification {
   private def process(expression: ast.Exp, reverse: Boolean = false)(action: PartialFunction[ast.Exp, Unit]): Unit =
     action.applyOrElse[ast.Exp, Unit](expression, {
       case ast.And(left, right) =>
-        if (reverse) {
-          process(right, reverse)(action)
-          process(left, reverse)(action)
-        } else {
-          process(left, reverse)(action)
-          process(right, reverse)(action)
-        }
+        // adjust order
+        val (first, second) =
+          if (reverse) (right, left)
+          else (left, right)
+        // process conjuncts
+        process(first, reverse)(action)
+        process(second, reverse)(action)
       case ast.Implies(left, right) =>
         val processed = makeScope(process(right, reverse)(action))
         emitConditional(left, processed)
       case _ =>
     })
+
+  /**
+   * Computes a fold strategy for the given predicate instance based on the given annotations.
+   *
+   * @param predicate   The predicate.
+   * @param annotations The annotations.
+   * @return The strategy.
+   */
+  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy =
+    if (configuration.useSegments && configuration.useAnnotations) {
+      val strategies = annotations
+        .map { annotation =>
+          if (annotation.isAppend) {
+            val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
+            val old = annotation.old(1)
+            AppendStrategy(condition, old)
+          } else {
+            sys.error(s"Unsupported annotation: $annotation")
+          }
+        }
+      // TODO: Handle more than one annotation?
+      assert(strategies.length <= 1)
+      strategies.headOption.getOrElse(DefaultStrategy)
+    } else {
+      DefaultStrategy
+    }
+
+  /**
+   * Collects all predicate instances appearing in the given expression.
+   *
+   * @param expression The expression.
+   * @return The predicate instances.
+   */
+  private def collectInstances(expression: ast.Exp): Seq[ast.Exp] =
+    expression match {
+      case ast.And(left, right) =>
+        val leftInstances = collectInstances(left)
+        val rightInstances = collectInstances(right)
+        leftInstances ++ rightInstances
+      case ast.Implies(left, right) =>
+        val inner = collectInstances(right)
+        inner.map { instance => ast.Implies(left, instance)() }
+      case resource: ast.PredicateAccessPredicate =>
+        Seq(resource)
+      case _ =>
+        Seq.empty
+    }
 
   /**
    * Returns a condition capturing whether there are insufficient permissions for the given access.
