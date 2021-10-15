@@ -383,18 +383,22 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // dummy statement
     val dummy = makeScope(emitInhale(ast.TrueLit()()))
     // branch on nullity
-    accesses.foreach {
-      case (access, effective) =>
-        val atom = ast.NeCmp(access, ast.NullLit()())()
-        val condition = ast.And(effective, atom)()
-        emitConditional(condition, dummy)
+    if (configuration.useNullityBranching) {
+      accesses.foreach {
+        case (access, effective) =>
+          val atom = ast.NeCmp(access, ast.NullLit()())()
+          val condition = ast.And(effective, atom)()
+          emitConditional(condition, dummy)
+      }
     }
     // branch on equality
-    Collections.pairs(accesses).foreach {
-      case ((access1, effective1), (access2, effective2)) =>
-        val atom = ast.NeCmp(access1, access2)()
-        val condition = Expressions.makeAnd(Seq(effective1, effective2, atom))
-        emitConditional(condition, dummy)
+    if (configuration.useEqualityBranching) {
+      Collections.pairs(accesses).foreach {
+        case ((access1, effective1), (access2, effective2)) =>
+          val atom = ast.NeCmp(access1, access2)()
+          val condition = Expressions.makeAnd(Seq(effective1, effective2, atom))
+          emitConditional(condition, dummy)
+      }
     }
   }
 

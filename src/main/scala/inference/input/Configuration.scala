@@ -39,7 +39,8 @@ case object Configuration {
       foldDelta = options.foldDelta(),
       useAnnotations = options.annotations(),
       useBatching = options.batching(),
-      useBranching = options.branching(),
+      useNullityBranching = options.nullityBranching(),
+      useEqualityBranching = options.equalityBranching(),
       useUpperbounds = options.upperbounds(),
       useSyntacticBounds = options.syntacticBounds(),
       useSemanticBounds = options.semanticBounds(),
@@ -91,7 +92,7 @@ case object Configuration {
         name = "escalation",
         descrYes = "Enables template complexity escalation.",
         descrNo = "Disables template complexity escalation.",
-        default = Some(false)
+        default = Some(true)
       )
 
     val maxLength: ScallopOption[Int] =
@@ -138,12 +139,21 @@ case object Configuration {
         hidden = true
       )
 
-    val branching: ScallopOption[Boolean] =
+    val nullityBranching: ScallopOption[Boolean] =
       toggle(
-        name = "branching",
-        descrYes = "Enables branching on atomic predicates.",
-        descrNo = "Disables branching on atomic predicates.",
+        name = "nullityBranching",
+        descrYes = "Enables branching on nullity.",
+        descrNo = "Disables branching on nullity.",
         default = Some(true),
+        hidden = true
+      )
+
+    val equalityBranching: ScallopOption[Boolean] =
+      toggle(
+        name = "equalityBranching",
+        descrYes = "Enables branching on equality.",
+        descrNo = "Disables branching on equality.",
+        default = Some(false),
         hidden = true
       )
 
@@ -237,7 +247,8 @@ case object Configuration {
  * @param foldDelta            The difference between the adaptive fold depth and the unfold depth.
  * @param useAnnotations       The flag indicating whether the use of annotations is enabled.
  * @param useBatching          The flag indicating whether batch processing of checks is enabled.
- * @param useBranching         The flag indicating whether branching is enabled.
+ * @param useNullityBranching  The flag indicating whether branching on nullity is enabled.
+ * @param useEqualityBranching The flag indicating whether branching on equality is enabled.
  * @param useUpperbounds       The flag indicating whether upper bound samples are enabled.
  * @param useSyntacticBounds   The flag indicating whether syntactic implicit upper bounds are enabled.
  * @param useSemanticBounds    The flag indicating whether semantic implicit upper bounds are enabled.
@@ -258,7 +269,8 @@ case class Configuration(inputOption: Option[String],
                          foldDelta: Int,
                          useAnnotations: Boolean,
                          useBatching: Boolean,
-                         useBranching: Boolean,
+                         useNullityBranching: Boolean,
+                         useEqualityBranching: Boolean,
                          useUpperbounds: Boolean,
                          useSyntacticBounds: Boolean,
                          useSemanticBounds: Boolean,
@@ -293,6 +305,14 @@ case class Configuration(inputOption: Option[String],
    */
   def foldDepth: Int =
     unfoldDepth + foldDelta
+
+  /**
+   * Returns whether some kind of branching is enabled.
+   *
+   * @return True if some branching is enabled.
+   */
+  def useBranching: Boolean =
+    useNullityBranching || useEqualityBranching
 
   /**
    * Returns whether the use of syntactic or semantic implicit upper bounds is enabled.
