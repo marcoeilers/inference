@@ -8,7 +8,6 @@ method traverse(a: Ref)
 {
     var c: Ref
     c := a
-    a := null
     while (c != null)
     {
         if (b(c)) {
