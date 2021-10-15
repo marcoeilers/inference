@@ -27,7 +27,7 @@ case object Configuration {
     val options = new OptionsParser(arguments)
     // create configuration object
     Configuration(
-      file = options.file(),
+      inputOption = options.file.toOption,
       z3Exe = options.z3Exe(),
       useRecursive = options.recursive(),
       useSegments = options.segments(),
@@ -225,7 +225,7 @@ case object Configuration {
 /**
  * A configuration object for the inference.
  *
- * @param file                 The path to the input file.
+ * @param inputOption          The path to the input file.
  * @param z3Exe                The path to the Z3 executable.
  * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
  * @param useSegments          The flag indicating whether the us of predicate segments is enabled.
@@ -246,7 +246,7 @@ case object Configuration {
  * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate is enabled.
  * @param stateConsolidation   The flag indicating whether Silicon's state consolidation is enabled.
  */
-case class Configuration(file: String,
+case class Configuration(inputOption: Option[String],
                          z3Exe: String,
                          useRecursive: Boolean,
                          useSegments: Boolean,
@@ -266,6 +266,26 @@ case class Configuration(file: String,
                          outputSimplification: Boolean,
                          choiceIntroduction: Boolean,
                          stateConsolidation: Boolean) {
+  /**
+   * Returns the path to the input file.
+   *
+   * @return The input file.
+   */
+  def input: String =
+    inputOption match {
+      case Some(file) => file
+      case None => sys.error("No input file specified.")
+    }
+
+  /**
+   * Returns a copy of this configuration with the input set to the given path.
+   *
+   * @param path The path to the input file.
+   * @return The updated configuration.
+   */
+  def withInput(path: String): Configuration =
+    copy(inputOption = Some(path))
+
   /**
    * Returns the depth up to which predicates should be adaptively folded.
    *
