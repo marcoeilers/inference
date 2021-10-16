@@ -150,8 +150,12 @@ trait GhostCode extends Builder with Simplification {
                   // can trivially be folded
                   val inequality = ast.NeCmp(start, end)()
                   // the lemma application trigger is whether there is sufficient permission for the trimmed predicate
-                  val trimmed = Expressions.makeSegment(start, old)
-                  val trigger = sufficient(trimmed)
+                  val trigger = {
+                    val trimmed = Expressions.makeSegment(start, old)
+                    val introspection = sufficient(trimmed)
+                    val conditions = getLinkConditions(old, end)
+                    Expressions.makeAnd(introspection +: conditions)
+                  }
                   // conjoin all partial conditions
                   Expressions.makeAnd(Seq(condition, inequality, trigger))
                 }
@@ -277,6 +281,26 @@ trait GhostCode extends Builder with Simplification {
       case _ =>
         Seq.empty
     }
+
+  /**
+   * Returns the conditions under which a link of a predicate segment can be form between the given two arguemtns.
+   *
+   * @param first      The first argument.
+   * @param second     The second argument.
+   * @param hypothesis The current hypothesis.
+   * @return The conditions.
+   */
+  private def getLinkConditions(first: ast.Exp, second: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
+    // get instance
+    val instance = {
+      val name = Names.recursive
+      val arguments = Seq(first, second)
+      input.instance(name, arguments)
+    }
+    // get links and convert them into conditions
+    val links = hypothesis.getLinks(instance)
+    links.map { link => ast.EqCmp(link, second)() }
+  }
 
   /**
    * Returns a condition capturing whether there are insufficient permissions for the given access.
