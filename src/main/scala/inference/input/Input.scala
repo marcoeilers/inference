@@ -29,7 +29,7 @@ object Input extends CheckBuilder {
    */
   def fromConfiguration(configuration: Configuration): Input = {
     // parse input program
-    val file = configuration.file
+    val file = configuration.input
     val program = parse(file)
     // build checks
     val (placeholders, checks) = buildChecks(configuration, program)
