@@ -210,7 +210,7 @@ trait CheckBuilder extends Builder with Atoms {
    */
   private def processBody(body: ast.Seqn)(emitter: => Unit): ast.Seqn = {
     // collect statements and annotations
-    val (statements, annotations) = scpoedAnnotations {
+    val (statements, annotations) = scopedAnnotations {
       scoped(emitter)
     }
     // initialize variables used for annotations
@@ -271,8 +271,8 @@ trait CheckBuilder extends Builder with Atoms {
         emit(processed)
       case conditional@ast.If(_, thenBranch, elseBranch) =>
         // process branches
-        val (thenProcessed, thenAnnotations) = scpoedAnnotations(processSequence(thenBranch, declarations))
-        val (elseProcessed, elseAnnotations) = scpoedAnnotations(processSequence(elseBranch, declarations))
+        val (thenProcessed, thenAnnotations) = scopedAnnotations(processSequence(thenBranch, declarations))
+        val (elseProcessed, elseAnnotations) = scopedAnnotations(processSequence(elseBranch, declarations))
         // update conditional
         val processed = conditional.copy(
           thn = thenProcessed,
@@ -350,7 +350,7 @@ trait CheckBuilder extends Builder with Atoms {
    * @tparam R The type of the result.
    * @return The result and the collected annotations.
    */
-  private def scpoedAnnotations[R](method: => R): (R, Seq[Annotation]) = {
+  private def scopedAnnotations[R](method: => R): (R, Seq[Annotation]) = {
     // save and reset annotations
     val outer = annotations
     val inner = ListBuffer.empty[Annotation]
