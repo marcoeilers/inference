@@ -14,12 +14,12 @@ import viper.silver.ast
 /**
  * A ghost code annotation.
  *
- * @param name       The name of the annotation.
- * @param arguments  The arguments for which the annotation is meant.
- * @param old        The variables holding the old values of the arguments.
- * @param conditions The conditions under which the annotation is relevant.
+ * @param name      The name of the annotation.
+ * @param arguments The arguments for which the annotation is meant.
+ * @param old       The variables holding the old values of the arguments.
+ * @param flag      The variable used to flag whether the annotation is relevant.
  */
-case class Annotation(name: String, arguments: Seq[ast.Exp], old: Seq[ast.LocalVar], conditions: Seq[ast.Exp] = Seq.empty) {
+case class Annotation(name: String, arguments: Seq[ast.Exp], old: Seq[ast.LocalVar], flag: ast.LocalVar) {
   /**
    * Returns whether this is an append annotation.
    *
@@ -37,13 +37,4 @@ case class Annotation(name: String, arguments: Seq[ast.Exp], old: Seq[ast.LocalV
   @inline
   def isConcat: Boolean =
     name == Names.concatAnnotation
-
-  /**
-   * Returns the annotation with the given condition added.
-   *
-   * @param condition The condition to add.
-   * @return The updated annotation.
-   */
-  def withCondition(condition: ast.Exp): Annotation =
-    copy(conditions = condition +: conditions)
 }

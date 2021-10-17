@@ -247,7 +247,8 @@ trait GhostCode extends Builder with Simplification {
       val strategies = annotations
         .map { annotation =>
           if (annotation.isAppend) {
-            val condition = Expressions.makeEqual(predicate.args, annotation.arguments)
+            val equality = Expressions.makeEqual(predicate.args, annotation.arguments)
+            val condition = ast.And(annotation.flag, equality)()
             val old = annotation.old(1)
             AppendStrategy(condition, old)
           } else {

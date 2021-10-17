@@ -155,16 +155,14 @@ trait CheckBuilder extends Builder with Atoms {
         val name = method.name
         val (precondition, postcondition) = specifications(name)
         // process method body
-        val (processed, _) = scpoedAnnotations {
-          updateScope(body) {
-            // inhale precondition
-            instrumented(emitInhale(precondition.asResource))
-            // process statements
-            val declarations = method.formalArgs ++ method.formalReturns
-            processStatements(body, declarations)
-            // exhale postcondition
-            instrumented(emitExhale(postcondition.asResource))
-          }
+        val processed = processBody(body) {
+          // inhale precondition
+          instrumented(emitInhale(precondition.asResource))
+          // process statements
+          val declarations = method.formalArgs ++ method.formalReturns
+          processStatements(body, declarations)
+          // exhale postcondition
+          instrumented(emitExhale(postcondition.asResource))
         }
         // create check corresponding to method
         val check = MethodCheck(method, precondition, postcondition, processed)
@@ -186,15 +184,13 @@ trait CheckBuilder extends Builder with Atoms {
     // process loop body
     val body = loop.body
     val invariant = placeholder.asResource
-    val (processed, _) = scpoedAnnotations {
-      updateScope(body) {
-        instrumented {
-          emitInhale(invariant)
-          emitInhale(loop.cond)
-        }
-        processStatements(body, declarations)
-        instrumented(emitExhale(invariant))
+    val processed = processBody(body) {
+      instrumented {
+        emitInhale(invariant)
+        emitInhale(loop.cond)
       }
+      processStatements(body, declarations)
+      instrumented(emitExhale(invariant))
     }
     // create check corresponding to loop
     val name = namespace.uniqueIdentifier("loop")
@@ -202,6 +198,32 @@ trait CheckBuilder extends Builder with Atoms {
     checks.append(check)
     // return check
     check
+  }
+
+  /**
+   * Processes the given body by replacing its statement by the statements emitted by the given method. Moreover it
+   * ensures that all variables used for annotations are initialized properly.
+   *
+   * @param body    The body.
+   * @param emitter The statement emitting method.
+   * @return The updated body.
+   */
+  private def processBody(body: ast.Seqn)(emitter: => Unit): ast.Seqn = {
+    // collect statements and annotations
+    val (statements, annotations) = scpoedAnnotations {
+      scoped(emitter)
+    }
+    // initialize variables used for annotations
+    val initialization = scoped {
+      annotations.foreach { annotation =>
+        val variable = annotation.flag
+        val value = ast.FalseLit()()
+        emitAssignment(variable, value)
+      }
+    }
+    // update body
+    val all = initialization ++ statements
+    body.copy(ss = all)(body.pos, body.info, body.errT)
   }
 
   /**
@@ -247,7 +269,7 @@ trait CheckBuilder extends Builder with Atoms {
         // process sequence
         val processed = processSequence(sequence, declarations)
         emit(processed)
-      case conditional@ast.If(condition, thenBranch, elseBranch) =>
+      case conditional@ast.If(_, thenBranch, elseBranch) =>
         // process branches
         val (thenProcessed, thenAnnotations) = scpoedAnnotations(processSequence(thenBranch, declarations))
         val (elseProcessed, elseAnnotations) = scpoedAnnotations(processSequence(elseBranch, declarations))
@@ -257,8 +279,7 @@ trait CheckBuilder extends Builder with Atoms {
           els = elseProcessed
         )(conditional.pos, conditional.info, conditional.errT)
         emit(processed)
-        thenAnnotations.foreach { annotation => addAnnotation(annotation.withCondition(condition)) }
-        elseAnnotations.foreach { annotation => addAnnotation(annotation.withCondition(ast.Not(condition)())) }
+        addAnnotations(thenAnnotations ++ elseAnnotations)
       case loop@ast.While(condition, _, _) =>
         // create check corresponding to loop
         val check = processLoop(loop, declarations)
@@ -273,8 +294,9 @@ trait CheckBuilder extends Builder with Atoms {
       case call@ast.MethodCall(name, arguments, targets) =>
         if (Names.isAnnotation(name)) {
           // process annotation
+          val flag = save(ast.TrueLit()())
           val old = arguments.map(save)
-          val annotation = Annotation(name, arguments, old)
+          val annotation = Annotation(name, arguments, old, flag)
           addAnnotation(annotation)
         } else {
           // instrument method call
@@ -370,8 +392,18 @@ trait CheckBuilder extends Builder with Atoms {
   /**
    * Adds the given annotations.
    *
+   * @param annotations The annotations to add.
+   */
+  @inline
+  private def addAnnotations(annotations: Seq[Annotation]): Unit =
+    annotations.foreach(addAnnotation)
+
+  /**
+   * Adds the given annotation.
+   *
    * @param annotation The annotation to add.
    */
+  @inline
   private def addAnnotation(annotation: Annotation): Unit =
     annotations.append(annotation)
 }
