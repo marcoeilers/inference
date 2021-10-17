@@ -169,10 +169,11 @@ trait TemplateGenerator extends AbstractLearner {
         val truncated = Truncated(condition, body)
         PredicateTemplate(placeholder, truncated)
       }
-      // create template for append lemma
-      val lemma = createAppendLemma(predicate)
-      // return both templates
-      Seq(predicate, lemma)
+      // create template for lemmas
+      val appendLemma = createAppendLemma(predicate)
+      val concatLemma = createConcatLemma(predicate)
+      // return all templates
+      Seq(predicate, appendLemma, concatLemma)
     } else {
       // create and return template
       val predicate = PredicateTemplate(placeholder, body)
@@ -298,7 +299,7 @@ trait TemplateGenerator extends AbstractLearner {
           Truncated(instantiated, processed)
       }
 
-    // create lemma pre- and postcondition
+    // create template expression for lemma precondition
     val precondition = {
       val segment = Expressions.makeSegment(start, stop)
       val wrapped = wrap(segment)
@@ -306,8 +307,35 @@ trait TemplateGenerator extends AbstractLearner {
       val conjuncts = Seq(wrapped, link)
       Conjunction(conjuncts)
     }
+    // create template expression for lemma postcondition
     val postcondition = {
       val segment = Expressions.makeSegment(start, next)
+      wrap(segment)
+    }
+    // create lemma template
+    LemmaTemplate(placeholder, precondition, postcondition)
+  }
+
+  /**
+   * Creates a template for the concat lemma based on the given template for the recursive predicate.
+   *
+   * @param template The template for the recursive predicate.
+   * @return The template for the concat lemma.
+   */
+  private def createConcatLemma(template: PredicateTemplate): Template = {
+    // get placeholder and parameters
+    val placeholder = input.placeholder(Names.concatLemma)
+    val Seq(start, middle, end) = placeholder.variables
+    // create template expression for lemma precondition
+    val precondition = {
+      val first = Expressions.makeSegment(start, middle)
+      val second = Expressions.makeSegment(middle, end)
+      val conjuncts = Seq(wrap(first), wrap(second))
+      Conjunction(conjuncts)
+    }
+    // create template expression for lemma postcondition
+    val postcondition = {
+      val segment = Expressions.makeSegment(start, end)
       wrap(segment)
     }
     // create lemma template

@@ -22,7 +22,7 @@ import viper.silver.ast
  * @param atoms      The atomic predicates that may be used for the specification.
  * @param existing   The existing partial specification.
  */
-case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDecl], atoms: Seq[ast.Exp], existing: Seq[ast.Exp]) {
+case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDecl], atoms: Seq[ast.Exp], existing: Seq[ast.Exp] = Seq.empty) {
   /**
    * The variables corresponding to the parameters.
    */
@@ -182,7 +182,7 @@ sealed trait Instance {
   /**
    * Returns a predicate access predicate corresponding to this instance.
    *
-   * @return THe predicate access predicate.
+   * @return The predicate access predicate.
    */
   def asResource: ast.PredicateAccessPredicate = {
     val predicate = ast.PredicateAccess(arguments, name)()
