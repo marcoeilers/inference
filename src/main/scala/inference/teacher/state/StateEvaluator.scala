@@ -8,29 +8,81 @@
 
 package inference.teacher.state
 
+import inference.teacher.state.StateEvaluator.{Heap, Store}
 import inference.util.ast.Infos
+import viper.silicon.interfaces.SiliconNativeCounterexample
+import viper.silicon.interfaces.state.Chunk
 import viper.silver.ast
 import viper.silicon.resources.FieldID
 import viper.silicon.state.terms
 import viper.silicon.state.terms.sorts
-import viper.silicon.state.{BasicChunk, State}
+import viper.silicon.state.BasicChunk
 
 /**
- * A state evaluator.
- *
- * @param label The label of the state snapshot.
- * @param state The silicon state.
- * @param model The model evaluator.
+ * State evaluator companion object.
  */
-case class StateEvaluator(label: Option[String], state: State, model: ModelEvaluator) {
+object StateEvaluator {
   /**
-   * The precomputed heap map.
+   * Type shorthand for counter examples.
    */
-  private[state] val map = label
-    .map(state.oldHeaps)
-    .getOrElse(state.h)
-    .values
-    .foldLeft(Map.empty[String, Map[String, String]]) {
+  private type Counter = SiliconNativeCounterexample
+
+  /**
+   * The type shortcut for stores.
+   */
+  type Store = Map[String, String]
+
+  /**
+   * The type shortcut for heaps.
+   */
+  type Heap = Map[String, Map[String, String]]
+
+  /**
+   * Extracts a state evaluator for the state with the given label from the given counter-example.
+   *
+   * @param label   The label of the state.
+   * @param counter The counter-example.
+   * @return The state evaluator.
+   */
+  def apply(label: String, counter: Counter): StateEvaluator = {
+    val model = ModelEvaluator(counter.model)
+    val store = processStore(counter.store, model)
+    val heap = {
+      val native = counter.oldHeaps(label)
+      processHeap(native, model)
+    }
+    StateEvaluator(Some(label), store, heap, model)
+  }
+
+  /**
+   * Helper method that processes the given Silicon store.
+   *
+   * @param store The store to process.
+   * @param model The model.
+   * @return The processed store.
+   */
+  def processStore(store: Map[String, terms.Term], model: ModelEvaluator): Store = {
+    store.flatMap { case (name, term) =>
+      term.sort match {
+        case sorts.Ref =>
+          val value = model.evaluateReference(term)
+          Some(name -> value)
+        case _ =>
+          // ignore non-reference variables
+          None
+      }
+    }
+  }
+
+  /**
+   * Helper method that processes the given Silicon heap.
+   *
+   * @param heap  The heap to process.
+   * @param model The model.
+   * @return The processed heap.
+   */
+  def processHeap(heap: Iterable[Chunk], model: ModelEvaluator): Heap =
+    heap.foldLeft(Map.empty: Heap) {
       case (result, chunk: BasicChunk) if chunk.resourceID == FieldID =>
         val term = chunk.snap
         term.sort match {
@@ -45,34 +97,40 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
             // update heap
             result.updated(receiver, fields)
           case _ =>
-            // do nothing
+            // ignore non-reference fields
             result
         }
       case (result, _) =>
         result
     }
+}
 
+/**
+ * A state evaluator.
+ *
+ * @param label The label of the state snapshot.
+ * @param store The store.
+ * @param heap  The heap.
+ * @param model The model evaluator.
+ */
+case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model: ModelEvaluator) {
   /**
    * Returns the value associated with the given variable.
    *
    * @param variable The variable to look up.
    * @return The value.
    */
-  private def store(variable: ast.LocalVar): String = {
-    // adapt variable to state (if necessary)
-    val adapted = label match {
+  private def lookup(variable: ast.LocalVar): String = {
+    // get variable name
+    val name = label match {
       case Some(label) if !Infos.isSaved(variable) =>
-        // adapt variable
-        val name = s"${label}_${variable.name}"
-        val typ = variable.typ
-        ast.LocalVar(name, typ)()
+        // adapt name
+        s"${label}_${variable.name}"
       case _ =>
-        // no adaptation needed
-        variable
+        variable.name
     }
-    // evaluate variable
-    val term = state.g(adapted)
-    model.evaluateReference(term)
+    // lookup value
+    store(name)
   }
 
   /**
@@ -82,8 +140,8 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
    * @param field The field.
    * @return The value.
    */
-  def heapOption(node: String, field: String): Option[String] =
-    map
+  private def lookup(node: String, field: String): Option[String] =
+    heap
       .get(node)
       .flatMap(_.get(field))
 
@@ -168,11 +226,11 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
         val value = model.evaluateReference(terms.Null())
         Some(value)
       case variable: ast.LocalVar =>
-        val value = store(variable)
+        val value = lookup(variable)
         Some(value)
       case ast.FieldAccess(receiver, field) =>
         val value = evaluateReferenceOption(receiver)
-        value.flatMap { node => heapOption(node, field.name) }
+        value.flatMap { node => lookup(node, field.name) }
       case other =>
         sys.error(s"Unexpected expression: $other")
     }
@@ -189,9 +247,9 @@ case class StateEvaluator(label: Option[String], state: State, model: ModelEvalu
       case ast.NullLit() =>
         model.evaluateReference(terms.Null())
       case variable: ast.LocalVar =>
-        store(variable)
+        lookup(variable)
       case ast.FieldAccess(receiver, ast.Field(field, _)) =>
         val receiverValue = evaluateReference(receiver)
-        map(receiverValue)(field)
+        heap(receiverValue)(field)
     }
 }

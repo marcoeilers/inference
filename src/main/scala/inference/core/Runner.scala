@@ -35,7 +35,7 @@ trait Runner[R] extends Inference {
     // pass arguments
     val arguments = Seq(
       "--z3Exe", configuration.z3Exe,
-      "--counterexample", "raw",
+      "--counterexample", "native",
       "--enableMoreCompleteExhale",
       "--ignoreFile", "dummy.vpr")
     instance.parseCommandLine(arguments)

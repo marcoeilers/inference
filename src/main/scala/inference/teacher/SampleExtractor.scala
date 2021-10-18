@@ -14,7 +14,7 @@ import inference.core.sample._
 import inference.input.{Configuration, Input}
 import inference.teacher.state._
 import inference.util.ast.InferenceInfo
-import viper.silicon.interfaces.SiliconRawCounterexample
+import viper.silicon.interfaces.SiliconNativeCounterexample
 import viper.silver.ast
 import viper.silver.verifier.VerificationError
 import viper.silver.verifier.reasons.InsufficientPermission
@@ -28,7 +28,7 @@ trait SampleExtractor {
   /**
    * Type shorthand for counter examples.
    */
-  private type Counter = SiliconRawCounterexample
+  private type Counter = SiliconNativeCounterexample
 
   /**
    * Returns the logger.
@@ -67,7 +67,7 @@ trait SampleExtractor {
 
     // get label and instance
     val (label, instance) = {
-      val heaps = counter.state.oldHeaps
+      val heaps = counter.oldHeaps
       query
         .snapshots
         .filter { case (label, _) => heaps.contains(label) }
@@ -76,8 +76,7 @@ trait SampleExtractor {
 
     // compute state abstraction
     val state = {
-      val model = ModelEvaluator(counter.model)
-      val state = StateEvaluator(Some(label), counter.state, model)
+      val state = StateEvaluator(label, counter)
       val snapshot = Snapshot(instance, state)
       StateAbstraction(snapshot)
     }
@@ -123,9 +122,9 @@ trait SampleExtractor {
     val offending = extractOffending(error)
     val info = extractInfo(error)
 
-    // get silicon state and model
-    val siliconState = counter.state
+    // get model and store
     val model = ModelEvaluator(counter.model)
+    val store = StateEvaluator.processStore(counter.store, model)
 
     // get state snapshots
     val (failingSnapshot, otherSnapshots) = {
@@ -133,10 +132,15 @@ trait SampleExtractor {
       val snapshots = query
         .snapshots
         .flatMap {
-          case (name, instance) if siliconState.oldHeaps.contains(name) =>
-            val state = StateEvaluator(Some(name), siliconState, model)
-            val snapshot = Snapshot(instance, state)
-            Some(snapshot)
+          case (label, instance) =>
+            counter
+              .oldHeaps
+              .get(label)
+              .map { native =>
+                val heap = StateEvaluator.processHeap(native, model)
+                val state = StateEvaluator(Some(label), store, heap, model)
+                Snapshot(instance, state)
+              }
           case _ => None
         }
       // return current and other snapshots
@@ -153,7 +157,9 @@ trait SampleExtractor {
     // failing state
     val failState = failingSnapshot match {
       case Some(snapshot) => snapshot.state
-      case None => StateEvaluator(None, siliconState, model)
+      case None =>
+        val heap = StateEvaluator.processHeap(counter.heap, model)
+        StateEvaluator(None, store, heap, model)
     }
 
     /**
