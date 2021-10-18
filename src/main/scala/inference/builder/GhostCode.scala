@@ -14,8 +14,6 @@ import inference.input.{Annotation, Check, Configuration, Input}
 import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
-import scala.annotation.tailrec
-
 /**
  * A mixin providing methods to emit ghost code.
  */
@@ -152,7 +150,10 @@ trait GhostCode extends Builder with Simplification {
                 // get strategy using lemma
                 val lemmaStrategy = makeScope {
                   val obligations = strategy.obligations(start, end)
-                  // TODO: Obligations
+                  obligations.foreach { obligation =>
+                    val depth = configuration.foldDepth
+                    foldWithStrategy(obligation, depth, DefaultStrategy)
+                  }
                   // emit lemma application
                   val lemma = strategy.lemma(start, end)
                   emitCall(lemma)
