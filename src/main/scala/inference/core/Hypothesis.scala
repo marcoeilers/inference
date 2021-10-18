@@ -44,21 +44,9 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
   def getPredicate(placeholder: Placeholder): ast.Predicate = {
     val name = placeholder.name
     val parameters = placeholder.parameters
-    val body = getBody(name)
+    val body = getBody(placeholder.asInstance)
     ast.Predicate(name, parameters, Some(body))()
   }
-
-  /**
-   * Returns the inferred specification corresponding to the placeholder with the given name.
-   *
-   * @param name The name of the placeholder.
-   * @return The inferred specification.
-   */
-  def getBody(name: String): ast.Exp =
-    predicateMap
-      .get(name)
-      .flatMap(_.body)
-      .getOrElse(ast.TrueLit()())
 
   /**
    * Returns the inferred specification corresponding to the given placeholder instance.
@@ -68,8 +56,22 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
    */
   def getBody(instance: Instance): ast.Exp = {
     val body = getBody(instance.name)
-    instance.instantiate(body)
+    val inferred = instance.instantiate(body)
+    val existing = instance.existing
+    Expressions.makeAnd(inferred +: existing)
   }
+
+  /**
+   * Returns the inferred specification corresponding to the placeholder with the given name.
+   *
+   * @param name The name of the placeholder.
+   * @return The inferred specification.
+   */
+  private def getBody(name: String): ast.Exp =
+    predicateMap
+      .get(name)
+      .flatMap(_.body)
+      .getOrElse(ast.TrueLit()())
 
   /**
    * Returns the lemma method with the given name.

@@ -31,6 +31,7 @@ class Teacher(protected val input: Input, verifier: Verifier) extends AbstractTe
    * @return The extracted samples or nothing.
    */
   private def basicChecks(hypothesis: Hypothesis): Option[Seq[Sample]] = {
+    logger.info("basic check:")
     val batches = input.batches
     val empty = Option(Seq.empty[Sample])
     batches.foldRight(empty) {
@@ -48,6 +49,7 @@ class Teacher(protected val input: Input, verifier: Verifier) extends AbstractTe
    * @return The extracted samples.
    */
   private def framingCheck(hypothesis: Hypothesis): Seq[Sample] = {
+    logger.info("framing check:")
     val query = framingQuery(hypothesis)
     execute(query, error => extractFramingSample(query, error)).get
   }

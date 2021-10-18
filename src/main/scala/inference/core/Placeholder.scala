@@ -9,7 +9,7 @@
 package inference.core
 
 import inference.Names
-import inference.core.Kind.{Kind, Lemma, Predicate}
+import inference.core.Kind.{Invariant, Kind, Lemma, Postcondition, Precondition, Predicate}
 import inference.core.sample.{AccessAbstraction, ExplicitSet, FieldAbstraction, PredicateAbstraction, ResourceAbstraction}
 import viper.silver.ast
 
@@ -30,17 +30,17 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
     parameters.map(_.localVar)
 
   /**
-   * Returns whether this specification placeholder corresponds to the recursive predicate.
+   * Returns whether this placeholder corresponds to a specification.
    *
-   * @return True if the specification placeholder corresponds to the recursive predicate.
+   * @return True if this placeholder corresponds to a specification.
    */
-  def isRecursive: Boolean =
-    Names.isRecursive(name)
+  def isSpecification: Boolean =
+    kind == Precondition || kind == Postcondition || kind == Invariant || kind == Predicate
 
   /**
    * Returns whether this placeholder corresponds to a predicate.
    *
-   * @return True if this placeholder corresponds to a predicat.
+   * @return True if this placeholder corresponds to a predicate.
    */
   def isPredicate: Boolean =
     kind == Predicate
@@ -52,6 +52,14 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
    */
   def isLemma: Boolean =
     kind == Lemma
+
+  /**
+   * Returns whether this specification placeholder corresponds to the recursive predicate.
+   *
+   * @return True if the specification placeholder corresponds to the recursive predicate.
+   */
+  def isRecursive: Boolean =
+    isPredicate && Names.isRecursive(name)
 
   /**
    * Returns an instance of the specification placeholder.
@@ -99,6 +107,16 @@ sealed trait Instance {
    */
   def name: String =
     placeholder.name
+
+  /**
+   * Returns the existing partial specification.
+   *
+   * @return The existing partial specification.
+   */
+  def existing: Seq[ast.Exp] =
+    placeholder
+      .existing
+      .map(instantiate)
 
   /**
    * Returns whether this is an instance of the recursive predicate.

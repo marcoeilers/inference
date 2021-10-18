@@ -85,19 +85,23 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       }
 
     // create methods (one for each specification)
-    val methods = hypothesis
-      .predicates
-      .map { case ast.Predicate(name, arguments, Some(specification)) =>
-        // create method inhaling the specification
-        val unique = namespace.uniqueIdentifier(name = s"check_$name", None)
+    val methods = input
+      .placeholders
+      .filter(_.isSpecification)
+      .map { placeholder =>
+        // create body inhaling the specification
         val body = makeScope {
           // save state snapshot
-          val instance = input.placeholder(name).asInstance
+          val instance = placeholder.asInstance
           saveSnapshot(instance)
           // inhale specification
+          val specification = hypothesis.getBody(instance)
           inhale(specification)
         }
-        ast.Method(unique, arguments, Seq.empty, Seq.empty, Seq.empty, Some(body))()
+        // create method
+        val name = namespace.uniqueIdentifier(name = s"check_${placeholder.name}", None)
+        val parameters = placeholder.parameters
+        ast.Method(name, parameters, Seq.empty, Seq.empty, Seq.empty, Some(body))()
       }
 
     // create program
@@ -126,7 +130,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     // create predicates
     val predicates =
       input.placeholders.flatMap { placeholder =>
-        if (placeholder.isPredicate) {
+        if (placeholder.isSpecification) {
           val predicate = hypothesis.getPredicate(placeholder)
           Some(predicate)
         } else {

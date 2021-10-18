@@ -9,6 +9,7 @@
 package inference.teacher
 
 import com.typesafe.scalalogging.Logger
+import inference.Names
 import inference.core.{Hypothesis, Instance}
 import inference.core.sample._
 import inference.input.{Configuration, Input}
@@ -80,27 +81,32 @@ trait SampleExtractor {
       val snapshot = Snapshot(instance, state)
       StateAbstraction(snapshot)
     }
+    val snapshot = Snapshot(instance, state.state)
+
+    /**
+     * Helper function that creates a lower bound for the given location.
+     *
+     * @param location The location.
+     * @return The lower bound.
+     */
+    def lower(location: ast.LocationAccess): LowerBound = {
+      val placeholder = instance.placeholder
+      val adaptor = Adaptor(state.state, snapshot)
+      val resource = abstractLocation(location, adaptor)
+      val record = InhaledRecord(placeholder, state, resource, 0)
+      LowerBound(record)
+    }
 
     // create sample
-    val sample = {
-      // get specification placeholder
-      val placeholder = instance.placeholder
-      val snapshot = Snapshot(instance, state.state)
-      val adaptor = Adaptor(state.state, snapshot)
-      // create left-hand side of implication
-      val left = {
-        val resource = abstractLocation(reason, adaptor)
-        val record = InhaledRecord(placeholder, state, resource, 0)
-        LowerBound(record)
-      }
-      // create right-hand side of implication
-      val right = {
-        val resource = abstractLocation(offending, adaptor)
-        val record = InhaledRecord(placeholder, state, resource, 0)
-        LowerBound(record)
-      }
-      // create implication sample
-      Implication(left, right)
+    val sample = reason match {
+      case Some(reason) =>
+        // create implication sample
+        val left = lower(reason)
+        val right = lower(offending)
+        Implication(left, right)
+      case None =>
+        // create lower bound sample
+        lower(offending)
     }
 
     // return sample
@@ -281,7 +287,7 @@ trait SampleExtractor {
    * @param error The verification error.
    * @return The reason.
    */
-  private def extractReason(error: VerificationError): ast.LocationAccess = {
+  private def extractReason(error: VerificationError): Option[ast.LocationAccess] = {
     /**
      * Helper method that strips conditions guarding the reason.
      *
@@ -289,16 +295,20 @@ trait SampleExtractor {
      * @return The stripped reason.
      */
     @tailrec
-    def strip(expression: ast.Exp): ast.LocationAccess =
+    def stripGuards(expression: ast.Exp): Option[ast.LocationAccess] =
       expression match {
-        case ast.Implies(_, right) => strip(right)
-        case ast.PredicateAccessPredicate(predicate, _) => predicate
-        case other => sys.error(s"Unexpected expression: $other")
+        case ast.Implies(_, right) =>
+          stripGuards(right)
+        case ast.PredicateAccessPredicate(predicate, _) =>
+          assert(Names.isRecursive(predicate.predicateName))
+          Some(predicate)
+        case other =>
+          None
       }
 
     // extract reason
     error.offendingNode match {
-      case ast.Inhale(expression) => strip(expression)
+      case ast.Inhale(expression) => stripGuards(expression)
       case other => sys.error(s"Unexpected offending node: $other")
     }
   }
