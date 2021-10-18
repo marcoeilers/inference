@@ -365,8 +365,7 @@ trait TemplateGenerator extends AbstractLearner {
   private def wrap(expression: ast.Exp): TemplateExpression = {
     // process expression by making sure accesses are turned into resources
     val processed = expression match {
-      case field: ast.FieldAccess => ast.FieldAccessPredicate(field, ast.FullPerm()())()
-      case predicate: ast.PredicateAccess => ast.PredicateAccessPredicate(predicate, ast.FullPerm()())()
+      case access: ast.LocationAccess => Expressions.makeResource(access)
       case other => other
     }
     // wrap processed expression

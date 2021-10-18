@@ -16,10 +16,10 @@ import viper.silver.ast
  *
  * @param name      The name of the annotation.
  * @param arguments The arguments for which the annotation is meant.
- * @param old       The variables holding the old values of the arguments.
+ * @param saved     The variables holding the old values of the arguments.
  * @param flag      The variable used to flag whether the annotation is relevant.
  */
-case class Annotation(name: String, arguments: Seq[ast.Exp], old: Seq[ast.LocalVar], flag: ast.LocalVar) {
+case class Annotation(name: String, arguments: Seq[ast.Exp], saved: Seq[ast.LocalVar], flag: ast.LocalVar) {
   /**
    * Returns whether this is an append annotation.
    *

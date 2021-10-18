@@ -9,7 +9,7 @@
 package inference.builder
 
 import inference.Names
-import inference.core.Hypothesis
+import inference.core.{Hypothesis, Instance}
 import inference.input.{Annotation, Check, Configuration, Input}
 import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
@@ -125,7 +125,7 @@ trait GhostCode extends Builder with Simplification {
     if (depth > 0)
       processWithAdjustment(expression) {
         case resource@ast.PredicateAccessPredicate(predicate, _) =>
-          val foldCondition = insufficient(resource)
+          val foldCondition = Expressions.makeInsufficient(resource)
           val foldBody = {
             // default strategy
             val defaultStrategy = makeScope {
@@ -140,36 +140,25 @@ trait GhostCode extends Builder with Simplification {
             strategy match {
               case DefaultStrategy =>
                 defaultStrategy
-              case AppendStrategy(condition, old) =>
+              case strategy: LemmaStrategy =>
                 // get predicate arguments
                 val arguments = predicate.args
                 val Seq(start, end) = arguments
-                // condition under which to apply lemma
-                val lemmaCondition = {
-                  // if the start and end parameter are equal we do not want to apply the lemma since the predicate
-                  // can trivially be folded
-                  val inequality = ast.NeCmp(start, end)()
-                  // the lemma application trigger is whether there is sufficient permission for the trimmed predicate
-                  val trigger = {
-                    val trimmed = Expressions.makeSegment(start, old)
-                    val introspection = sufficient(trimmed)
-                    val conditions = getLinkConditions(old, end)
-                    Expressions.makeAnd(introspection +: conditions)
-                  }
-                  // conjoin all partial conditions
-                  Expressions.makeAnd(Seq(condition, inequality, trigger))
+                // get condition under which to apply lemma
+                val condition = {
+                  val triggers = strategy.triggers(start, end)
+                  Expressions.makeAnd(triggers)
                 }
-                // lemma application
-                val lemmaApplication = makeScope {
-                  // get lemma instance
-                  val instance = {
-                    val name = Names.appendLemma
-                    val arguments = Seq(start, old, end)
-                    input.instance(name, arguments)
-                  }
-                  emitCall(instance)
+                // get strategy using lemma
+                val lemmaStrategy = makeScope {
+                  val obligations = strategy.obligations(start, end)
+                  // TODO: Obligations
+                  // emit lemma application
+                  val lemma = strategy.lemma(start, end)
+                  emitCall(lemma)
                 }
-                Statements.makeConditional(lemmaCondition, lemmaApplication, defaultStrategy)
+                // conditionally apply lemma
+                Statements.makeConditional(condition, lemmaStrategy, defaultStrategy)
               case other =>
                 sys.error(s"Unexpected strategy: $other")
             }
@@ -177,7 +166,7 @@ trait GhostCode extends Builder with Simplification {
           emitConditional(foldCondition, foldBody)
         case resource: ast.FieldAccessPredicate if exhaled =>
           // provoke a permission failure if there are insufficient permissions
-          val condition = insufficient(resource)
+          val condition = Expressions.makeInsufficient(resource)
           val body = makeScope(emitExhale(resource, info))
           emitConditional(condition, body)
       }
@@ -247,10 +236,24 @@ trait GhostCode extends Builder with Simplification {
       val strategies = annotations
         .map { annotation =>
           if (annotation.isAppend) {
-            val equality = Expressions.makeEqual(predicate.args, annotation.arguments)
+            val equality = {
+              val segmentArguments = annotation.arguments
+              Expressions.makeEqual(predicate.args, segmentArguments)
+            }
             val condition = ast.And(annotation.flag, equality)()
-            val old = annotation.old(1)
-            AppendStrategy(condition, old)
+            val middle = annotation.saved(1)
+            AppendStrategy(condition, middle)
+          } else if (annotation.isConcat) {
+            val equality = {
+              val arguments = annotation.arguments
+              val first = arguments.head
+              val third = arguments(2)
+              val segmentArguments = Seq(first, third)
+              Expressions.makeEqual(predicate.args, segmentArguments)
+            }
+            val condition = ast.And(annotation.flag, equality)()
+            val middle = annotation.saved(1)
+            ConcatStrategy(condition, middle)
           } else {
             sys.error(s"Unsupported annotation: $annotation")
           }
@@ -284,78 +287,106 @@ trait GhostCode extends Builder with Simplification {
     }
 
   /**
-   * Returns the conditions under which a link of a predicate segment can be form between the given two arguemtns.
-   *
-   * @param first      The first argument.
-   * @param second     The second argument.
-   * @param hypothesis The current hypothesis.
-   * @return The conditions.
+   * A fold strategy.
    */
-  private def getLinkConditions(first: ast.Exp, second: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
-    // get instance
-    val instance = {
-      val name = Names.recursive
-      val arguments = Seq(first, second)
-      input.instance(name, arguments)
-    }
-    // get links and convert them into conditions
-    val links = hypothesis.getLinks(instance)
-    links.map { link => ast.EqCmp(link, second)() }
+  sealed trait Strategy
+
+  /**
+   * The default fold strategy.
+   */
+  case object DefaultStrategy extends Strategy
+
+  /**
+   * A strategy that allows the use of a lemma.
+   */
+  trait LemmaStrategy extends Strategy {
+    /**
+     * The condition that triggers the use of the lemma for the segment with the given start and end parameters.
+     *
+     * @param start      The start parameter.
+     * @param end        The end parameter.
+     * @param hypothesis The current hypothesis.
+     * @return The trigger conditions.
+     */
+    def triggers(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp]
+
+    /**
+     * The obligations for the use of the lemma for the segment with the given start and end parameters. Obligations are
+     * essentially the difference between the triggers and the lemma preconditions.
+     *
+     * @param start      The start parameter.
+     * @param end        The end parameter.
+     * @param hypothesis The current hypothesis.
+     * @return The obligations.
+     */
+    def obligations(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp]
+
+    /**
+     * The lemma instance that may be used for the segment with the given start and end parameters.
+     *
+     * @param start The start parameter.
+     * @param end   The end parameter.
+     * @return The lemma instance.
+     */
+    def lemma(start: ast.Exp, end: ast.Exp): Instance
   }
 
   /**
-   * Returns a condition capturing whether there are insufficient permissions for the given access.
+   * A strategy that allows the use of the append lemma.
    *
-   * @param access     The access.
-   * @param permission The permission amount.
-   * @return The condition.
+   * @param condition The condition under which the lemma may be applied.
+   * @param middle    The middle parameter of the lemma.
    */
-  @tailrec
-  private def insufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
-    access match {
-      case ast.FieldAccessPredicate(field, permission) =>
-        insufficient(field, permission)
-      case ast.PredicateAccessPredicate(predicate, permission) =>
-        insufficient(predicate, permission)
-      case access: ast.ResourceAccess =>
-        val current = ast.CurrentPerm(access)()
-        ast.PermLtCmp(current, permission)()
+  case class AppendStrategy(condition: ast.Exp, middle: ast.Exp) extends LemmaStrategy {
+    override def triggers(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
+      // require sufficient permission for the segment from the start to the middle
+      val sufficient = {
+        val segment = Expressions.makeSegment(start, middle)
+        Expressions.makeSufficient(segment)
+      }
+      // get link conditions
+      val links = {
+        val arguments = Seq(middle, end)
+        val instance = input.instance(Names.recursive, arguments)
+        hypothesis
+          .getLinks(instance)
+          .map { link => ast.EqCmp(link, end)() }
+      }
+      // combine all conditions
+      Seq(condition, sufficient) ++ links
     }
+
+    override def obligations(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] =
+      Seq.empty
+
+    override def lemma(start: ast.Exp, end: ast.Exp): Instance = {
+      val arguments = Seq(start, middle, end)
+      input.instance(Names.appendLemma, arguments)
+    }
+  }
 
   /**
-   * Returns a condition capturing whether there are sufficient permissions for the given access.
+   * A strategy that allows the use of the concat lemma.
    *
-   * @param access     The access.
-   * @param permission The permission amount.
-   * @return The condition.
+   * @param condition The condition under which the lemma may be applied.
+   * @param middle    The middle parameter of the lemma.
    */
-  @tailrec
-  private def sufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
-    access match {
-      case ast.FieldAccessPredicate(field, permission) =>
-        sufficient(field, permission)
-      case ast.FieldAccessPredicate(predicate, permission) =>
-        sufficient(predicate, permission)
-      case access: ast.ResourceAccess =>
-        val current = ast.CurrentPerm(access)()
-        ast.PermGeCmp(current, permission)()
+  case class ConcatStrategy(condition: ast.Exp, middle: ast.Exp) extends LemmaStrategy {
+    override def triggers(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
+      val segment = Expressions.makeSegment(start, middle)
+      val sufficient = Expressions.makeSufficient(segment)
+      Seq(condition, sufficient)
     }
+
+    override def obligations(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
+      val segment = Expressions.makeSegment(middle, end)
+      val resource = Expressions.makeResource(segment)
+      Seq(resource)
+    }
+
+    override def lemma(start: ast.Exp, end: ast.Exp): Instance = {
+      val arguments = Seq(start, middle, end)
+      input.instance(Names.concatLemma, arguments)
+    }
+  }
 }
-
-/**
- * A fold strategy.
- */
-sealed trait Strategy
-
-/**
- * The default fold strategy.
- */
-case object DefaultStrategy extends Strategy
-
-/**
- * The fold strategy allowing the use of the append lemma.
- *
- * @param condition The condition under which the lemma may be applied.
- * @param old       The old end parameter.
- */
-case class AppendStrategy(condition: ast.Exp, old: ast.Exp) extends Strategy

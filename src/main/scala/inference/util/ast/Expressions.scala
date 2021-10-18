@@ -13,6 +13,8 @@ import inference.util.collections.Collections
 import viper.silver.ast
 import viper.silver.ast.utility.rewriter.Traverse
 
+import scala.annotation.tailrec
+
 object Expressions {
   /**
    * Returns the length of the given access path.
@@ -58,6 +60,17 @@ object Expressions {
   @inline
   def makeRecursive(arguments: Seq[ast.Exp]): ast.PredicateAccess =
     ast.PredicateAccess(arguments, Names.recursive)()
+
+  /**
+   * Returns a resource corresponding to the given location access.
+   * @param access The location access.
+   * @return The resource
+   */
+  def makeResource(access: ast.LocationAccess): ast.AccessPredicate =
+    access match {
+      case field: ast.FieldAccess => ast.FieldAccessPredicate(field, ast.FullPerm()())()
+      case predicate: ast.PredicateAccess => ast.PredicateAccessPredicate(predicate, ast.FullPerm()())()
+    }
 
   /**
    * Returns the conjunction of the given expressions.
@@ -130,6 +143,44 @@ object Expressions {
     expressions
       .reduceOption(ast.Add(_, _)())
       .getOrElse(ast.IntLit(0)())
+
+  /**
+   * Returns a condition capturing whether there are insufficient permissions for the given access.
+   *
+   * @param access     The access.
+   * @param permission The permission amount.
+   * @return The condition.
+   */
+  @tailrec
+  def makeInsufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
+    access match {
+      case ast.FieldAccessPredicate(field, permission) =>
+        makeInsufficient(field, permission)
+      case ast.PredicateAccessPredicate(predicate, permission) =>
+        makeInsufficient(predicate, permission)
+      case access: ast.ResourceAccess =>
+        val current = ast.CurrentPerm(access)()
+        ast.PermLtCmp(current, permission)()
+    }
+
+  /**
+   * Returns a condition capturing whether there are sufficient permissions for the given access.
+   *
+   * @param access     The access.
+   * @param permission The permission amount.
+   * @return The condition.
+   */
+  @tailrec
+  def makeSufficient(access: ast.Exp, permission: ast.Exp = ast.FullPerm()()): ast.Exp =
+    access match {
+      case ast.FieldAccessPredicate(field, permission) =>
+        makeSufficient(field, permission)
+      case ast.FieldAccessPredicate(predicate, permission) =>
+        makeSufficient(predicate, permission)
+      case access: ast.ResourceAccess =>
+        val current = ast.CurrentPerm(access)()
+        ast.PermGeCmp(current, permission)()
+    }
 
   /**
    * Simplifies the given expression.
