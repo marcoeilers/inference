@@ -340,7 +340,9 @@ trait GhostCode extends Builder with Simplification {
    */
   case class AppendStrategy(condition: ast.Exp, middle: ast.Exp) extends LemmaStrategy {
     override def triggers(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
-      // require sufficient permission for the segment from the start to the middle
+      // if the start and end parameter are equal the segment can be folded trivially
+      val inequality = ast.NeCmp(start, end)()
+      // require sufficient permissions for the segment from the start to the middle parameter
       val sufficient = {
         val segment = Expressions.makeSegment(start, middle)
         Expressions.makeSufficient(segment)
@@ -354,7 +356,7 @@ trait GhostCode extends Builder with Simplification {
           .map { link => ast.EqCmp(link, end)() }
       }
       // combine all conditions
-      Seq(condition, sufficient) ++ links
+      Seq(condition, inequality, sufficient) ++ links
     }
 
     override def obligations(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] =
@@ -374,9 +376,13 @@ trait GhostCode extends Builder with Simplification {
    */
   case class ConcatStrategy(condition: ast.Exp, middle: ast.Exp) extends LemmaStrategy {
     override def triggers(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
+      // if the start and end parameter are equal the segment can be folded trivially
+      val inequality = ast.NeCmp(start, end)()
+      // require sufficient permissions for the segment from the start to the middle parameter
       val segment = Expressions.makeSegment(start, middle)
       val sufficient = Expressions.makeSufficient(segment)
-      Seq(condition, sufficient)
+      // combine all conditions
+      Seq(condition, inequality, sufficient)
     }
 
     override def obligations(start: ast.Exp, end: ast.Exp)(implicit hypothesis: Hypothesis): Seq[ast.Exp] = {
