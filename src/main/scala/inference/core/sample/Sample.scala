@@ -129,7 +129,7 @@ case class InhaledRecord(placeholder: Placeholder, state: StateAbstraction, reso
     amount
 
   override def toString: String =
-    s"inhale@${placeholder.name}: $state -> $resource"
+    s"inhale@${placeholder.name}: $state -> $resource [$amount]"
 }
 
 /**
@@ -145,5 +145,5 @@ case class ExhaledRecord(placeholder: Placeholder, state: StateAbstraction, reso
     -amount
 
   override def toString: String =
-    s"exhale@${placeholder.name}: $state -> $resource"
+    s"exhale@${placeholder.name}: $state -> $resource [$amount]"
 }
