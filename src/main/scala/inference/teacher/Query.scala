@@ -48,15 +48,4 @@ class Query(val program: ast.Program,
    */
   def isExhaled(name: String): Boolean =
     exhaled.contains(name)
-
-  /**
-   * Returns the specification corresponding to the given state snapshot.
-   *
-   * @param snapshot The state snapshot.
-   * @return The specification.
-   */
-  def specification(snapshot: Snapshot): ast.Exp = {
-    val instance = snapshot.instance
-    hypothesis.getBody(instance)
-  }
 }

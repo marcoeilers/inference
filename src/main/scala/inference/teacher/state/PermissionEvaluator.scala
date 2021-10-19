@@ -31,7 +31,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
    * @return The permission amount.
    */
   def evaluate(resource: ResourceAbstraction, instance: Instance, depth: Int): Int = {
-    val specification = hypothesis.getBody(instance)
+    val specification = hypothesis.getInferred(instance)
     evaluate(resource, specification, depth)
   }
 
@@ -71,8 +71,8 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
           case resource: FieldAbstraction =>
             if (depth > 0) {
               val instance = input.instance(access)
-              val body = hypothesis.getBody(instance)
-              evaluate(resource, body, depth - 1)
+              val nested = hypothesis.getInferred(instance)
+              evaluate(resource, nested, depth - 1)
             } else 0
           case PredicateAbstraction(name, arguments) =>
             // lazily compute whether all arguments are equal
@@ -85,8 +85,8 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
               // TODO: Implement me properly
               if (depth > 0) {
                 val instance = input.instance(access)
-                val body = hypothesis.getBody(instance)
-                evaluate(resource, body, depth - 1)
+                val nested = hypothesis.getInferred(instance)
+                evaluate(resource, nested, depth - 1)
               } else 0
             }
         }

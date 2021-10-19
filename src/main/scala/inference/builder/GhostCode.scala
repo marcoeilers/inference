@@ -56,8 +56,8 @@ trait GhostCode extends Builder with Simplification {
           emitUnfold(resource)
           // recursively unfold nested predicate instances
           val instance = input.instance(predicate)
-          val body = hypothesis.getBody(instance)
-          unfold(body, depth - 1)
+          val nested = hypothesis.getInferred(instance)
+          unfold(nested, depth - 1)
       }
 
   /**
@@ -129,8 +129,8 @@ trait GhostCode extends Builder with Simplification {
             val defaultStrategy = makeScope {
               // recursively fold nested predicate instances
               val instance = input.instance(predicate)
-              val body = hypothesis.getBody(instance)
-              foldWithStrategy(body, depth - 1, strategy)
+              val nested = hypothesis.getInferred(instance)
+              foldWithStrategy(nested, depth - 1, strategy)
               // fold predicate instance
               emitFold(resource, info)
             }

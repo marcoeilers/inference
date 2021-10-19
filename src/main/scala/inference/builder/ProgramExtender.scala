@@ -91,8 +91,8 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
     // get method specification
     val name = method.name
     val check = input.methodCheck(name)
-    val precondition = hypothesis.getBody(check.precondition.asInstance)
-    val postcondition = hypothesis.getBody(check.postcondition.asInstance)
+    val preconditions = hypothesis.getSpecifications(check.precondition.asInstance)
+    val postconditions = hypothesis.getSpecifications(check.postcondition.asInstance)
     // extend method body
     val body = {
       val extended = extendCheck(check)
@@ -100,8 +100,8 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
     }
     // update method
     method.copy(
-      pres = Seq(precondition),
-      posts = Seq(postcondition),
+      pres = preconditions,
+      posts = postconditions,
       body = Some(body)
     )(method.pos, method.info, method.errT)
   }
@@ -123,27 +123,25 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
               emitInhale(resource)
               emitUnfold(resource)
             }
-            // get body of instance
-            val body = hypothesis.getBody(instance)
-            // get unfold depth
-            val depth = configuration.unfoldDepth
+            // get inferred specifications
+            val inferred = hypothesis.getInferred(instance)
             // unfold predicates appearing in specification
-            if (configuration.outputSimplification) simplified(unfold(body, depth))
-            else unfold(body, depth)
+            val depth = configuration.unfoldDepth
+            if (configuration.outputSimplification) simplified(unfold(inferred, depth))
+            else unfold(inferred, depth)
           case _ => // do nothing
         }
       case ast.Exhale(expression) =>
         expression match {
           case resource@ast.PredicateAccessPredicate(predicate, _) =>
             val instance = input.instance(predicate)
-            // get body of instance
-            val body = hypothesis.getBody(instance)
-            // get fold depth
-            val depth = configuration.foldDepth
+            // get inferred specification
+            val inferred = hypothesis.getInferred(instance)
             // fold predicates appearing in specification
+            val depth = configuration.foldDepth
             implicit val info: ast.Info = ast.NoInfo
-            if (configuration.outputSimplification) simplified(fold(body, depth))
-            else fold(body, depth)
+            if (configuration.outputSimplification) simplified(fold(inferred, depth))
+            else fold(inferred, depth)
             // check if this is a user-defined predicate
             if (instance.isPredicate) {
               // fold and exhale predicate
@@ -159,14 +157,14 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
   override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {
     // get loop specification
     val check = cut.loop
-    val invariant = hypothesis.getBody(check.invariant.asInstance)
+    val invariants = hypothesis.getSpecifications(check.invariant.asInstance)
     // extend loop body
     val body = extendCheck(check)
     // update loop
     val extended = {
       val original = check.original
       original.copy(
-        invs = Seq(invariant),
+        invs = invariants,
         body = body
       )(original.pos, original.info, original.errT)
     }

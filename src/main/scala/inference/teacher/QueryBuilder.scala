@@ -95,8 +95,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
           val instance = placeholder.asInstance
           saveSnapshot(instance)
           // inhale specification
-          val specification = hypothesis.getBody(instance)
-          inhale(specification)
+          val specifications = hypothesis.getSpecifications(instance)
+          specifications.foreach { specification => inhale(specification) }
         }
         // create method
         val name = namespace.uniqueIdentifier(name = s"check_${placeholder.name}", None)
@@ -251,16 +251,16 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param hypothesis The implicitly passed current hypothesis.
    */
   private def inhaleInstance(instance: Instance)(implicit hypothesis: Hypothesis, hints: Seq[Annotation]): Unit = {
-    // get body of instance
-    val body = hypothesis.getBody(instance)
+    // get inferred specifications
+    val inferred = hypothesis.getInferred(instance)
     // inhale specification
     val depth = configuration.unfoldDepth
     val inhales = commented(instance.toString) {
-      // inhale body
-      emitInhale(body)
-      // unfold body
-      if (configuration.querySimplification) simplified(unfold(body, depth))
-      else unfold(body, depth)
+      // inhale inferred specification
+      emitInhale(inferred)
+      // unfold inferred specification
+      if (configuration.querySimplification) simplified(unfold(inferred, depth))
+      else unfold(inferred, depth)
       // handle existing specification
       instance
         .existing
@@ -268,7 +268,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     }
     emit(inhales)
     // lazily compute leaves
-    lazy val leaves = collectLeaves(body, depth)
+    lazy val leaves = collectLeaves(inferred, depth)
     // branch on accesses
     if (configuration.useBranching) {
       branch(instance, leaves)
@@ -296,14 +296,13 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       instance
         .existing
         .foreach { condition => emitExhale(condition) }
-      // get body of instance
-      val body = hypothesis.getBody(instance)
-      // get fold depth
+      // get inferred specification
+      val inferred = hypothesis.getInferred(instance)
+      // fold and exhale inferred specification
       val depth = configuration.foldDepth
-      // fold and exhale body
       implicit val info: ast.Info = InstanceInfo(instance)
-      if (configuration.querySimplification) simplified(exhale(body, depth))
-      else exhale(body, depth)
+      if (configuration.querySimplification) simplified(exhale(inferred, depth))
+      else exhale(inferred, depth)
     }
     emit(exhales)
   }
@@ -360,8 +359,8 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         collectLeaves(right, depth, updatedGuards)
       case ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
         val instance = input.instance(predicate)
-        val body = hypothesis.getBody(instance)
-        collectLeaves(body, depth - 1, guards)
+        val nested = hypothesis.getInferred(instance)
+        collectLeaves(nested, depth - 1, guards)
       case leaf: ast.AccessPredicate =>
         val condition = Expressions.makeAnd(guards)
         Map(leaf -> Seq(condition))
