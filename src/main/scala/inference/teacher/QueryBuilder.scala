@@ -261,6 +261,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       // unfold body
       if (configuration.querySimplification) simplified(unfold(body, depth))
       else unfold(body, depth)
+      // handle existing specification
+      instance
+        .existing
+        .foreach { condition => emitInhale(condition) }
     }
     emit(inhales)
     // lazily compute leaves
@@ -288,6 +292,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     saveSnapshot(instance, exhaled = true)
     // exhale specification
     val exhales = commented(instance.toString) {
+      // handle existing specification
+      instance
+        .existing
+        .foreach { condition => emitExhale(condition) }
       // get body of instance
       val body = hypothesis.getBody(instance)
       // get fold depth
