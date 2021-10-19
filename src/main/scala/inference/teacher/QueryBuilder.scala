@@ -94,6 +94,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
           // save state snapshot
           val instance = placeholder.asInstance
           saveSnapshot(instance)
+          // branch on accesses
+          if (configuration.useBranching) {
+            branch(instance)
+          }
           // inhale specification
           val specifications = hypothesis.getSpecifications(instance)
           specifications.foreach { specification => inhale(specification) }
@@ -375,7 +379,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param instance The instance.
    * @param leaves   The map containing all leaves.
    */
-  private def branch(instance: Instance, leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]]): Unit = {
+  private def branch(instance: Instance, leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]] = Map.empty): Unit = {
     // collected accesses
     val accesses = {
       // variables appearing in instance
