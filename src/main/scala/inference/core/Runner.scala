@@ -104,21 +104,23 @@ trait Runner[R] extends Inference {
    * @param solver   The solver.
    * @return The result.
    */
-  def run(input: Input)(implicit verifier: Verifier, solver: Solver): Option[R] = {
+  def run(input: Input)
+         (implicit verifier: Verifier, solver: Solver): Option[R] = {
     val hypothesis = infer(input)
-    result(input, hypothesis)
+    process(input, hypothesis)
   }
 
   /**
-   * Computes the result from the given input and inferred hypothesis.
+   * Processes the the inferred result.
    *
-   * @param input      The input.
-   * @param hypothesis The inferred hypothesis.
-   * @param verifier   The verifier.
-   * @param solver     The solver.
+   * @param input    The input.
+   * @param result   The inferred hypothesis and some statistics.
+   * @param verifier The verifier.
+   * @param solver   The solver.
    * @return The result.
    */
-  def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[R]
+  def process(input: Input, result: Option[(Hypothesis, Statistics)])
+             (implicit verifier: Verifier, solver: Solver): Option[R]
 
   /**
    * Extends the program corresponding to the given input with the specifications represented by the given hypothesis.
@@ -137,12 +139,15 @@ trait Runner[R] extends Inference {
  * An inference runner that prints the inferred hypothesis.
  */
 trait PrintRunner extends Runner[Unit] {
-  override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Unit] = {
-    hypothesis match {
-      case Some(hypothesis) =>
+  override def process(input: Input, result: Option[(Hypothesis, Statistics)])
+                      (implicit verifier: Verifier, solver: Solver): Option[Unit] = {
+    result match {
+      case Some((hypothesis, statistics: Statistics)) =>
         // extend input program
         val extended = extend(input, hypothesis)
         // print extended program
+        println(s"iterations: ${statistics.iterations}")
+        println(s"samples: ${statistics.samples}")
         println(extended)
         Some()
       case None =>
@@ -156,8 +161,9 @@ trait PrintRunner extends Runner[Unit] {
  * An inference runner that verifiers the program annotated with the inferred specification.
  */
 trait TestRunner extends Runner[Boolean] {
-  override def result(input: Input, hypothesis: Option[Hypothesis])(implicit verifier: Verifier, solver: Solver): Option[Boolean] =
-    hypothesis.map { hypothesis =>
+  override def process(input: Input, result: Option[(Hypothesis, Statistics)])
+                      (implicit verifier: Verifier, solver: Solver): Option[Boolean] =
+    result.map { case (hypothesis, _) =>
       // extend input program
       val extended = extend(input, hypothesis)
       // verify extended program

@@ -14,6 +14,9 @@ import inference.input.{Configuration, Input}
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 /**
  * An abstract inference.
  */
@@ -50,9 +53,9 @@ trait Inference {
    * @param input    The input.
    * @param verifier The verifier used by the teacher to check hypotheses.
    * @param solver   The solver used by the learner to generate hypotheses.
-   * @return The inferred hypothesis.
+   * @return The inferred hypothesis and some statistics.
    */
-  def infer(input: Input)(implicit verifier: Verifier, solver: Solver): Option[Hypothesis] = {
+  def infer(input: Input)(implicit verifier: Verifier, solver: Solver): Option[(Hypothesis, Statistics)] = {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
@@ -64,15 +67,20 @@ trait Inference {
      *
      * @param hypothesis The current hypothesis.
      * @param iteration  The current iteration number.
-     * @return The final hypothesis
+     * @return The final hypothesis and some statistics.
      */
-    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Option[Hypothesis] = {
+    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Option[(Hypothesis, Statistics)] = {
       logger.info(s"iteration #$iteration")
       // check hypothesis
       val samples = teacher.check(hypothesis)
       // check if there are new samples
       if (samples.isEmpty || iteration >= max) {
-        Some(hypothesis)
+        // collect statistics
+        val statistics = {
+          val samples = learner.samples.size
+          Statistics(iteration, samples)
+        }
+        Some(hypothesis, statistics)
       } else {
         // add samples to learner
         learner.addSamples(samples)
@@ -144,10 +152,10 @@ trait AbstractLearner {
   protected var level: Int = 0
 
   /**
-   * The sequence of samples.
+   * The buffer used to accumulate samples
    */
-  protected var samples: Seq[Sample] =
-    Seq.empty
+  private val buffer: mutable.Buffer[Sample] =
+    ListBuffer.empty
 
   /**
    * Returns whether there is a higher template complexity level.
@@ -178,7 +186,7 @@ trait AbstractLearner {
    * @param sample The sample to add.
    */
   def addSample(sample: Sample): Unit =
-    samples = samples :+ sample
+    buffer.append(sample)
 
   /**
    * Adds the given samples.
@@ -189,9 +197,25 @@ trait AbstractLearner {
     samples.foreach(addSample)
 
   /**
+   * Returns all samples.
+   *
+   * @return The samples.
+   */
+  def samples: Seq[Sample] =
+    buffer.toSeq
+
+  /**
    * Returns a hypothesis that is consistent with all samples.
    *
    * @return The hypothesis.
    */
   def hypothesis: Option[Hypothesis]
 }
+
+/**
+ * An object carrying statistical information.
+ *
+ * @param iterations The number of iterations.
+ * @param samples    The number of samples.
+ */
+case class Statistics(iterations: Int, samples: Int)
