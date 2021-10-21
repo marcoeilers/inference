@@ -11,6 +11,7 @@ package inference.core
 import com.typesafe.scalalogging.Logger
 import inference.core.sample.Sample
 import inference.input.{Configuration, Input}
+import inference.util.Timing
 import inference.util.solver.Solver
 import viper.silver.verifier.Verifier
 
@@ -55,7 +56,7 @@ trait Inference {
    * @param solver   The solver used by the learner to generate hypotheses.
    * @return The inferred hypothesis and some statistics.
    */
-  def infer(input: Input)(implicit verifier: Verifier, solver: Solver): Option[(Hypothesis, Statistics)] = {
+  def infer(input: Input)(implicit verifier: Verifier with Timing, solver: Solver with Timing): Option[(Hypothesis, Statistics)] = {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
@@ -78,7 +79,9 @@ trait Inference {
         // collect statistics
         val statistics = {
           val samples = learner.samples.size
-          Statistics(iteration, samples)
+          val verifierTimes = verifier.times
+          val solverTimes = solver.times
+          Statistics(iteration, samples, verifierTimes, solverTimes)
         }
         Some(hypothesis, statistics)
       } else {
@@ -215,7 +218,25 @@ trait AbstractLearner {
 /**
  * An object carrying statistical information.
  *
- * @param iterations The number of iterations.
- * @param samples    The number of samples.
+ * @param iterations    The number of iterations.
+ * @param samples       The number of samples.
+ * @param verifierTimes The times spent by the verifier.
+ * @param solverTimes   The times spent by the solver.
  */
-case class Statistics(iterations: Int, samples: Int)
+case class Statistics(iterations: Int, samples: Int, verifierTimes: Seq[Long], solverTimes: Seq[Long]) {
+  /**
+   * Returns the total verifier time.
+   *
+   * @return The verifier time.
+   */
+  def verifierTime: Long =
+    verifierTimes.sum
+
+  /**
+   * Returns the total solver time.
+   *
+   * @return The solver time.
+   */
+  def solverTime: Long =
+    solverTimes.sum
+}
