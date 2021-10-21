@@ -136,7 +136,16 @@ trait Runner[R] extends Inference with Timing {
 }
 
 /**
- * An inference runner that prints the inferred hypothesis.
+ * An inference runner that extends the input program with the inferred specifications.
+ */
+trait ExtendRunner extends Runner[Option[ast.Program]] {
+  override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
+                                (implicit input: Input, verifier: Verifier): Option[ast.Program] =
+    hypothesis.map { hypothesis => extend(input, hypothesis) }
+}
+
+/**
+ * An inference runner that prints the input program extended with the inferred specifications.
  */
 trait PrintRunner extends Runner[Unit] {
   override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
