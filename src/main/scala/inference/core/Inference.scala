@@ -49,14 +49,14 @@ trait Inference {
   protected def createLearner(input: Input, solver: Solver): AbstractLearner
 
   /**
-   * Infers a hypothesis for the given input.
+   * Infers a hypothesis.
    *
    * @param input    The input.
    * @param verifier The verifier used by the teacher to check hypotheses.
    * @param solver   The solver used by the learner to generate hypotheses.
    * @return The inferred hypothesis and some statistics.
    */
-  def infer(input: Input)(implicit verifier: Verifier with Timing, solver: Solver with Timing): Option[(Hypothesis, Statistics)] = {
+  def infer()(implicit input: Input, verifier: Verifier with Timing, solver: Solver with Timing): (Option[Hypothesis], Statistics) = {
     // create teacher and learner
     val teacher = createTeacher(input, verifier)
     val learner = createLearner(input, solver)
@@ -68,36 +68,43 @@ trait Inference {
      *
      * @param hypothesis The current hypothesis.
      * @param iteration  The current iteration number.
-     * @return The final hypothesis and some statistics.
+     * @return The final hypothesis and the number of iterations.
      */
-    def iterate(hypothesis: Hypothesis, iteration: Int = 1): Option[(Hypothesis, Statistics)] = {
+    def iterate(hypothesis: Hypothesis, iteration: Int = 1): (Option[Hypothesis], Int) = {
       logger.info(s"iteration #$iteration")
       // check hypothesis
       val samples = teacher.check(hypothesis)
-      // check if there are new samples
-      if (samples.isEmpty || iteration >= max) {
-        // collect statistics
-        val statistics = {
-          val samples = learner.samples.size
-          val verifierTimes = verifier.times
-          val solverTimes = solver.times
-          Statistics(iteration, samples, verifierTimes, solverTimes)
-        }
-        Some(hypothesis, statistics)
+      // process samples
+      if (samples.isEmpty) {
+        // we are done if there are no new samples
+        (Some(hypothesis), iteration)
+      } else if (iteration > max) {
+        // we abort if we have exceeded the iteration limit
+        (None, iteration)
       } else {
-        // add samples to learner
+        // add samples
         learner.addSamples(samples)
         // compute updated hypothesis and iterate
         learner
           .hypothesis
-          .flatMap { updated => iterate(updated, iteration + 1) }
+          .map { updated => iterate(updated, iteration + 1) }
+          .getOrElse((None, iteration))
       }
     }
 
     // compute initial hypothesis and iterate
-    learner
-      .hypothesis
-      .flatMap { initial => iterate(initial) }
+    val initial = learner.initial
+    val (hypothesis, iterations) = iterate(initial)
+
+    // compute statistics
+    val statistics = Statistics(
+      iterations = iterations,
+      samples = learner.samples.size,
+      verifierTimes = verifier.times,
+      solverTimes = solver.times
+    )
+    // return final hypothesis and statistics
+    (hypothesis, statistics)
   }
 }
 
@@ -208,6 +215,13 @@ trait AbstractLearner {
     buffer.toSeq
 
   /**
+   * Returns the initial hypothesis.
+   *
+   * @return The hypothesis.
+   */
+  def initial: Hypothesis
+
+  /**
    * Returns a hypothesis that is consistent with all samples.
    *
    * @return The hypothesis.
@@ -220,10 +234,11 @@ trait AbstractLearner {
  *
  * @param iterations    The number of iterations.
  * @param samples       The number of samples.
- * @param verifierTimes The times spent by the verifier.
- * @param solverTimes   The times spent by the solver.
+ * @param verifierTimes The times recorded by the verifier.
+ * @param solverTimes   The times recorded by the solver.
+ * @param times         The times recorded by the inference (this includes verifier and solver times).
  */
-case class Statistics(iterations: Int, samples: Int, verifierTimes: Seq[Long], solverTimes: Seq[Long]) {
+case class Statistics(iterations: Int, samples: Int, verifierTimes: Seq[Long], solverTimes: Seq[Long], times: Seq[Long] = Seq.empty) {
   /**
    * Returns the total verifier time.
    *
@@ -239,4 +254,21 @@ case class Statistics(iterations: Int, samples: Int, verifierTimes: Seq[Long], s
    */
   def solverTime: Long =
     solverTimes.sum
+
+  /**
+   * Returns the total time.
+   *
+   * @return The total time
+   */
+  def time: Long =
+    times.sum
+
+  /**
+   * Recurs a copy of the statistics with the given recorded times.
+   *
+   * @param times The recorded times.
+   * @return The updated statistics.
+   */
+  def withTimes(times: Seq[Long]): Statistics =
+    copy(times = times)
 }

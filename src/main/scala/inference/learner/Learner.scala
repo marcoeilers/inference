@@ -25,10 +25,12 @@ class Learner(protected val input: Input, protected val solver: Solver)
     with TemplateGenerator
     with HypothesisSolver
     with HypothesisBuilder {
+  override def initial: Hypothesis =
+    Hypothesis(Seq.empty, Seq.empty)
+
   override def hypothesis: Option[Hypothesis] = {
     if (samples.isEmpty) {
-      // return empty hypothesis
-      val initial = Hypothesis(Seq.empty, Seq.empty)
+      // return initial hypothesis
       Some(initial)
     } else {
       // generate templates
