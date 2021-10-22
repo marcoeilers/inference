@@ -65,11 +65,22 @@ case class Statistics(success: Boolean,
       <iterations>{iterations}</iterations>
       <samples>{samples}</samples>
       <times>
-        <total>{totalTime}</total>
-        <input>{inputTime}</input>
-        <startup>{startupTime}</startup>
-        <verifier>{verifierTime}</verifier>
-        <solver>{solverTime}</solver>
+        <total>{formatTime(totalTime)}</total>
+        <input>{formatTime(inputTime)}</input>
+        <startup>{formatTime(startupTime)}</startup>
+        <verifier>{formatTime(verifierTime)}</verifier>
+        <solver>{formatTime(solverTime)}</solver>
       </times>
     </statistics>
+
+  /**
+   * Formats the given time.
+   *
+   * @param time The time to format.
+   * @return The formatted time.
+   */
+  private def formatTime(time: Long): String = {
+    val fractional = time / 1000.0
+    String.format(f"$fractional%1.3f s")
+  }
 }
