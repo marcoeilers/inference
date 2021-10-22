@@ -8,7 +8,7 @@
 
 package inference
 
-import inference.core.DefaultRunner
+import inference.core.StatisticsRunner
 import inference.input.Configuration
 
 import java.io.File
@@ -17,7 +17,7 @@ import scala.xml.{Node, XML}
 /**
  * The benchmark.
  */
-object Benchmark extends DefaultRunner {
+object Benchmark extends StatisticsRunner {
   /**
    * The path to the root directory of the benchmark.
    */

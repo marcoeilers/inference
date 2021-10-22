@@ -138,7 +138,7 @@ trait Runner[R] extends Inference with Timing {
 /**
  * An inference runner that returns the inferred hypothesis and some statistics.
  */
-trait DefaultRunner extends Runner[(Option[Hypothesis], Statistics)] {
+trait StatisticsRunner extends Runner[(Option[Hypothesis], Statistics)] {
   override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
                                 (implicit input: Input, verifier: Verifier): (Option[Hypothesis], Statistics) =
     (hypothesis, statistics)
