@@ -19,7 +19,7 @@ import viper.silver.verifier.{Failure, Success, VerificationError, Verifier}
  * @param input    The input to the inference.
  * @param verifier The verifier used to check the hypotheses.
  */
-class Teacher(protected val input: Input, verifier: Verifier) extends AbstractTeacher with QueryBuilder with SampleExtractor {
+class Teacher(val input: Input, verifier: Verifier) extends AbstractTeacher with QueryBuilder with SampleExtractor {
   override def check(hypothesis: Hypothesis): Seq[Sample] =
     basicChecks(hypothesis).getOrElse(framingCheck(hypothesis))
 

@@ -29,12 +29,12 @@ object Input extends CheckBuilder {
    */
   def fromConfiguration(configuration: Configuration): Input = {
     // parse input program
-    val file = configuration.input
-    val program = parse(file)
+    val path = configuration.input
+    val program = parse(path)
     // build checks
     val (placeholders, checks) = buildChecks(configuration, program)
     // return input
-    new Input(program, configuration, placeholders, checks)
+    new Input(path, program, configuration, placeholders, checks)
   }
 
   /**
@@ -126,12 +126,14 @@ object Input extends CheckBuilder {
 /**
  * An input to the inference.
  *
+ * @param path          The path to the input file.
  * @param program       The original input program.
  * @param configuration The configuration.
  * @param placeholders  The placeholders.
  * @param checks        The checks.
  */
-class Input(val program: ast.Program,
+class Input(val path: String,
+            val program: ast.Program,
             val configuration: Configuration,
             val placeholders: Seq[Placeholder],
             val checks: Seq[Check]) {

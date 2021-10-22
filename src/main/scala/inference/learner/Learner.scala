@@ -20,7 +20,7 @@ import scala.annotation.tailrec
  * @param input  The input to the inference.
  * @param solver The solver used to generate hypotheses.
  */
-class Learner(protected val input: Input, protected val solver: Solver)
+class Learner(val input: Input, protected val solver: Solver)
   extends AbstractLearner
     with TemplateGenerator
     with HypothesisSolver

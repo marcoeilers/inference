@@ -34,27 +34,32 @@ object Benchmark extends StatisticsRunner {
       val resource = getClass.getResource(benchmark)
       new File(resource.getPath)
     }
-    // get configurations and run inference for each of them
-    val configurations = collectConfigurations(root)
-    configurations.foreach { configuration =>
-      // TODO: Process statistics.
-      val (_, statistics) = run(configuration)
-      println(statistics)
+    // collect inputs and run them with the associated configurations
+    val inputs = collectInputs(root)
+    val outputs = inputs.map { case (input, configurations) =>
+      val results = configurations.map { configuration =>
+        run(configuration)
+      }
+      (input, results)
     }
   }
 
   /**
-   * Collects configurations from the given directory by recursively searching through all subdirectories.
+   * Collects the inputs from the given directory by recursively searching through all subdirectories and pairing the
+   * input files with a list of configurations meant for that input.
    *
    * @param directory The directory.
-   * @return The configurations.
+   * @return The inputs.
    */
-  private def collectConfigurations(directory: File): Seq[Configuration] = {
+  private def collectInputs(directory: File): Seq[(String, Seq[Configuration])] = {
+    // get subdirectories and files
+    val children = directory
+      .listFiles
+      .toSeq
     // collected configurations from nested directories
-    val children = directory.listFiles
     val nested = children
       .filter(_.isDirectory)
-      .flatMap(collectConfigurations)
+      .flatMap(collectInputs)
     // collect configurations from current directory
     val collected = {
       // get all input files (*.vpr)
@@ -62,15 +67,15 @@ object Benchmark extends StatisticsRunner {
       val inputs = files
         .map(_.getPath)
         .filter(_.endsWith(".vpr"))
-      // get all configurations and combine them with inputs
-      files
+      // get all configurations
+      val configurations = files
         .filter(_.getPath.endsWith(".xml"))
         .flatMap(readConfigurations)
-        .flatMap { configuration =>
-          inputs.map { input =>
-            configuration.withInput(input)
-          }
-        }
+      // combine configurations with inputs
+      inputs.map { input =>
+        val updated = configurations.map(_.withInput(input))
+        input -> updated
+      }
     }
     // combine results
     nested ++ collected

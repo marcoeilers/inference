@@ -16,7 +16,7 @@ import inference.util.Timing
 import inference.util.solver.{Solver, Z3Solver}
 import viper.silicon.Silicon
 import viper.silver.ast
-import viper.silver.verifier.{Success, VerificationResult, Verifier}
+import viper.silver.verifier.{Failure, Success, VerificationResult, Verifier}
 
 /**
  * An inference runner.
@@ -30,18 +30,30 @@ trait Runner[R] extends Inference with Timing {
    * @param configuration The configuration.
    * @return The verifier.
    */
-  def createVerifier(configuration: Configuration): Verifier with Timing = {
+  protected def createVerifier(configuration: Configuration): Verifier with Timing = {
+    // get arguments
+    val arguments = Seq(
+      "--z3Exe", configuration.z3Exe,
+      "--counterexample", "native",
+      "--enableMoreCompleteExhale",
+      "--ignoreFile", "dummy.vpr")
+    // create verifier
+    createVerifier(arguments)
+  }
+
+  /**
+   * Creates a verifier with the given arguments.
+   *
+   * @param arguments The arguments.
+   * @return The verifier.
+   */
+  protected def createVerifier(arguments: Seq[String]): Verifier with Timing = {
     // create instance
     val instance = new Silicon with Timing {
       override def verify(program: ast.Program): VerificationResult =
         recordTime(super.verify(program))
     }
     // pass arguments
-    val arguments = Seq(
-      "--z3Exe", configuration.z3Exe,
-      "--counterexample", "native",
-      "--enableMoreCompleteExhale",
-      "--ignoreFile", "dummy.vpr")
     instance.parseCommandLine(arguments)
     // return instance
     instance
@@ -53,7 +65,7 @@ trait Runner[R] extends Inference with Timing {
    * @param configuration The configuration.
    * @return The solver.
    */
-  def createSolver(configuration: Configuration): Solver with Timing = {
+  protected def createSolver(configuration: Configuration): Solver with Timing = {
     // create solver
     val solver = new Z3Solver(configuration.z3Exe) with Timing {
       override def solve(): Option[Map[String, Boolean]] =
@@ -65,10 +77,24 @@ trait Runner[R] extends Inference with Timing {
     solver
   }
 
-  override protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
+  /**
+   * Creates a teacher with the given input and verifier.
+   *
+   * @param input    The input to the inference.
+   * @param verifier The verifier.
+   * @return The teacher.
+   */
+  protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
     new Teacher(input, verifier)
 
-  override protected def createLearner(input: Input, solver: Solver): AbstractLearner =
+  /**
+   * Creates a learner with the given input and solver.
+   *
+   * @param input  The input to the inference.
+   * @param solver The solver.
+   * @return The learner.
+   */
+  protected def createLearner(input: Input, solver: Solver): AbstractLearner =
     new Learner(input, solver)
 
   /**
@@ -89,38 +115,51 @@ trait Runner[R] extends Inference with Timing {
    * @return The result.
    */
   def run(configuration: Configuration): R = {
-    // create input, verifier and solver
-    implicit val input: Input = recordTime(Input.fromConfiguration(configuration))
-    implicit val verifier: Verifier with Timing = recordTime {
-      val verifier = createVerifier(configuration)
-      verifier.start()
-      verifier
+    // process input
+    val (input, inputTime) = time {
+      Input.fromConfiguration(configuration)
     }
-    implicit val solver: Solver with Timing = recordTime(createSolver(configuration))
-    // infer hypothesis
-    val (hypothesis, statistics) = recordTime(infer())
-    // process inferred hypothesis
-    val result = {
-      val updated = statistics.withTimes(times)
-      process(hypothesis, updated)
+    // create verifier and solver
+    val ((verifier, solver), startupTime) = time {
+      val verifier = createVerifier(configuration)
+      val solver = createSolver(configuration)
+      verifier.start()
+      (verifier, solver)
+    }
+    // run inference
+    val ((hypothesis, iterations, samples), inferenceTime) = time {
+      val teacher = createTeacher(input, verifier)
+      val learner = createLearner(input, solver)
+      val (hypothesis, iterations) = infer(teacher, learner)
+      val samples = learner.samples.size
+      (hypothesis, iterations, samples)
     }
     // stop verifier
     verifier.stop()
-    // return processed result
-    result
+    // create statistics
+    val statistics = Statistics(
+      success = hypothesis.isDefined,
+      iterations = iterations,
+      samples = samples,
+      inputTime = inputTime,
+      startupTime = startupTime,
+      inferenceTime = inferenceTime,
+      verifierTimes = verifier.times,
+      solverTimes = solver.times
+    )
+    // process inferred hypothesis and statistics
+    process(input, hypothesis, statistics)
   }
 
   /**
-   * Processes the given hypothesis and statistics.
+   * Processes the given inferred hypothesis and statistics.
    *
+   * @param input      The input to the inference.
    * @param hypothesis The hypothesis.
-   * @param statistics The statistics.
-   * @param input      The input.
-   * @param verifier   The verifier.
+   * @param statistics THe statistics.
    * @return The result.
    */
-  protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
-                       (implicit input: Input, verifier: Verifier): R
+  protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): R
 
   /**
    * Extends the program corresponding to the given input with the specifications represented by the given hypothesis.
@@ -136,76 +175,62 @@ trait Runner[R] extends Inference with Timing {
 }
 
 /**
- * An inference runner that returns the inferred hypothesis and some statistics.
+ * An inference runner that returns the statistics
  */
-trait StatisticsRunner extends Runner[(Option[Hypothesis], Statistics)] {
-  override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
-                                (implicit input: Input, verifier: Verifier): (Option[Hypothesis], Statistics) =
-    (hypothesis, statistics)
+trait StatisticsRunner extends Runner[Statistics] {
+  override protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): Statistics =
+    statistics
 }
 
 /**
  * An inference runner that extends the input program with the inferred specifications.
  */
-trait ExtendRunner extends Runner[Option[ast.Program]] {
-  override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
-                                (implicit input: Input, verifier: Verifier): Option[ast.Program] =
+trait ExtensionRunner extends Runner[Option[ast.Program]] {
+  override protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): Option[ast.Program] =
     hypothesis.map { hypothesis => extend(input, hypothesis) }
 }
 
 /**
- * An inference runner that prints the input program extended with the inferred specifications.
+ * An inference runner that extends the input program with the inferred specifications and then checks wheter the
+ * extended program verifies.
  */
-trait PrintRunner extends Runner[Unit] {
-  override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
-                                (implicit input: Input, verifier: Verifier): Unit =
-    hypothesis match {
-      case Some(hypothesis) =>
-        // extend input program
-        val extended = extend(input, hypothesis)
-        // print statistics
-        println(s"iterations: ${statistics.iterations}")
-        println(s"samples: ${statistics.samples}")
-        println(s"verifier time: ${statistics.verifierTime}")
-        println(s"solver time: ${statistics.solverTime}")
-        println(s"total time: ${statistics.time}")
-        // print extended program
-        println(extended)
-      case None =>
-        println("Unable to infer specifications.")
-    }
-}
-
-/**
- * An inference runner that verifiers the program annotated with the inferred specification.
- */
-trait TestRunner extends Runner[Boolean] {
-  override protected def process(hypothesis: Option[Hypothesis], statistics: Statistics)
-                                (implicit input: Input, verifier: Verifier): Boolean =
-    hypothesis match {
-      case Some(hypothesis) =>
-        // extend input program
-        val extended = extend(input, hypothesis)
-        // verify extended program
-        doesVerify(extended)
-      case None =>
-        false
-    }
+trait VerificationRunner extends Runner[Boolean] {
+  /**
+   * Returns the verifier.
+   *
+   * @return The verifier.
+   */
+  protected def verifier: Verifier
 
   /**
    * Returns whether the given program verifies.
    *
-   * @param program  The program to verify.
-   * @param verifier The verifier.
+   * @param program The program to verify.
    * @return True if the program verifies.
    */
-  private def doesVerify(program: ast.Program)(implicit verifier: Verifier): Boolean = {
+  protected def doesVerify(program: ast.Program): Boolean = {
     // verify program
     val result = verifier.verify(program)
-    // process result
+    // check result
     result match {
       case Success => true
-      case _ => false
+      case Failure(_) => false
     }
   }
+
+  /**
+   * Processes the given inferred hypothesis and statistics.
+   *
+   * @param input      The input to the inference.
+   * @param hypothesis The hypothesis.
+   * @param statistics THe statistics.
+   * @return The result.
+   */
+  override protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): Boolean =
+    hypothesis.exists { hypothesis =>
+      // extend input program
+      val extended = extend(input, hypothesis)
+      // verify extended program
+      doesVerify(extended)
+    }
 }

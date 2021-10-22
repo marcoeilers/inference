@@ -8,12 +8,12 @@
 
 package inference
 
-import inference.core.PrintRunner
+import inference.core.ExtensionRunner
 
 /**
  * The main object with the main method.
  */
-object Main extends PrintRunner {
+object Main extends ExtensionRunner {
   /**
    *
    * The base options used if no arguments are specified.
@@ -51,6 +51,13 @@ object Main extends PrintRunner {
     // inject default options if no arguments are specified
     val injected = if (arguments.nonEmpty) arguments.toSeq else defaultOptions :+ file
     // run inference
-    run(injected)
+    val extended = run(injected)
+    // print extended program
+    extended match {
+      case Some(program) =>
+        println(program)
+      case None =>
+        println("Unable to infer specifications.")
+    }
   }
 }

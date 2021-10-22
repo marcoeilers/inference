@@ -8,17 +8,20 @@
 
 package inference
 
-import inference.core.TestRunner
+import inference.core.VerificationRunner
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 import viper.silver.utility.Paths
+import viper.silver.verifier.Verifier
 
 import java.nio.file.{Files, Path}
 import scala.jdk.CollectionConverters._
+import scala.util.Properties
 
 /**
  * Inference test.
  */
-class InferenceTest extends AnyFunSuite with TestRunner {
+class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with VerificationRunner {
   /**
    * The path to the tests.
    */
@@ -36,8 +39,23 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   val segmentsDirectory: String =
     s"$directory/segments"
 
+  override protected val verifier: Verifier = {
+    val arguments = Seq(
+      "--z3Exe", Properties.envOrNone("Z3_EXE").get,
+      "--ignoreFile", "dummy.vpr")
+    createVerifier(arguments)
+  }
+
   // run all tests
   runAll()
+
+  override protected def beforeAll(): Unit = {
+    verifier.start()
+  }
+
+  override protected def afterAll(): Unit = {
+    verifier.stop()
+  }
 
   /**
    * Runs all tests.
