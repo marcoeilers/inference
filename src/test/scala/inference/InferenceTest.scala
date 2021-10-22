@@ -83,7 +83,7 @@ class InferenceTest extends AnyFunSuite with TestRunner {
   private def runTest(name: String, arguments: Seq[String]): Unit =
     test(name) {
       val result = run(arguments)
-      assert(result.getOrElse(false))
+      assert(result)
     }
 
   /**
