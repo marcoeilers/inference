@@ -180,9 +180,8 @@ trait GhostCode extends Builder with Simplification {
    *
    * @param expression The expression to process.
    * @param action     The action to apply.
-   * @param exhaled    The flag indicating whether the expression is being exhaled.
    */
-  def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit])(implicit exhaled: Boolean): Unit =
+  def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit]): Unit =
     process(expression)(action.orElse {
       case ast.And(ast.And(first, second), right) =>
         // re-associate conjuncts
