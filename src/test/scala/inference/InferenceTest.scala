@@ -9,35 +9,31 @@
 package inference
 
 import inference.core.VerificationRunner
+import inference.input.Configuration
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
-import viper.silver.utility.Paths
 import viper.silver.verifier.Verifier
 
-import java.nio.file.{Files, Path}
-import scala.jdk.CollectionConverters._
+import java.io.File
 import scala.util.Properties
 
 /**
  * Inference test.
  */
-class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with VerificationRunner {
+class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with VerificationRunner with TestInputs {
   /**
-   * The path to the tests.
+   * The paths to the tests.
    */
-  val directory: String = "/tests"
+  val directories: Seq[String] =
+    Seq("/tests")
 
-  /**
-   * The path to the tests meant to be executed using the default settings.
-   */
-  val defaultDirectory: String =
-    s"$directory/default"
-
-  /**
-   * The path to the tests meant to be executed using predicate segments.
-   */
-  val segmentsDirectory: String =
-    s"$directory/segments"
+  override protected def roots: Seq[File] =
+    directories.map { directory =>
+      val path = getClass
+        .getResource(directory)
+        .getPath
+      new File(path)
+    }
 
   override protected val verifier: Verifier = {
     val arguments = Seq(
@@ -47,7 +43,7 @@ class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with Verification
   }
 
   // run all tests
-  runAll()
+  runAllTests()
 
   override protected def beforeAll(): Unit = {
     verifier.start()
@@ -60,82 +56,22 @@ class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with Verification
   /**
    * Runs all tests.
    */
-  private def runAll(): Unit = {
-    // run tests using default settings
-    val defaultFiles = collectFiles(defaultDirectory)
-    defaultFiles.foreach(runDefaultTest)
-
-    // run tests using predicate segments
-    val segmentsFiles = defaultFiles ++ collectFiles(segmentsDirectory)
-    segmentsFiles.foreach(runSegmentsTest)
+  private def runAllTests(): Unit = {
+    inputs.foreach { configuration =>
+      val name = s"${configuration.input} [${configuration.arguments.mkString(" ")}]"
+      runTest(name, configuration)
+    }
   }
 
   /**
-   * Tests the given file using the default settings.
+   * Runs a test with the given name and configurations.
    *
-   * @param file The file to test.
+   * @param name          The name.
+   * @param configuration The configuration.
    */
-  private def runDefaultTest(file: String): Unit = {
-    val name = s"test using default settings: $file"
-    val arguments = Main.defaultOptions ++ Seq(file)
-    runTest(name, arguments)
-  }
-
-  /**
-   * Tests the given file using predicate segments.
-   *
-   * @param file The file to test.
-   */
-  private def runSegmentsTest(file: String): Unit = {
-    val name = s"test using predicate segments: $file"
-    val arguments = Main.segmentsOptions ++ Seq(file)
-    runTest(name, arguments)
-  }
-
-  /**
-   * Runs a test with the given name and arguments.
-   *
-   * @param name      The name of the test.
-   * @param arguments The arguments to the inference.
-   */
-  private def runTest(name: String, arguments: Seq[String]): Unit =
+  private def runTest(name: String, configuration: Configuration): Unit =
     test(name) {
-      val result = run(arguments)
+      val result = run(configuration)
       assert(result)
-    }
-
-  /**
-   * Collects all files contained in the directory with the given name.
-   *
-   * @param name The name of the directory.
-   * @return The files.
-   */
-  private def collectFiles(name: String): Seq[String] = {
-    val resource = getClass.getResource(name)
-    if (resource != null) {
-      val path = Paths.pathFromResource(resource)
-      val files = collectFiles(path)
-      files.map(_.toString)
-    } else {
-      logger.warn(s"Directory does not exist: $name")
-      Seq.empty
-    }
-  }
-
-  /**
-   * Collects all files contained in the directory with the given path.
-   *
-   * @param path The path to the directory.
-   * @return The files.
-   */
-  private def collectFiles(path: Path): Seq[Path] =
-    if (Files.isDirectory(path)) {
-      Files
-        .newDirectoryStream(path)
-        .asScala
-        .toSeq
-        .flatMap(collectFiles)
-    } else {
-      Seq(path)
     }
 }

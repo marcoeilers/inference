@@ -27,6 +27,7 @@ case object Configuration {
     val options = new OptionsParser(arguments)
     // create configuration object
     Configuration(
+      arguments = arguments,
       inputOption = options.file.toOption,
       z3Exe = options.z3Exe(),
       useRecursive = options.recursive(),
@@ -167,16 +168,20 @@ case object Configuration {
       )
 
     val syntacticBounds: ScallopOption[Boolean] =
-      opt[Boolean](
+      toggle(
         name = "syntacticBounds",
-        descr = "Enables the use of syntactic implicit upper bounds.",
+        descrYes = "Enables the use of syntactic implicit upper bounds.",
+        descrNo = "Disables the use of syntactic implicit upper bounds.",
+        default = Some(true),
         hidden = true
       )
 
     val semanticBounds: ScallopOption[Boolean] =
-      opt[Boolean](
+      toggle(
         name = "semanticBounds",
-        descr = "Enables the use of semantic implicit upper bounds.",
+        descrYes = "Enables the use of semantic implicit upper bounds.",
+        descrNo = "Disables the use of semantic implicit upper bounds.",
+        default = Some(false),
         hidden = true
       )
 
@@ -218,7 +223,8 @@ case object Configuration {
     val file: ScallopOption[String] =
       trailArg[String](
         name = "file",
-        descr = "The path to the input file."
+        descr = "The path to the input file.",
+        required = false,
       )
 
     validate(recursive, segments) { (recursive, segments) =>
@@ -235,6 +241,7 @@ case object Configuration {
 /**
  * A configuration object for the inference.
  *
+ * @param arguments            The arguments corresponding to the configuration.
  * @param inputOption          The path to the input file.
  * @param z3Exe                The path to the Z3 executable.
  * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
@@ -257,7 +264,8 @@ case object Configuration {
  * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate is enabled.
  * @param stateConsolidation   The flag indicating whether Silicon's state consolidation is enabled.
  */
-case class Configuration(inputOption: Option[String],
+case class Configuration(arguments: Seq[String],
+                         inputOption: Option[String],
                          z3Exe: String,
                          useRecursive: Boolean,
                          useSegments: Boolean,

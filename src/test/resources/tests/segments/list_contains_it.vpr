@@ -1,0 +1,40 @@
+field next: Ref
+field val: Int
+
+method main(a: Ref)
+{
+    var b: Bool
+    b := contains(a, 3)
+    free_list(a)
+}
+
+method contains(a: Ref, v: Int) returns (r: Bool)
+{
+    var c: Ref
+    c := a
+    r := false
+    while (c != null && !r)
+    {
+        if (c.val == v) {
+            r := true
+        } else {
+            __append__(a, c)
+            c := c.next
+        }
+    }
+    __concat__(a, c, null)
+}
+
+method free_list(a: Ref)
+{
+    if (a != null) {
+        free_list(a.next)
+        free_node(a)
+    }
+}
+
+method free_node(a: Ref)
+{
+    exhale acc(a.next)
+    exhale acc(a.val)
+}
