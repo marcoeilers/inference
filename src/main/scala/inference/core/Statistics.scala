@@ -13,6 +13,8 @@ import scala.xml.Elem
 /**
  * An object carrying statistical information.
  *
+ * @param input         The path to the input file.
+ * @param options       The options used by the inference.
  * @param success       The flag indicating whether the inference was successful.
  * @param iterations    The number of iterations.
  * @param samples       The number of samples.
@@ -22,7 +24,9 @@ import scala.xml.Elem
  * @param verifierTimes The times recorded by the verifier.
  * @param solverTimes   The times recorded by the solver.
  */
-case class Statistics(success: Boolean,
+case class Statistics(input: String,
+                      options: Seq[String],
+                      success: Boolean,
                       iterations: Int,
                       samples: Int,
                       inputTime: Long,
@@ -61,6 +65,8 @@ case class Statistics(success: Boolean,
    */
   def toXml: Elem =
     <statistics>
+      <input>{input}</input>
+      <options>{options.mkString(" ")}</options>
       <success>{success}</success>
       <iterations>{iterations}</iterations>
       <samples>{samples}</samples>

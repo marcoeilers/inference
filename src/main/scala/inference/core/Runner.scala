@@ -138,6 +138,8 @@ trait Runner[R] extends Inference with Timing {
     verifier.stop()
     // create statistics
     val statistics = Statistics(
+      input = configuration.input,
+      options = configuration.arguments,
       success = hypothesis.isDefined,
       iterations = iterations,
       samples = samples,
@@ -156,7 +158,7 @@ trait Runner[R] extends Inference with Timing {
    *
    * @param input      The input to the inference.
    * @param hypothesis The hypothesis.
-   * @param statistics THe statistics.
+   * @param statistics The statistics.
    * @return The result.
    */
   protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): R
@@ -223,7 +225,7 @@ trait VerificationRunner extends Runner[Boolean] {
    *
    * @param input      The input to the inference.
    * @param hypothesis The hypothesis.
-   * @param statistics THe statistics.
+   * @param statistics The statistics.
    * @return The result.
    */
   override protected def process(input: Input, hypothesis: Option[Hypothesis], statistics: Statistics): Boolean =
