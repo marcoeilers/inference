@@ -46,7 +46,11 @@ class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with Verification
    */
   private def runAllTests(): Unit = {
     inputs.foreach { configuration =>
-      val name = s"${configuration.input} [${configuration.arguments.mkString(" ")}]"
+      val name = {
+        val input = configuration.input
+        val options = configuration.arguments.mkString(" ")
+        s"$input [$options]"
+      }
       runTest(name, configuration)
     }
   }
