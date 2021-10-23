@@ -18,11 +18,11 @@ import scala.xml.{Elem, Node, PrettyPrinter, XML}
  */
 trait TestInputs {
   /**
-   * Returns a sequence of root directories containing the test inputs.
+   * Returns a sequence of paths to the directories containing the test inputs.
    *
-   * @return The root directories.
+   * @return The paths.
    */
-  protected def roots: Seq[File]
+  protected def roots: Seq[String]
 
   /**
    * Returns a sequence of configurations representing the test inputs.
@@ -30,7 +30,14 @@ trait TestInputs {
    * @return The configurations representing the inputs.
    */
   protected def inputs: Seq[Configuration] =
-    roots.flatMap(collectConfigurations)
+    roots
+      .map { directory =>
+        val path = getClass
+          .getResource(directory)
+          .getPath
+        new File(path)
+      }
+      .flatMap(collectConfigurations)
 
   /**
    * Collects the inputs from the given directory by recursively searching through all subdirectories and pairing the

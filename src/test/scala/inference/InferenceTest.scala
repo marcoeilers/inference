@@ -14,26 +14,14 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 import viper.silver.verifier.Verifier
 
-import java.io.File
 import scala.util.Properties
 
 /**
  * Inference test.
  */
 class InferenceTest extends AnyFunSuite with BeforeAndAfterAll with VerificationRunner with TestInputs {
-  /**
-   * The paths to the tests.
-   */
-  val directories: Seq[String] =
+  override protected val roots: Seq[String] =
     Seq("/tests")
-
-  override protected def roots: Seq[File] =
-    directories.map { directory =>
-      val path = getClass
-        .getResource(directory)
-        .getPath
-      new File(path)
-    }
 
   override protected val verifier: Verifier = {
     val arguments = Seq(
