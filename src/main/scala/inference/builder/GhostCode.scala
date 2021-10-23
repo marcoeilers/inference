@@ -174,10 +174,9 @@ trait GhostCode extends Builder with Simplification {
 
   /**
    * Processes the given expression by applying the given action to them. By default conjunctions are processed one
-   * conjunct after another and implications are rewritten into conditionals.
-   *
-   * Moreover, if the expression is not being exhaled (indicated via implicitly passed flag), permissions for already
-   * processed conjuncts are temporarily taken away in order for the permission introspection to work properly.
+   * conjunct after another and implications are rewritten into conditionals. Moreover, permissions for already
+   * processed conjuncts are temporarily taken away in order to not interfere with the permission introspection for the
+   * remaining conjuncts.
    *
    * @param expression The expression to process.
    * @param action     The action to apply.
@@ -185,11 +184,11 @@ trait GhostCode extends Builder with Simplification {
    */
   def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit])(implicit exhaled: Boolean): Unit =
     process(expression)(action.orElse {
-      case ast.And(ast.And(first, second), right) if !exhaled =>
+      case ast.And(ast.And(first, second), right) =>
         // re-associate conjuncts
         val rewritten = ast.And(first, ast.And(second, right)())()
         processWithAdjustment(rewritten)(action)
-      case ast.And(left, right) if !exhaled =>
+      case ast.And(left, right) =>
         // process left conjunct
         processWithAdjustment(left)(action)
         // temporarily take away predicate instances appearing in the left conjunct
