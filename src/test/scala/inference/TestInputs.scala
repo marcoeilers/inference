@@ -11,7 +11,7 @@ package inference
 import inference.input.Configuration
 
 import java.io.File
-import scala.xml.{Elem, Node, PrettyPrinter, XML}
+import scala.xml.{Node, PrettyPrinter, XML}
 
 /**
  * A trait providing methods to collect test inputs.
@@ -51,6 +51,7 @@ trait TestInputs {
     val children = directory
       .listFiles
       .toSeq
+      .sortBy(_.getPath)
     // collect configurations from nested directories
     val nested = children
       .filter(_.isDirectory)
