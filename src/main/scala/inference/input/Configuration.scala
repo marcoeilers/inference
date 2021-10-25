@@ -32,6 +32,7 @@ case object Configuration {
       z3Exe = options.z3Exe(),
       useRecursive = options.recursive(),
       useSegments = options.segments(),
+      infinite = options.infinite(),
       iterations = options.iterations(),
       escalation = options.escalation(),
       maxLength = options.maxLength(),
@@ -79,6 +80,15 @@ case object Configuration {
         descrYes = "Enables the use of predicate segments.",
         descrNo = "Disables the use of predicate segments.",
         default = Some(false)
+      )
+
+    val infinite: ScallopOption[Boolean] =
+      toggle(
+        name = "finite",
+        descrYes = "Allows the generation of infinite predicates.",
+        descrNo = "Disallows the generation of infinite predicates.",
+        default = Some(false),
+        hidden = true
       )
 
     val iterations: ScallopOption[Int] =
@@ -246,6 +256,7 @@ case object Configuration {
  * @param z3Exe                The path to the Z3 executable.
  * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
  * @param useSegments          The flag indicating whether the us of predicate segments is enabled.
+ * @param infinite             The flag indicating whether infinite recursive predicates are allowed.
  * @param iterations           The maximal number of iterations.
  * @param escalation           The flag indicating whether template complexity escalation is enabled.
  * @param maxLength            The maximal length of access paths that may appear in specifications.
@@ -269,6 +280,7 @@ case class Configuration(arguments: Seq[String],
                          z3Exe: String,
                          useRecursive: Boolean,
                          useSegments: Boolean,
+                         infinite: Boolean,
                          iterations: Int,
                          escalation: Boolean,
                          maxLength: Int,

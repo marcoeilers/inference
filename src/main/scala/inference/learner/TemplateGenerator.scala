@@ -162,7 +162,7 @@ trait TemplateGenerator extends AbstractLearner {
     }
     // create template
     if (placeholder.isRecursive && configuration.useSegments) {
-      // create template for recursive predicate
+      // compute truncated predicate template
       val predicate = {
         val Seq(start, stop) = placeholder.variables
         val condition = ast.NeCmp(start, stop)()
@@ -172,10 +172,20 @@ trait TemplateGenerator extends AbstractLearner {
       // create template for lemmas
       val appendLemma = createAppendLemma(predicate)
       val concatLemma = createConcatLemma(predicate)
-      // return all templates
+      // return templates
       Seq(predicate, appendLemma, concatLemma)
+    } else if (placeholder.isRecursive && !configuration.infinite) {
+      // compute truncated predicate template
+      val predicate = {
+        val Seq(start) = placeholder.variables
+        val condition = ast.NeCmp(start, ast.NullLit()())()
+        val truncated = Truncated(condition, body)
+        PredicateTemplate(placeholder, truncated)
+      }
+      // return template
+      Seq(predicate)
     } else {
-      // create and return template
+      // no truncation
       val predicate = PredicateTemplate(placeholder, body)
       Seq(predicate)
     }
