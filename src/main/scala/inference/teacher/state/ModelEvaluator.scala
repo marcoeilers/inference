@@ -103,6 +103,9 @@ case class ModelEvaluator(model: Model) {
           case sort =>
             sys.error(s"Unexpected sort: $sort")
         }
+      case terms.App(applicable, arguments) if arguments.isEmpty =>
+        val identifier = applicable.id
+        getString(identifier.name)
       case other =>
         sys.error(s"Unexpected reference term: $other")
     }
