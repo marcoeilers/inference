@@ -89,23 +89,26 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       .placeholders
       .filter(_.isSpecification)
       .map { placeholder =>
+        val parameters = placeholder.parameters
         // create body inhaling the specification
-        val body = makeScope {
-          // save state snapshot
-          val instance = placeholder.asInstance
-          saveSnapshot(instance)
-          // branch on accesses
-          if (configuration.useBranching) {
-            branch(instance)
+        val instrumented = {
+          val body = makeScope {
+            // save state snapshot
+            val instance = placeholder.asInstance
+            saveSnapshot(instance)
+            // branch on accesses
+            if (configuration.useBranching) {
+              branch(instance)
+            }
+            // inhale specification
+            val specifications = hypothesis.getSpecifications(instance)
+            specifications.foreach { specification => inhale(specification) }
           }
-          // inhale specification
-          val specifications = hypothesis.getSpecifications(instance)
-          specifications.foreach { specification => inhale(specification) }
+          Statements.makeDeclared(body, parameters)
         }
         // create method
         val name = namespace.uniqueIdentifier(name = s"check_${placeholder.name}", None)
-        val parameters = placeholder.parameters
-        ast.Method(name, parameters, Seq.empty, Seq.empty, Seq.empty, Some(body))()
+        ast.Method(name, parameters, Seq.empty, Seq.empty, Seq.empty, Some(instrumented))()
       }
 
     // create program
