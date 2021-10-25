@@ -35,6 +35,7 @@ case object Configuration {
       infinite = options.infinite(),
       iterations = options.iterations(),
       escalation = options.escalation(),
+      deescalation = options.deescalation(),
       maxLength = options.maxLength(),
       maxClauses = options.maxClauses(),
       unfoldDepth = options.unfoldDepth(),
@@ -95,7 +96,7 @@ case object Configuration {
       opt[Int](
         name = "iterations",
         descr = "The number of iterations after which the learner gets exhausted and gives up.",
-        default = Some(20)
+        default = Some(50)
       )
 
     val escalation: ScallopOption[Boolean] =
@@ -103,7 +104,17 @@ case object Configuration {
         name = "escalation",
         descrYes = "Enables template complexity escalation.",
         descrNo = "Disables template complexity escalation.",
-        default = Some(true)
+        default = Some(true),
+        hidden = true
+      )
+
+    val deescalation: ScallopOption[Boolean] =
+      toggle(
+        name = "deescalation",
+        descrYes = "Enables template complexity deescalation before every iteration.",
+        descrNo = "Disables template complexity deescalation.",
+        default = Some(true),
+        hidden = true
       )
 
     val maxLength: ScallopOption[Int] =
@@ -259,6 +270,7 @@ case object Configuration {
  * @param infinite             The flag indicating whether infinite recursive predicates are allowed.
  * @param iterations           The maximal number of iterations.
  * @param escalation           The flag indicating whether template complexity escalation is enabled.
+ * @param deescalation         The flag indicating whether template complexity deescalation is enabled.
  * @param maxLength            The maximal length of access paths that may appear in specifications.
  * @param maxClauses           The maximal number of clauses that may be used per guard.
  * @param unfoldDepth          The depth up to which predicates should be unfolded.
@@ -283,6 +295,7 @@ case class Configuration(arguments: Seq[String],
                          infinite: Boolean,
                          iterations: Int,
                          escalation: Boolean,
+                         deescalation: Boolean,
                          maxLength: Int,
                          maxClauses: Int,
                          unfoldDepth: Int,

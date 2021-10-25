@@ -151,6 +151,12 @@ trait AbstractLearner {
     configuration.escalation && level < configuration.maxClauses
 
   /**
+   * Resets the escalation level
+   */
+  protected def deescalate(): Unit =
+    level = 0
+
+  /**
    * Escalates the template complexity level.
    */
   protected def escalate(): Unit =

@@ -36,6 +36,9 @@ class Learner(val input: Input, protected val solver: Solver)
       // generate templates
       val templates = generateTemplates()
       // compute hypothesis
+      if (configuration.deescalation) {
+        deescalate()
+      }
       hypothesis(templates)
     }
   }
