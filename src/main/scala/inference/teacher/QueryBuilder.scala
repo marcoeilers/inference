@@ -100,9 +100,18 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
             if (configuration.useBranching) {
               branch(instance)
             }
-            // inhale specification
-            val specifications = hypothesis.getSpecifications(instance)
-            specifications.foreach { specification => inhale(specification) }
+            // inhale inferred specification
+            val inferred = hypothesis.getInferred(instance)
+            inhale(inferred)
+            // process existing specifications
+            val existing = instance.existing
+            if (existing.nonEmpty) {
+              // replace predicate instances with their body to expose permissions that may be required to frame the
+              // existing specification
+              expose(inferred)(hypothesis)
+              // inhale existing specifications
+              existing.foreach { specification => inhale(specification)}
+            }
           }
           Statements.makeDeclared(body, parameters)
         }

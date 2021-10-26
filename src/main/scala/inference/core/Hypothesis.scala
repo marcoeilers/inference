@@ -61,7 +61,55 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
   def getSpecifications(instance: Instance): Seq[ast.Exp] = {
     val inferred = getInferred(instance)
     val existing = instance.existing
-    inferred +: existing
+
+    /**
+     * Helper function that collects guarded resources provided in the given expression.
+     *
+     * @param expression The expression.
+     * @param guards     The current guards.
+     * @return The guarded resources.
+     */
+    def collectResources(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty): Seq[(ast.PredicateAccessPredicate, Seq[ast.Exp])] =
+      expression match {
+        case ast.And(left, right) =>
+          collectResources(left, guards) ++ collectResources(right, guards)
+        case ast.Implies(left, right) =>
+          val updatedGuards = guards :+ left
+          collectResources(right, updatedGuards)
+        case resource: ast.PredicateAccessPredicate =>
+          Seq((resource, guards))
+        case _ =>
+          Seq.empty
+      }
+
+    /**
+     * Helper function that unfolds the given guarded resources in the given expression.
+     *
+     * @param resources  The guarded resources.
+     * @param expression The expression.
+     * @return The resulting expression.
+     */
+    def unfoldResources(resources: Seq[(ast.PredicateAccessPredicate, Seq[ast.Exp])], expression: ast.Exp): ast.Exp =
+      resources match {
+        case (predicate, guards) +: rest =>
+          // compute body and unfolded body
+          val body = unfoldResources(rest, expression)
+          val unfolded = ast.Unfolding(predicate, body)()
+          // conditionally unfold
+          if (guards.isEmpty) {
+            unfolded
+          } else {
+            val condition = Expressions.makeAnd(guards)
+            ast.CondExp(condition, unfolded, body)()
+          }
+        case _ =>
+          expression
+      }
+
+    lazy val resources = collectResources(inferred)
+    val unfolded = existing.map { specification => unfoldResources(resources, specification) }
+
+    inferred +: unfolded
   }
 
   /**

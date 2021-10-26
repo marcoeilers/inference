@@ -61,6 +61,25 @@ trait GhostCode extends Builder with Simplification {
       }
 
   /**
+   * Exposes permissions contained in predicate instances appearing in the given expression.
+   *
+   * @param expression The expression.
+   * @param hypothesis The current hypothesis.
+   */
+  protected def expose(expression: ast.Exp)(implicit hypothesis: Hypothesis): Unit =
+    process(expression) {
+      case ast.PredicateAccessPredicate(predicate, _) =>
+        // get body of predicate
+        val instance = input.instance(predicate)
+        val body = hypothesis.getInferred(instance)
+        // inhale permissions contained in body
+        process(body) {
+          case resource: ast.FieldAccessPredicate =>
+            emitInhale(resource)
+        }
+    }
+
+  /**
    * Recursively and adaptively folds the given expression up to the given depth and then exhales it.
    *
    * @param expression  The expression to fold and exhale.
