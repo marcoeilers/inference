@@ -110,7 +110,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
               // existing specification
               expose(inferred)(hypothesis)
               // inhale existing specifications
-              existing.foreach { specification => inhale(specification)}
+              existing.foreach { specification => inhale(specification) }
             }
           }
           Statements.makeDeclared(body, parameters)
@@ -233,19 +233,31 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         statements.foreach(processInstrumented)
       case ast.Inhale(expression) =>
         expression match {
-          case ast.PredicateAccessPredicate(predicate, _) =>
-            // get and inhale instance
+          case resource@ast.PredicateAccessPredicate(predicate, _) =>
+            // get specification instance
             val instance = input.instance(predicate)
-            inhaleInstance(instance)
+            if (instance.hasExisting) {
+              // inhale user-defined predicate
+              emitInhale(resource)
+            } else {
+              // inhale instance
+              inhaleInstance(instance)
+            }
           case condition =>
             emitInhale(condition)
         }
       case ast.Exhale(expression) =>
         expression match {
-          case ast.PredicateAccessPredicate(predicate, _) =>
-            // get and exhale instance
+          case resource@ast.PredicateAccessPredicate(predicate, _) =>
+            // get specification instance
             val instance = input.instance(predicate)
-            exhaleInstance(instance)
+            if (instance.hasExisting) {
+              // exhale user-defined predicate
+              emitExhale(resource)
+            } else {
+              // exhale instance
+              exhaleInstance(instance)
+            }
           case condition =>
             emitExhale(condition)
         }

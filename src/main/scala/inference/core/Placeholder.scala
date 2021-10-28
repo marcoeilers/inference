@@ -62,6 +62,15 @@ case class Placeholder(name: String, kind: Kind, parameters: Seq[ast.LocalVarDec
     isPredicate && Names.isRecursive(name)
 
   /**
+   * Returns whether there are existing specification corresponding to this specification placeholder.
+   *
+   * @return True if there are existing specifications.
+   */
+  @inline
+  def hasExisting: Boolean =
+    isPredicate && existing.nonEmpty
+
+  /**
    * Returns an instance of the specification placeholder.
    *
    * @return The instance.
@@ -133,6 +142,15 @@ sealed trait Instance {
    */
   def isPredicate: Boolean =
     placeholder.kind == Kind.Predicate
+
+  /**
+   * Returns whether there are existing specification corresponding to this specification instance.
+   *
+   * @return True if there are existing specifications.
+   */
+  @inline
+  def hasExisting: Boolean =
+    placeholder.hasExisting
 
   /**
    * Returns the arguments to the placeholder.
