@@ -101,6 +101,8 @@ class Z3Solver(path: String) extends Solver {
     ListBuffer.empty
 
   override def initialize(): Unit = {
+    // pick random seed to make things deterministic
+    writeLine("(set-option :random-seed 0)")
     // set model format
     writeLine("(set-option :model.v2 true)")
   }
