@@ -206,8 +206,9 @@ trait SampleExtractor {
         val failing = {
           recordify(snapshot) match {
             case ExhaledRecord(placeholder, state, resource, amount) =>
-              val adapted = amount - 1
-              assert(adapted <= 1)
+              // since there might have been at most one permission, requiring more than one permission is already
+              // enough to guarantee progress
+              val adapted = math.min(amount - 1, 1)
               InhaledRecord(placeholder, state, resource, adapted)
             case _ =>
               sys.error(s"Inhaled specifications should not fail.")
