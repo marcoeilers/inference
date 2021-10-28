@@ -18,9 +18,9 @@ lazy val inference = project
     version := "0",
 
     // dependencies
-    libraryDependencies += "org.rogach" %% "scallop" % "4.0.2",
+    libraryDependencies += "org.rogach" %% "scallop" % "4.0.3",
 
     // jvm options
     fork := true,
-    run / javaOptions += "-Xss128m",
+    run / javaOptions += "-Xss128m"
   )
