@@ -107,7 +107,19 @@ case class Hypothesis(predicates: Seq[ast.Predicate], lemmas: Seq[ast.Method]) {
       }
 
     lazy val resources = collectResources(inferred)
-    val unfolded = existing.map { specification => unfoldResources(resources, specification) }
+    val unfolded = existing.map { specification =>
+      // check whether existing specification contains a field access
+      val hasField = specification.exists {
+        case _: ast.FieldAccess => true
+        case _ => false
+      }
+      // only unfold resources if a field access is present
+      if (hasField) {
+        unfoldResources(resources, specification)
+      } else {
+        specification
+      }
+    }
 
     inferred +: unfolded
   }
