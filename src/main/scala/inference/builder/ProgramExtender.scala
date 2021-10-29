@@ -69,7 +69,15 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
       // extend methods
       val extended = original
         .methods
-        .map { method => extendMethod(method)(hypothesis) }
+        .map { method =>
+          if (method.body.isDefined) {
+            // extend method
+            extendMethod(method)(hypothesis)
+          } else {
+            // leave abstract methods untouched
+            method
+          }
+        }
       // combine lemma and extended methods
       lemmas ++ extended
     }

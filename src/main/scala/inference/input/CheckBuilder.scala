@@ -72,13 +72,19 @@ trait CheckBuilder extends Builder with Atoms {
     // create placeholders for method specifications
     specifications = program
       .methods
-      .map { method =>
-        val name = method.name
-        val arguments = method.formalArgs
-        val declarations = arguments ++ method.formalReturns
-        val precondition = createPlaceholder(name, Kind.Precondition, arguments, method.pres)
-        val postcondition = createPlaceholder(name, Kind.Postcondition, declarations, method.posts)
-        name -> (precondition, postcondition)
+      .flatMap { method =>
+        if (method.body.isDefined) {
+          // create specification placeholders
+          val name = method.name
+          val arguments = method.formalArgs
+          val declarations = arguments ++ method.formalReturns
+          val precondition = createPlaceholder(name, Kind.Precondition, arguments, method.pres)
+          val postcondition = createPlaceholder(name, Kind.Postcondition, declarations, method.posts)
+          Some(name -> (precondition, postcondition))
+        } else {
+          // ignore abstract methods
+          None
+        }
       }
       .toMap
     // process predicates
@@ -166,8 +172,9 @@ trait CheckBuilder extends Builder with Atoms {
    * @param method The method to process.
    */
   private def processMethod(method: ast.Method): Unit =
-    method.body match {
-      case Some(body) =>
+    method
+      .body
+      .foreach { body =>
         // create placeholder specifications
         val name = method.name
         val (precondition, postcondition) = specifications(name)
@@ -184,9 +191,7 @@ trait CheckBuilder extends Builder with Atoms {
         // create check corresponding to method
         val check = MethodCheck(method, precondition, postcondition, processed)
         checks.append(check)
-      case None =>
-        sys.error("Methods without bodies are not supported.")
-    }
+      }
 
   /**
    * Processes the given loop.
@@ -316,38 +321,45 @@ trait CheckBuilder extends Builder with Atoms {
           val annotation = Annotation(name, arguments, old, flag)
           addAnnotation(annotation)
         } else {
-          // instrument method call
-          instrumented {
-            // make sure all reference-typed arguments are variables or literals and different from targets
-            val expressions = arguments
-              .map { argument =>
-                if (argument.isSubtype(ast.Ref)) {
-                  // process reference-typed argument
-                  argument match {
-                    case literal: ast.NullLit =>
-                      literal
-                    case variable: ast.LocalVar =>
-                      if (targets.contains(variable)) save(variable)
-                      else variable
-                    case field: ast.FieldAccess =>
-                      save(field)
-                    case other =>
-                      sys.error(s"Unexpected argument: $other")
+          // get method specification
+          val specification = specifications.get(name)
+          specification match {
+            case Some((precondition, postcondition)) =>
+              // instrument method call
+              instrumented {
+                // make sure all reference-typed arguments are variables or literals and different from targets
+                val expressions = arguments
+                  .map { argument =>
+                    if (argument.isSubtype(ast.Ref)) {
+                      // process reference-typed argument
+                      argument match {
+                        case literal: ast.NullLit =>
+                          literal
+                        case variable: ast.LocalVar =>
+                          if (targets.contains(variable)) save(variable)
+                          else variable
+                        case field: ast.FieldAccess =>
+                          save(field)
+                        case other =>
+                          sys.error(s"Unexpected argument: $other")
+                      }
+                    } else {
+                      // leave non-reference arguments untouched
+                      argument
+                    }
                   }
-                } else {
-                  // leave non-reference arguments untouched
-                  argument
-                }
+                // update method call
+                val updated = call.copy(
+                  args = expressions
+                )(call.pos, call.info, call.errT)
+                // exhale precondition and inhale postcondition
+                emitExhale(precondition.asInstance(expressions).asResource)
+                emit(updated)
+                emitInhale(postcondition.asInstance(expressions ++ targets).asResource)
               }
-            // update method call
-            val updated = call.copy(
-              args = expressions
-            )(call.pos, call.info, call.errT)
-            // exhale precondition and inhale postcondition
-            val (precondition, postcondition) = specifications(name)
-            emitExhale(precondition.asInstance(expressions).asResource)
-            emit(updated)
-            emitInhale(postcondition.asInstance(expressions ++ targets).asResource)
+            case None =>
+              // leave call to abstract method untouched
+              emit(call)
           }
         }
       case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
