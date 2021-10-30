@@ -247,19 +247,27 @@ trait GhostCode extends Builder with Simplification {
    *
    * @param predicate   The predicate.
    * @param annotations The annotations.
+   * @param hypothesis  The current hypothesis.
    * @return The strategy.
    */
-  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation]): Strategy =
+  private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation])(implicit hypothesis: Hypothesis): Strategy =
     if (configuration.useSegments && configuration.useAnnotations) {
       val strategies = annotations
         .map { annotation =>
           if (annotation.isAppend) {
-            val equality = {
-              val segmentArguments = annotation.arguments
-              Expressions.makeEqual(predicate.args, segmentArguments)
+            // extract lemma parameters from annotation
+            val Seq(first, middle) = annotation.saved
+            val last = getLink(middle)
+            // get condition under which the lemma might be applied
+            val condition = {
+              // get equality capturing whether predicate matches the annotation
+              val arguments = predicate.args
+              val target = Seq(first, last)
+              val equality = Expressions.makeEqual(arguments, target)
+              //
+              ast.And(annotation.flag, equality)()
             }
-            val condition = ast.And(annotation.flag, equality)()
-            val middle = annotation.saved(1)
+            //  return strategy
             AppendStrategy(condition, middle)
           } else if (annotation.isConcat) {
             val equality = {
@@ -282,6 +290,24 @@ trait GhostCode extends Builder with Simplification {
     } else {
       DefaultStrategy
     }
+
+  /**
+   * Returns the first link corresponding to the recursive predicate with the given root.
+   *
+   * @param root       The root.
+   * @param hypothesis The current hypothesis.
+   * @return The link.
+   */
+  private def getLink(root: ast.Exp)(implicit hypothesis: Hypothesis): ast.Exp = {
+    // get instance
+    val arguments = Seq(root, ast.NullLit()())
+    val instance = input.instance(Names.recursive, arguments)
+    // compute links
+    val links = hypothesis.getLinks(instance)
+    // make sure there is only one link
+    assert(links.size == 1)
+    links.head
+  }
 
   /**
    * Collects all predicate instances appearing in the given expression.
