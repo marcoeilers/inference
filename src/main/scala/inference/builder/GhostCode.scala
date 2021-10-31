@@ -14,6 +14,91 @@ import inference.input.{Annotation, Check, Configuration, Input}
 import inference.util.ast.{Expressions, Statements}
 import viper.silver.ast
 
+object GhostCode {
+  /**
+   * Unfolds the resources provided by the given specification in the given expressions.
+   *
+   * @param specification The specification.
+   * @param expressions   The expressions.
+   * @return The expressions with unfolded resources.
+   */
+  def unfolding(specification: ast.Exp, expressions: Seq[ast.Exp]): Seq[ast.Exp] = {
+    lazy val resources = collectResources(specification)
+    expressions.map { expression =>
+      if (needsUnfolding(expression)) {
+        unfoldResources(resources, expression)
+      } else {
+        expression
+      }
+    }
+  }
+
+  /**
+   * Unfolds the resources provided by the given specification in the given expression.
+   *
+   * @param specification The specification.
+   * @param expression    The expression.
+   * @return The expressions with unfolded resources.
+   */
+  def bar(specification: ast.Exp, expression: ast.Exp): ast.Exp =
+    if (needsUnfolding(expression)) {
+      val resources = collectResources(specification)
+      unfoldResources(resources, expression)
+    } else {
+      expression
+    }
+
+  private def needsUnfolding(expression: ast.Exp): Boolean =
+    expression.exists {
+      case _: ast.FieldAccess => true
+      case _ => false
+    }
+
+  /**
+   * Helper function that collects guarded resources provided in the given expression.
+   *
+   * @param expression The expression.
+   * @param guards     The current guards.
+   * @return The guarded resources.
+   */
+  private def collectResources(expression: ast.Exp, guards: Seq[ast.Exp] = Seq.empty): Seq[(ast.PredicateAccessPredicate, Seq[ast.Exp])] =
+    expression match {
+      case ast.And(left, right) =>
+        collectResources(left, guards) ++ collectResources(right, guards)
+      case ast.Implies(left, right) =>
+        val updatedGuards = guards :+ left
+        collectResources(right, updatedGuards)
+      case resource: ast.PredicateAccessPredicate =>
+        Seq((resource, guards))
+      case _ =>
+        Seq.empty
+    }
+
+  /**
+   * Helper function that unfolds the given guarded resources in the given expression.
+   *
+   * @param resources  The guarded resources.
+   * @param expression The expression.
+   * @return The resulting expression.
+   */
+  def unfoldResources(resources: Seq[(ast.PredicateAccessPredicate, Seq[ast.Exp])], expression: ast.Exp): ast.Exp =
+    resources match {
+      case (predicate, guards) +: rest =>
+        // compute body and unfolded body
+        val body = unfoldResources(rest, expression)
+        val unfolded = ast.Unfolding(predicate, body)()
+        // conditionally unfold
+        if (guards.isEmpty) {
+          unfolded
+        } else {
+          val condition = Expressions.makeAnd(guards)
+          ast.CondExp(condition, unfolded, body)()
+        }
+      case _ =>
+        expression
+    }
+}
+
 /**
  * A mixin providing methods to emit ghost code.
  */
