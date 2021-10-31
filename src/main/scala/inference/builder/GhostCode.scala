@@ -252,33 +252,33 @@ trait GhostCode extends Builder with Simplification {
    */
   private def getStrategy(predicate: ast.PredicateAccess, annotations: Seq[Annotation])(implicit hypothesis: Hypothesis): Strategy =
     if (configuration.useSegments && configuration.useAnnotations) {
+      val arguments = predicate.args
       val strategies = annotations
         .map { annotation =>
           if (annotation.isAppend) {
             // extract lemma parameters from annotation
             val Seq(first, middle) = annotation.saved
-            val last = getLink(middle)
-            // get condition under which the lemma might be applied
+            // get condition under which the lemma may be applied
             val condition = {
-              // get equality capturing whether predicate matches the annotation
-              val arguments = predicate.args
-              val target = Seq(first, last)
-              val equality = Expressions.makeEqual(arguments, target)
-              //
+              //  equality capturing whether predicate matches the annotation
+              val last = getLink(middle)
+              val equality = Expressions.makeEqual(arguments, Seq(first, last))
+              // conjoin with flag indicating whether the annotation was encountered
               ast.And(annotation.flag, equality)()
             }
             //  return strategy
             AppendStrategy(condition, middle)
           } else if (annotation.isConcat) {
-            val equality = {
-              val arguments = annotation.arguments
-              val first = arguments.head
-              val third = arguments(2)
-              val segmentArguments = Seq(first, third)
-              Expressions.makeEqual(predicate.args, segmentArguments)
+            // extract lemma parameters from annotation
+            val Seq(first, middle, last) = annotation.arguments
+            // get condition under which the lemma may be applied
+            val condition = {
+              // equality capturing whether predicates matches the annotation
+              val equality = Expressions.makeEqual(arguments, Seq(first, last))
+              // conjoin with flag indicating whether the annotation was encountered
+              ast.And(annotation.flag, equality)()
             }
-            val condition = ast.And(annotation.flag, equality)()
-            val middle = annotation.saved(1)
+            // return strategy
             ConcatStrategy(condition, middle)
           } else {
             sys.error(s"Unsupported annotation: $annotation")
