@@ -40,7 +40,7 @@ object GhostCode {
    * @param expression    The expression.
    * @return The expressions with unfolded resources.
    */
-  def bar(specification: ast.Exp, expression: ast.Exp): ast.Exp =
+  def unfolding(specification: ast.Exp, expression: ast.Exp): ast.Exp =
     if (needsUnfolding(expression)) {
       val resources = collectResources(specification)
       unfoldResources(resources, expression)
