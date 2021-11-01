@@ -404,26 +404,16 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
    * @param leaves   The map containing all leaves.
    */
   private def branch(instance: Instance, leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]] = Map.empty): Unit = {
-    // collected accesses
-    val accesses = {
-      // variables appearing in instance
-      val variables = instance
-        .arguments
-        .filter(_.isSubtype(ast.Ref))
-        .map { argument => argument -> ast.TrueLit()() }
-      // collected field accesses
-      val fields = leaves.collect {
-        case (ast.FieldAccessPredicate(access, _), conditions) if access.isSubtype(ast.Ref) =>
-          access -> Expressions.makeOr(conditions)
-      }
-      // combine variables and fields
-      variables ++ fields
-    }
+    // variables appearing in instance
+    val variables = instance
+      .arguments
+      .filter(_.isSubtype(ast.Ref))
+      .map { argument => argument -> ast.TrueLit()() }
     // dummy statement
     val dummy = makeScope(emitInhale(ast.TrueLit()()))
     // branch on nullity
     if (configuration.useNullityBranching) {
-      accesses.foreach {
+      variables.foreach {
         case (access, effective) =>
           val atom = ast.NeCmp(access, ast.NullLit()())()
           val condition = ast.And(effective, atom)()
@@ -432,6 +422,14 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     }
     // branch on equality
     if (configuration.useEqualityBranching) {
+      // collected field accesses
+      val fields = leaves.collect {
+        case (ast.FieldAccessPredicate(access, _), conditions) if access.isSubtype(ast.Ref) =>
+          access -> Expressions.makeOr(conditions)
+      }
+      // combine variables and fields
+      val accesses = variables ++ fields
+      // go through all pairs and branch equality
       Collections.pairs(accesses).foreach {
         case ((access1, effective1), (access2, effective2)) =>
           val atom = ast.NeCmp(access1, access2)()
