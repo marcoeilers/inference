@@ -285,7 +285,7 @@ trait GhostCode extends Builder with Simplification {
    * @param expression The expression to process.
    * @param action     The action to apply.
    */
-  def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit]): Unit =
+  private def processWithAdjustment(expression: ast.Exp)(action: PartialFunction[ast.Exp, Unit]): Unit =
     process(expression)(action.orElse {
       case ast.And(ast.And(first, second), right) =>
         // re-associate conjuncts
