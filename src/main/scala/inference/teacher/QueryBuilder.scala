@@ -303,7 +303,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     }
     // consolidate state if enabled
     if (configuration.stateConsolidation) {
-      consolidateState(leaves)
+      consolidate(inferred, depth)
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -441,6 +441,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
 
   /**
    * Consolidates the state.
+   * TODO: Remove or introduce configuration flag?
    *
    * @param leaves The map containing all leaves.
    */
@@ -464,6 +465,71 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         val fold = ast.Fold(predicate)()
         emitConditional(condition, fold)
     }
+  }
+
+  /**
+   * Consolidates the state after inhaling the given expression.
+   *
+   * @param expression The inhaled expression.
+   * @param depth      The depth up to which the expression was unfolded.
+   * @param hypothesis The current hypothesis.
+   */
+  private def consolidate(expression: ast.Exp, depth: Int)(implicit hypothesis: Hypothesis): Unit = {
+    /**
+     * Helper method that collects all predicate roots appearing in the given expression.
+     *
+     * @param expression The expression.
+     * @param depth      The depth up to which the roots should be collected.
+     * @param guards     The current guards.
+     * @return The roots.
+     */
+    def collectRoots(expression: ast.Exp, depth: Int, guards: Seq[ast.Exp] = Seq.empty): Seq[(ast.Exp, ast.Exp)] =
+      expression match {
+        case ast.And(left, right) =>
+          val collectedLeft = collectRoots(left, depth, guards)
+          val collectedRight = collectRoots(right, depth, guards)
+          collectedLeft ++ collectedRight
+        case ast.Implies(left, right) =>
+          val updatedGuards = guards :+ left
+          collectRoots(right, depth, updatedGuards)
+        case ast.PredicateAccessPredicate(predicate, _) =>
+          // recursively collect roots
+          val collected =
+            if (depth > 0) {
+              val instance = input.instance(predicate)
+              val nested = hypothesis.getInferred(instance)
+              collectRoots(nested, depth - 1, guards)
+            } else {
+              Seq.empty
+            }
+          // root corresponding to current predicate
+          val root = {
+            val arguments = predicate.args
+            val first = arguments.head
+            val second = arguments
+              .tail
+              .headOption
+              .getOrElse(ast.NullLit()())
+            val nonempty = ast.NeCmp(first, second)()
+            val condition = Expressions.makeAnd(guards :+ nonempty)
+            (first, condition)
+          }
+          // return all roots
+          root +: collected
+        case _ =>
+          Seq.empty
+      }
+
+    val roots = collectRoots(expression, depth)
+    Collections
+      .pairs(roots)
+      .foreach {
+        case ((root1, condition1), (root2, condition2)) =>
+          val inequality = ast.NeCmp(root1, root2)()
+          val condition = ast.And(condition1, condition2)()
+          val fact = ast.Implies(condition, inequality)()
+          emitInhale(fact)
+      }
   }
 }
 
