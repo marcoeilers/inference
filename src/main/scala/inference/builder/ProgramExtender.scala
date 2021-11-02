@@ -169,18 +169,23 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
     }
 
   override protected def processCut(cut: Cut)(implicit hypothesis: Hypothesis): Unit = {
-    // get loop specification
+    // get specification instance
     val check = cut.loop
-    val invariants = {
-      val instance = check.invariant.asInstance
-      hypothesis.getSpecifications(instance)
+    val instance = check.invariant.asInstance
+    // update loop condition
+    val condition = {
+      val inferred = hypothesis.getInferred(instance)
+      GhostCode.unfolding(inferred, check.condition)
     }
+    // get loop invariant
+    val invariants = hypothesis.getSpecifications(instance)
     // extend loop body
     val body = extendCheck(check)
     // update loop
     val extended = {
       val original = check.original
       original.copy(
+        cond = condition,
         invs = invariants,
         body = body
       )(original.pos, original.info, original.errT)
