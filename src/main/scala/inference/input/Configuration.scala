@@ -50,7 +50,9 @@ case object Configuration {
       querySimplification = options.querySimplification(),
       outputSimplification = options.outputSimplification(),
       choiceIntroduction = options.choiceIntroduction(),
-      stateConsolidation = options.stateConsolidation())
+      assumeConsolidation = options.consolidation.filter(_ == "assume").isDefined,
+      explicitConsolidation = options.consolidation.filter(_ == "explicit").isDefined
+    )
   }
 
   /**
@@ -232,12 +234,12 @@ case object Configuration {
         hidden = true
       )
 
-    val stateConsolidation: ScallopOption[Boolean] =
-      toggle(
-        name = "stateConsolidation",
-        descrYes = "Enables Silicon's state consolidation.",
-        descrNo = "Disables Silicon's state consolidation.",
-        default = Some(true),
+    val consolidation: ScallopOption[String] =
+      choice(
+        name = "consolidation",
+        descr = "Switches whether and how Silicon states are consolidated.",
+        choices = Seq("none", "assume", "explicit"),
+        default = Some("explicit"),
         hidden = true
       )
 
@@ -262,30 +264,32 @@ case object Configuration {
 /**
  * A configuration object for the inference.
  *
- * @param arguments            The arguments corresponding to the configuration.
- * @param inputOption          The path to the input file.
- * @param z3Exe                The path to the Z3 executable.
- * @param useRecursive         The flag indicating whether the use of recursive predicate is enabled.
- * @param useSegments          The flag indicating whether the us of predicate segments is enabled.
- * @param infinite             The flag indicating whether infinite recursive predicates are allowed.
- * @param iterations           The maximal number of iterations.
- * @param escalation           The flag indicating whether template complexity escalation is enabled.
- * @param deescalation         The flag indicating whether template complexity deescalation is enabled.
- * @param maxLength            The maximal length of access paths that may appear in specifications.
- * @param maxClauses           The maximal number of clauses that may be used per guard.
- * @param unfoldDepth          The depth up to which predicates should be unfolded.
- * @param foldDelta            The difference between the adaptive fold depth and the unfold depth.
- * @param useAnnotations       The flag indicating whether the use of annotations is enabled.
- * @param useBatching          The flag indicating whether batch processing of checks is enabled.
- * @param useNullityBranching  The flag indicating whether branching on nullity is enabled.
- * @param useEqualityBranching The flag indicating whether branching on equality is enabled.
- * @param useUpperbounds       The flag indicating whether upper bound samples are enabled.
- * @param useSyntacticBounds   The flag indicating whether syntactic implicit upper bounds are enabled.
- * @param useSemanticBounds    The flag indicating whether semantic implicit upper bounds are enabled.
- * @param querySimplification  The flag indicating whether the simplification of queries is enabled.
- * @param outputSimplification The flag indicating whether the simplification of output programs is enabled.
- * @param choiceIntroduction   The flag indicating whether the introduction of choices for the second predicate is enabled.
- * @param stateConsolidation   The flag indicating whether Silicon's state consolidation is enabled.
+ * @param arguments             The arguments corresponding to the configuration.
+ * @param inputOption           The path to the input file.
+ * @param z3Exe                 The path to the Z3 executable.
+ * @param useRecursive          The flag indicating whether the use of recursive predicate is enabled.
+ * @param useSegments           The flag indicating whether the us of predicate segments is enabled.
+ * @param infinite              The flag indicating whether infinite recursive predicates are allowed.
+ * @param iterations            The maximal number of iterations.
+ * @param escalation            The flag indicating whether template complexity escalation is enabled.
+ * @param deescalation          The flag indicating whether template complexity deescalation is enabled.
+ * @param maxLength             The maximal length of access paths that may appear in specifications.
+ * @param maxClauses            The maximal number of clauses that may be used per guard.
+ * @param unfoldDepth           The depth up to which predicates should be unfolded.
+ * @param foldDelta             The difference between the adaptive fold depth and the unfold depth.
+ * @param useAnnotations        The flag indicating whether the use of annotations is enabled.
+ * @param useBatching           The flag indicating whether batch processing of checks is enabled.
+ * @param useNullityBranching   The flag indicating whether branching on nullity is enabled.
+ * @param useEqualityBranching  The flag indicating whether branching on equality is enabled.
+ * @param useUpperbounds        The flag indicating whether upper bound samples are enabled.
+ * @param useSyntacticBounds    The flag indicating whether syntactic implicit upper bounds are enabled.
+ * @param useSemanticBounds     The flag indicating whether semantic implicit upper bounds are enabled.
+ * @param querySimplification   The flag indicating whether the simplification of queries is enabled.
+ * @param outputSimplification  The flag indicating whether the simplification of output programs is enabled.
+ * @param choiceIntroduction    The flag indicating whether the introduction of choices for the second predicate is enabled.
+ * @param assumeConsolidation   The flag indicating whether state consolidation should be assumed.
+ * @param explicitConsolidation The flag indicating whether state consolidation should be performed explicitly.
+ *
  */
 case class Configuration(arguments: Seq[String],
                          inputOption: Option[String],
@@ -310,7 +314,8 @@ case class Configuration(arguments: Seq[String],
                          querySimplification: Boolean,
                          outputSimplification: Boolean,
                          choiceIntroduction: Boolean,
-                         stateConsolidation: Boolean) {
+                         assumeConsolidation: Boolean,
+                         explicitConsolidation: Boolean) {
   /**
    * Returns the path to the input file.
    *
@@ -354,4 +359,12 @@ case class Configuration(arguments: Seq[String],
    */
   def useImplicitBounds: Boolean =
     useSemanticBounds || useSyntacticBounds
+
+  /**
+   * Returns whether state consolidation is enabled.
+   *
+   * @return True if state consolidation is enabled.
+   */
+  def useConsolidation: Boolean =
+    assumeConsolidation || explicitConsolidation
 }

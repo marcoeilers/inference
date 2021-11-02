@@ -160,7 +160,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       val dummies = {
         // state consolidation method
         val consolidate =
-          if (configuration.stateConsolidation) Seq(consolidateMethod)
+          if (configuration.explicitConsolidation) Seq(consolidateMethod)
           else Seq.empty
         // methods for method not contained in batch
         val names = batch.map(_.name).toSet
@@ -302,8 +302,10 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       branch(instance, leaves)
     }
     // consolidate state if enabled
-    if (configuration.stateConsolidation) {
-      consolidate(inferred, depth)
+    if (configuration.assumeConsolidation) {
+      consolidateAssume(inferred, depth)
+    } else if (configuration.explicitConsolidation) {
+      consolidateExplicit(leaves)
     }
     // save state snapshot
     saveSnapshot(instance)
@@ -440,12 +442,11 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   }
 
   /**
-   * Consolidates the state.
-   * TODO: Remove or introduce configuration flag?
+   * Explicitly consolidates the state.
    *
    * @param leaves The map containing all leaves.
    */
-  private def consolidateState(leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]]): Unit = {
+  private def consolidateExplicit(leaves: => Map[ast.AccessPredicate, Seq[ast.Exp]]): Unit = {
     // collect leaf predicates
     val predicates = leaves.collect {
       case (predicate: ast.PredicateAccessPredicate, conditions) =>
@@ -468,13 +469,13 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
   }
 
   /**
-   * Consolidates the state after inhaling the given expression.
+   * Consolidates the state after inhaling the given expression using assumptions.
    *
    * @param expression The inhaled expression.
    * @param depth      The depth up to which the expression was unfolded.
    * @param hypothesis The current hypothesis.
    */
-  private def consolidate(expression: ast.Exp, depth: Int)(implicit hypothesis: Hypothesis): Unit = {
+  private def consolidateAssume(expression: ast.Exp, depth: Int)(implicit hypothesis: Hypothesis): Unit = {
     /**
      * Helper method that collects all predicate roots appearing in the given expression.
      *
