@@ -117,7 +117,26 @@ trait HypothesisBuilder extends AbstractLearner {
   private def buildExpression(expression: TemplateExpression, atoms: Seq[ast.Exp])(implicit model: Map[String, Boolean]): ast.Exp =
     expression match {
       case Wrapped(expression) =>
-        expression
+        if (configuration.nagini) {
+          // add type information required by Nagini encoding
+          expression match {
+            case resource@ast.FieldAccessPredicate(access, _) =>
+              // create subtype call
+              val isSubtype = {
+                val typename = access.field.name.split("_").last
+                val pyType = ast.DomainType("PyType", Map.empty)(Seq.empty)
+                val required = ast.DomainFuncApp(typename, Seq.empty, Map.empty)(ast.NoPosition, ast.NoInfo, pyType, "PyType", ast.NoTrafos)
+                val actual = ast.DomainFuncApp("typeof", Seq(access), Map.empty)(ast.NoPosition, ast.NoInfo, pyType, "PyType", ast.NoTrafos)
+                ast.DomainFuncApp("issubtype", Seq(actual, required), Map.empty)(ast.NoPosition, ast.NoInfo, ast.Bool, "PyType", ast.NoTrafos)
+              }
+              // add type information
+              ast.And(resource, isSubtype)()
+            case other =>
+              other
+          }
+        } else {
+          expression
+        }
       case Conjunction(conjuncts) =>
         val mapped = conjuncts.map { conjunct => buildExpression(conjunct, atoms) }
         Expressions.makeAnd(mapped)

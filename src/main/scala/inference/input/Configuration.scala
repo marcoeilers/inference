@@ -51,7 +51,8 @@ case object Configuration {
       outputSimplification = options.outputSimplification(),
       choiceIntroduction = options.choiceIntroduction(),
       assumeConsolidation = options.consolidation.filter(_ == "assume").isDefined,
-      explicitConsolidation = options.consolidation.filter(_ == "explicit").isDefined
+      explicitConsolidation = options.consolidation.filter(_ == "explicit").isDefined,
+      nagini = options.nagini()
     )
   }
 
@@ -243,6 +244,15 @@ case object Configuration {
         hidden = true
       )
 
+    val nagini: ScallopOption[Boolean] =
+      toggle(
+        name = "nagini",
+        descrYes = "Enables Nagini mode.",
+        descrNo = "Disables Nagini mode.",
+        default = Some(true),
+        hidden = true
+      )
+
     val file: ScallopOption[String] =
       trailArg[String](
         name = "file",
@@ -289,7 +299,7 @@ case object Configuration {
  * @param choiceIntroduction    The flag indicating whether the introduction of choices for the second predicate is enabled.
  * @param assumeConsolidation   The flag indicating whether state consolidation should be assumed.
  * @param explicitConsolidation The flag indicating whether state consolidation should be performed explicitly.
- *
+ * @param nagini                The flag indicating whether Nagini mode is enabled.
  */
 case class Configuration(arguments: Seq[String],
                          inputOption: Option[String],
@@ -315,7 +325,8 @@ case class Configuration(arguments: Seq[String],
                          outputSimplification: Boolean,
                          choiceIntroduction: Boolean,
                          assumeConsolidation: Boolean,
-                         explicitConsolidation: Boolean) {
+                         explicitConsolidation: Boolean,
+                         nagini: Boolean) {
   /**
    * Returns the path to the input file.
    *

@@ -52,9 +52,11 @@ trait CheckBuilder extends Builder with Atoms {
 
   /**
    * Resets the check builder.
+   *
+   * @param program The program.
    */
-  private def reset(): Unit = {
-    namespace = new Namespace()
+  private def reset(program: ast.Program): Unit = {
+    namespace = Namespace(program)
     placeholders.clear()
     checks.clear()
     specifications = Map.empty
@@ -68,7 +70,7 @@ trait CheckBuilder extends Builder with Atoms {
    */
   def buildChecks(configuration: Configuration, program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
     // reset
-    reset()
+    reset(program)
     // create placeholders for method specifications
     specifications = program
       .methods
@@ -338,10 +340,8 @@ trait CheckBuilder extends Builder with Atoms {
                         case variable: ast.LocalVar =>
                           if (targets.contains(variable)) save(variable)
                           else variable
-                        case field: ast.FieldAccess =>
-                          save(field)
                         case other =>
-                          sys.error(s"Unexpected argument: $other")
+                          save(other)
                       }
                     } else {
                       // leave non-reference arguments untouched

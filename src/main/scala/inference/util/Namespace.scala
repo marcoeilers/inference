@@ -8,12 +8,42 @@
 
 package inference.util
 
+import viper.silver.ast
+
+/**
+ * Namespace companion object.
+ */
+object Namespace {
+  /**
+   * Creates a namespaces corresponding to the given program.
+   *
+   * @param program The program.
+   * @return The namespace.
+   */
+  def apply(program: ast.Program): Namespace = {
+    val namespace = new Namespace()
+    val names = program.functions.map(_.name)
+    names.foreach(namespace.addIdentifier)
+    namespace
+  }
+}
+
 /**
  * A namespace used to generate unique identifiers.
  *
  * @param map A map associating identifiers with version numbers.
  */
 class Namespace(private var map: Map[String, Int] = Map.empty, template: String = "%s_%d") {
+  /**
+   * Adds the identifier with the given name to the namespace.
+   *
+   * @param name The name of the identifier.
+   */
+  def addIdentifier(name: String): Unit = {
+    assert(!map.contains(name))
+    map = map.updated(name, 0)
+  }
+
   /**
    * Returns a unique identifier.
    *

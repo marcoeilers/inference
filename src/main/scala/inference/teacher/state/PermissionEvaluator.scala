@@ -90,6 +90,8 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
               } else 0
             }
         }
+      case _: ast.DomainFuncApp =>
+        0
       case other =>
         sys.error(s"Unexpected specification: $other")
     }
