@@ -429,7 +429,8 @@ trait CheckBuilder extends Builder with Atoms {
    */
   private def instrumented(emitter: => Unit): Unit = {
     val body = makeScope(emitter)
-    val statement = Instrumented(body, annotations.toSeq)
+    val annotations = consumeAnnotations()
+    val statement = Instrumented(body, annotations)
     emit(statement)
   }
 
@@ -466,4 +467,15 @@ trait CheckBuilder extends Builder with Atoms {
   @inline
   private def addAnnotation(annotation: Annotation): Unit =
     annotations.append(annotation)
+
+  /**
+   * Consumes all annotations currently in scope.
+   *
+   * @return The annotations.
+   */
+  private def consumeAnnotations(): Seq[Annotation] = {
+    val consumed = annotations.toSeq
+    annotations.clear()
+    consumed
+  }
 }
