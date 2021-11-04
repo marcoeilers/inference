@@ -127,12 +127,9 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             val instance = input.instance(predicate)
             // check if this is a predicate
             if (instance.isPredicate) {
-              // inhale predicate
+              // inhale and unfold predicate
               emitInhale(resource)
-              // only unfold if it is not a user-defined predicate
-              if (!instance.hasExisting) {
-                emitUnfold(resource)
-              }
+              emitUnfold(resource)
             }
             // get inferred specifications
             val inferred = hypothesis.getInferred(instance)
@@ -155,11 +152,8 @@ class ProgramExtender(val input: Input) extends CheckExtender[ast.Seqn] {
             else fold(inferred, depth)
             // check if this is a predicate
             if (instance.isPredicate) {
-              // only fold if it is not a user-defined predicate
-              if (!instance.hasExisting) {
-                emitFold(resource)
-              }
-              // exhale predicate
+              // fold and exhale predicate
+              emitFold(resource)
               emitExhale(resource)
             }
           case _ => // do nothing

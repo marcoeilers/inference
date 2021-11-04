@@ -144,15 +144,26 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     val original = input.program
 
     // create predicates
-    val predicates =
-      input.placeholders.flatMap { placeholder =>
-        if (placeholder.isSpecification) {
-          val predicate = hypothesis.getPredicate(placeholder)
-          Some(predicate)
-        } else {
-          None
+    val predicates = {
+      // get existing predicates
+      val existing = input
+        .program
+        .predicates
+        .filter(_.body.isDefined)
+      // get inferred predicates
+      val inferred = input
+        .placeholders
+        .flatMap { placeholder =>
+          if (placeholder.isSpecification) {
+            val predicate = hypothesis.getPredicate(placeholder)
+            Some(predicate)
+          } else {
+            None
+          }
         }
-      }
+      // combine predicates
+      existing ++ inferred
+    }
 
     // create methods
     val methods = {
@@ -233,31 +244,19 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
         statements.foreach(processInstrumented)
       case ast.Inhale(expression) =>
         expression match {
-          case resource@ast.PredicateAccessPredicate(predicate, _) =>
-            // get specification instance
+          case ast.PredicateAccessPredicate(predicate, _) =>
+            // get and inhale specification instance
             val instance = input.instance(predicate)
-            if (instance.hasExisting) {
-              // inhale user-defined predicate
-              emitInhale(resource)
-            } else {
-              // inhale instance
-              inhaleInstance(instance)
-            }
+            inhaleInstance(instance)
           case condition =>
             emitInhale(condition)
         }
       case ast.Exhale(expression) =>
         expression match {
-          case resource@ast.PredicateAccessPredicate(predicate, _) =>
-            // get specification instance
+          case ast.PredicateAccessPredicate(predicate, _) =>
+            // get and exhale specification instance
             val instance = input.instance(predicate)
-            if (instance.hasExisting) {
-              // exhale user-defined predicate
-              emitExhale(resource)
-            } else {
-              // exhale instance
-              exhaleInstance(instance)
-            }
+            exhaleInstance(instance)
           case condition =>
             emitExhale(condition)
         }

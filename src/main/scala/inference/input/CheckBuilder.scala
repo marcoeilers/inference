@@ -48,7 +48,12 @@ trait CheckBuilder extends Builder with Atoms {
   /**
    * A map from method names to the corresponding pair of pre- and postconditions.
    */
-  private var specifications: Map[String, (Placeholder, Placeholder)] = _
+  private var methods: Map[String, (Placeholder, Placeholder)] = _
+
+  /**
+   * A map from predicate names to the corresponding placeholder.
+   */
+  private var predicates: Map[String, Placeholder] = _
 
   /**
    * Resets the check builder.
@@ -59,21 +64,18 @@ trait CheckBuilder extends Builder with Atoms {
     namespace = Namespace(program)
     placeholders.clear()
     checks.clear()
-    specifications = Map.empty
+    methods = Map.empty
+    predicates = Map.empty
   }
 
   /**
-   * Processes the given program.
+   * Creates pre- and postcondition placeholders for the given methods.
    *
-   * @param program The program to process.
-   * @return The checks.
+   * @param methods The methods
+   * @return The placeholders.
    */
-  def buildChecks(configuration: Configuration, program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
-    // reset
-    reset(program)
-    // create placeholders for method specifications
-    specifications = program
-      .methods
+  private def methodPlaceholders(methods: Seq[ast.Method]): Map[String, (Placeholder, Placeholder)] =
+    methods
       .flatMap { method =>
         if (method.body.isDefined) {
           // create specification placeholders
@@ -89,8 +91,41 @@ trait CheckBuilder extends Builder with Atoms {
         }
       }
       .toMap
-    // process predicates
-    program.predicates.foreach(processPredicate)
+
+  /**
+   * Creates placeholders for the given predicates.
+   *
+   * @param predicates The predicates.
+   * @return The placeholders.
+   */
+  private def predicatePlaceholders(predicates: Seq[ast.Predicate]): Map[String, Placeholder] =
+    predicates
+      .flatMap { predicate =>
+        if (predicate.body.isEmpty) {
+          val name = predicate.name
+          val arguments = predicate.formalArgs
+          val existing = predicate.body.toSeq
+          val placeholder = createPlaceholder(name, Kind.Predicate, arguments, existing)
+          Some(name -> placeholder)
+        } else {
+          // ignore predicates with bodies
+          None
+        }
+      }
+      .toMap
+
+  /**
+   * Processes the given program.
+   *
+   * @param program The program to process.
+   * @return The checks.
+   */
+  def buildChecks(configuration: Configuration, program: ast.Program): (Seq[Placeholder], Seq[Check]) = {
+    // reset
+    reset(program)
+    // create placeholders for methods and predicates
+    methods = methodPlaceholders(program.methods)
+    predicates = predicatePlaceholders(program.predicates)
     // process methods
     program.methods.foreach(processMethod)
     // recursive predicate placeholder
@@ -157,18 +192,6 @@ trait CheckBuilder extends Builder with Atoms {
   }
 
   /**
-   * Processes the given predicate.
-   *
-   * @param predicate The predicate to process.
-   */
-  private def processPredicate(predicate: ast.Predicate): Unit = {
-    val name = predicate.name
-    val arguments = predicate.formalArgs
-    val existing = predicate.body.toSeq
-    createPlaceholder(name, Kind.Predicate, arguments, existing)
-  }
-
-  /**
    * Processes the given method.
    *
    * @param method The method to process.
@@ -179,7 +202,7 @@ trait CheckBuilder extends Builder with Atoms {
       .foreach { body =>
         // create placeholder specifications
         val name = method.name
-        val (precondition, postcondition) = specifications(name)
+        val (precondition, postcondition) = methods(name)
         // process method body
         val processed = processBody(body) {
           // inhale precondition
@@ -324,7 +347,7 @@ trait CheckBuilder extends Builder with Atoms {
           addAnnotation(annotation)
         } else {
           // get method specification
-          val specification = specifications.get(name)
+          val specification = methods.get(name)
           specification match {
             case Some((precondition, postcondition)) =>
               // instrument method call
@@ -362,12 +385,20 @@ trait CheckBuilder extends Builder with Atoms {
               emit(call)
           }
         }
-      case ast.Inhale(resource: ast.PredicateAccessPredicate) =>
-        // instrument inhale
-        instrumented(emitInhale(resource))
-      case ast.Exhale(resource: ast.PredicateAccessPredicate) =>
-        // instrument exhale
-        instrumented(emitExhale(resource))
+      case inhale@ast.Inhale(ast.PredicateAccessPredicate(predicate, _)) =>
+        // instrument inhale if predicate body needs to be inferred
+        if (predicates.contains(predicate.predicateName)) {
+          instrumented(emit(inhale))
+        } else {
+          emit(inhale)
+        }
+      case exhale@ast.Exhale(ast.PredicateAccessPredicate(predicate, _)) =>
+        // instrument exhale if predicate body needs to be inferred
+        if (predicates.contains(predicate.predicateName)) {
+          instrumented(emit(exhale))
+        } else {
+          emit(exhale)
+        }
       case _ =>
         emit(statement)
     }
