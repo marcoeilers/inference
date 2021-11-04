@@ -22,8 +22,9 @@ object Namespace {
    */
   def apply(program: ast.Program): Namespace = {
     val namespace = new Namespace()
-    val names = program.functions.map(_.name)
-    names.foreach(namespace.addIdentifier)
+    namespace.addIdentifiers(program.fields.map(_.name))
+    namespace.addIdentifiers(program.functions.map(_.name))
+    namespace.addIdentifiers(program.methods.map(_.name))
     namespace
   }
 }
@@ -43,6 +44,14 @@ class Namespace(private var map: Map[String, Int] = Map.empty, template: String 
     assert(!map.contains(name))
     map = map.updated(name, 0)
   }
+
+  /**
+   * Adds the identifiers with the given names to the namespace.
+   *
+   * @param names The names of the identifiers.
+   */
+  def addIdentifiers(names: Seq[String]): Unit =
+    names.foreach(addIdentifier)
 
   /**
    * Returns a unique identifier.
