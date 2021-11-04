@@ -249,7 +249,7 @@ case object Configuration {
         name = "nagini",
         descrYes = "Enables Nagini mode.",
         descrNo = "Disables Nagini mode.",
-        default = Some(true),
+        default = Some(false),
         hidden = true
       )
 
