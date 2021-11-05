@@ -355,7 +355,7 @@ trait GhostCode extends Builder with Simplification {
             AppendStrategy(condition, middle)
           } else if (annotation.isConcat) {
             // extract lemma parameters from annotation
-            val Seq(first, middle, last) = annotation.arguments
+            val Seq(first, middle, last) = annotation.saved
             // get condition under which the lemma may be applied
             val condition = {
               // equality capturing whether predicates matches the annotation
