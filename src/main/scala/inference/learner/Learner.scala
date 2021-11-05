@@ -25,6 +25,12 @@ class Learner(val input: Input, protected val solver: Solver)
     with TemplateGenerator
     with HypothesisSolver
     with HypothesisBuilder {
+  /**
+   * The set used to remember all hypotheses.
+   */
+  private var history: Set[Hypothesis] =
+    Set.empty
+
   override def initial: Hypothesis =
     Hypothesis(Seq.empty, Seq.empty)
 
@@ -33,13 +39,23 @@ class Learner(val input: Input, protected val solver: Solver)
       // return initial hypothesis
       Some(initial)
     } else {
-      // generate templates
-      val templates = generateTemplates()
-      // compute hypothesis
+      // reset escalation level
       if (configuration.deescalation) {
         deescalate()
       }
-      hypothesis(templates)
+      // generate templates
+      val templates = generateTemplates()
+      // compute hypothesis and make sure it is a new one
+      val next = hypothesis(templates)
+      next.flatMap { hypothesis =>
+        if (history.contains(hypothesis)) {
+          logger.info("Duplicate hypothesis!")
+          None
+        } else {
+          history = history + hypothesis
+          Some(hypothesis)
+        }
+      }
     }
   }
 
