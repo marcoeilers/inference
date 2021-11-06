@@ -8,6 +8,7 @@
 
 package inference.teacher.state
 
+import inference.Names
 import inference.core.sample.{FieldAbstraction, PredicateAbstraction, ResourceAbstraction}
 import inference.core.{Hypothesis, Instance}
 import inference.input.Input
@@ -83,7 +84,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
             if (name == access.predicateName && equalArguments) 1
             else {
               // TODO: Implement me properly
-              if (depth > 0) {
+              if (depth > 0 && Names.isRecursive(access.predicateName)) {
                 val instance = input.instance(access)
                 val nested = hypothesis.getInferred(instance)
                 evaluate(resource, nested, depth - 1)
