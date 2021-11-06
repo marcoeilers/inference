@@ -136,7 +136,7 @@ trait GhostCode extends Builder with Simplification {
                       (implicit hypothesis: Hypothesis): Unit =
     if (depth > 0)
       process(expression) {
-        case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        case resource@ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
           // unfold predicate
           emitUnfold(resource)
           // recursively unfold nested predicate instances
@@ -153,7 +153,7 @@ trait GhostCode extends Builder with Simplification {
    */
   protected def expose(expression: ast.Exp)(implicit hypothesis: Hypothesis): Unit =
     process(expression) {
-      case ast.PredicateAccessPredicate(predicate, _) =>
+      case ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
         // get body of predicate
         val instance = input.instance(predicate)
         val body = hypothesis.getInferred(instance)
@@ -180,7 +180,7 @@ trait GhostCode extends Builder with Simplification {
                        info: ast.Info,
                        exhaled: Boolean = true): Unit =
     process(expression, reverse = true) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+      case resource@ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
         // fold predicate
         val strategy = getStrategy(predicate, annotations)
         implicit val exhaled: Boolean = true
@@ -207,7 +207,7 @@ trait GhostCode extends Builder with Simplification {
                      info: ast.Info,
                      exhaled: Boolean = false): Unit =
     processWithAdjustment(expression) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+      case resource@ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
         val strategy = getStrategy(predicate, annotations)
         foldWithStrategy(resource, depth, strategy)
     }
@@ -226,7 +226,7 @@ trait GhostCode extends Builder with Simplification {
                               (implicit hypothesis: Hypothesis, info: ast.Info, exhaled: Boolean): Unit =
     if (depth > 0)
       processWithAdjustment(expression) {
-        case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        case resource@ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
           val foldCondition = Expressions.makeInsufficient(resource)
           val foldBody = {
             // default strategy

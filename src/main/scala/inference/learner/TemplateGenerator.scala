@@ -104,14 +104,18 @@ trait TemplateGenerator extends AbstractLearner {
             }
           case _ => // do nothing
         }
-      case ast.PredicateAccess(first +: rest, name) =>
-        assert(Names.isRecursive(name))
-        first match {
-          case ast.FieldAccess(receiver, _) if !placeholder.isRecursive =>
-            // add parent predicate
-            val parent = Expressions.makeRecursive(receiver +: rest)
-            addLocation(placeholder, parent)
-          case _ => // do nothing
+      case location@ast.PredicateAccess(arguments, name) =>
+        if (Names.isRecursive(name)) {
+          val first +: rest = arguments
+          first match {
+            case ast.FieldAccess(receiver, _) if !placeholder.isRecursive =>
+              // add parent predicate
+              val parent = Expressions.makeRecursive(receiver +: rest)
+              addLocation(placeholder, parent)
+            case _ => // do nothing
+          }
+        } else {
+          add(placeholder, location)
         }
     }
 
@@ -148,17 +152,19 @@ trait TemplateGenerator extends AbstractLearner {
   private def generateTemplate(placeholder: Placeholder, locations: Set[ast.LocationAccess])(implicit id: AtomicInteger): Seq[Template] = {
     // create template body
     val body = {
-      // create resources for field access
-      val fields = {
-        val accesses = locations.collect { case field: ast.FieldAccess => field }
-        createFieldResources(accesses)
-      }
-      // create resources for all predicate access
-      val predicates = {
-        val accesses = locations.collect { case predicate: ast.PredicateAccess => predicate }
-        createPredicateResources(placeholder, accesses)
-      }
-      Conjunction(fields ++ predicates)
+      // partition locations
+      val partitions = locations
+        .toSeq
+        .partitionMap {
+          case recursive@ast.PredicateAccess(_, name) if Names.isRecursive(name) =>
+            Right(recursive)
+          case other =>
+            Left(other)
+        }
+      // create template expressions
+      val nonRecursive = processNonRecursive(partitions._1)
+      val recursive = processRecursive(placeholder, partitions._2)
+      Conjunction(nonRecursive ++ recursive)
     }
     // create template
     if (placeholder.isRecursive && configuration.useSegments) {
@@ -192,31 +198,25 @@ trait TemplateGenerator extends AbstractLearner {
   }
 
   /**
-   * Creates template expressions for the given field accesses.
+   * Creates template expressions for the given non-recursive location accesses.
    *
-   * @param fields The field accesses.
-   * @param id     The implicitly passed counter used to generate unique ids.
+   * @param locations The location accesses.
+   * @param id        The implicitly passed counter used to generate unique ids.
    * @return The template expressions.
    */
-  private def createFieldResources(fields: Set[ast.FieldAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] = {
-    // sort fields
-    val sorted =
-      if (configuration.maxLength <= 2) fields.toSeq
-      else ???
-    // crate template expression
-    sorted.map(createGuarded)
-  }
+  private def processNonRecursive(locations: Seq[ast.LocationAccess])(implicit id: AtomicInteger): Seq[TemplateExpression] =
+    locations.map(createGuarded)
 
   /**
-   * Creates template expressions for the given specification placeholder and predicate accesses.
+   * Creates template expressions for the given placeholder and predicate accesses.
    *
    * @param placeholder The specification placeholder.
    * @param predicates  The predicate accesses.
    * @param id          The implicitly passed counter used to generate unique ids.
    * @return The template expressions.
    */
-  private def createPredicateResources(placeholder: Placeholder, predicates: Set[ast.PredicateAccess])
-                                      (implicit id: AtomicInteger): Seq[TemplateExpression] = {
+  private def processRecursive(placeholder: Placeholder, predicates: Seq[ast.PredicateAccess])
+                              (implicit id: AtomicInteger): Seq[TemplateExpression] = {
     if (configuration.useSegments) {
       // group predicate instances by their start argument and introduce choices for all possible end arguments
       val choice =
@@ -257,9 +257,7 @@ trait TemplateGenerator extends AbstractLearner {
         }
         .toSeq
     } else {
-      predicates
-        .toSeq
-        .map(createGuarded)
+      predicates.map(createGuarded)
     }
   }
 

@@ -386,7 +386,7 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
       case ast.Implies(left, right) =>
         val updatedGuards = guards :+ left
         collectLeaves(right, depth, updatedGuards)
-      case ast.PredicateAccessPredicate(predicate, _) if depth > 0 =>
+      case ast.PredicateAccessPredicate(predicate, _) if depth > 0 && Names.isRecursive(predicate.predicateName) =>
         val instance = input.instance(predicate)
         val nested = hypothesis.getInferred(instance)
         collectLeaves(nested, depth - 1, guards)

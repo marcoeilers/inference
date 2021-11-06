@@ -475,7 +475,8 @@ trait CheckBuilder extends Builder with Atoms {
    */
   private def consumeAnnotations(): Seq[Annotation] = {
     val consumed = annotations.toSeq
-    annotations.clear()
+    // TODO: Handle properly.
+    // annotations.clear()
     consumed
   }
 }

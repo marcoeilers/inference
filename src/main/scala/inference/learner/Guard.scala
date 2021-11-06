@@ -8,6 +8,7 @@
 
 package inference.learner
 
+import inference.Names
 import inference.core.sample.{Record, ResourceAbstraction, StateAbstraction}
 import inference.util.collections.SeqMap
 import viper.silver.ast
@@ -108,11 +109,14 @@ object Guards {
             // adapt predicate access
             val adapted = view.adaptPredicateAccess(access)
             // process nested template expressions
-            val nested = {
-              val template = templates(adapted.predicateName)
-              val view = View.create(template, adapted.args)
-              processTemplate(template, depth + 1, view, guards)
-            }
+            val nested =
+              if (Names.isRecursive(access.predicateName)) {
+                val template = templates(adapted.predicateName)
+                val view = View.create(template, adapted.args)
+                processTemplate(template, depth + 1, view, guards)
+              } else {
+                Map.empty: Effective
+              }
             // consider current guards if resource is equal to predicate access
             if (resource.abstracts(adapted)) SeqMap.add(nested, adapted, guards)
             else nested
