@@ -301,9 +301,8 @@ trait SampleExtractor {
         case ast.Implies(_, right) =>
           stripGuards(right)
         case ast.PredicateAccessPredicate(predicate, _) =>
-          assert(Names.isRecursive(predicate.predicateName))
           Some(predicate)
-        case other =>
+        case _ =>
           None
       }
 
