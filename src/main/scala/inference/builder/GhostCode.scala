@@ -180,7 +180,7 @@ trait GhostCode extends Builder with Simplification {
                        info: ast.Info,
                        exhaled: Boolean = true): Unit =
     process(expression, reverse = true) {
-      case resource@ast.PredicateAccessPredicate(predicate, _) if Names.isRecursive(predicate.predicateName) =>
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
         // fold predicate
         val strategy = getStrategy(predicate, annotations)
         implicit val exhaled: Boolean = true
