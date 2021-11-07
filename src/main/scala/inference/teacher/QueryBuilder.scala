@@ -75,14 +75,25 @@ trait QueryBuilder extends CheckExtender[ast.Method] {
     reset()
 
     // create predicates (dummy for recursive predicate)
-    val predicates = hypothesis
-      .predicates
-      .flatMap { predicate =>
-        if (Names.isRecursive(predicate.name)) {
-          val dummy = predicate.copy(body = None)(predicate.pos, predicate.info, predicate.errT)
-          Some(dummy)
-        } else None
-      }
+    val predicates = {
+      // get existing predicates
+      val existing = input
+        .program
+        .predicates
+        .filter(_.body.isDefined)
+      // get recursive predicate
+      val recursive = hypothesis
+        .predicates
+        .flatMap { predicate =>
+          if (Names.isRecursive(predicate.name)) {
+            val dummy = predicate.copy(body = None)(predicate.pos, predicate.info, predicate.errT)
+            Some(dummy)
+          } else
+            None
+        }
+      // combine predicates
+      existing ++ recursive
+    }
 
     // create methods (one for each specification)
     val methods = input
