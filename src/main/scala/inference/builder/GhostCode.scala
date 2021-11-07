@@ -68,8 +68,10 @@ object GhostCode {
       case ast.Implies(left, right) =>
         val updatedGuards = guards :+ left
         collectResources(right, updatedGuards)
-      case resource: ast.PredicateAccessPredicate =>
-        Seq((resource, guards))
+      case resource@ast.PredicateAccessPredicate(predicate, _) =>
+        val name = predicate.predicateName
+        if (Names.isRecursive(name)) Seq((resource, guards))
+        else Seq.empty
       case _ =>
         Seq.empty
     }
