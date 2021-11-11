@@ -30,6 +30,14 @@ trait Timing {
     recorded.toSeq
 
   /**
+   * Returns the total time.
+   *
+   * @return The total time.
+   */
+  def totalTime: Long =
+    times.sum
+
+  /**
    * Computes the given value and records the elapsed time.
    *
    * @param value The value.

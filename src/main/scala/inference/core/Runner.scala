@@ -9,6 +9,7 @@
 package inference.core
 
 import inference.builder.ProgramExtender
+import inference.core.sample.Sample
 import inference.input.{Configuration, Input}
 import inference.learner.Learner
 import inference.teacher.Teacher
@@ -84,8 +85,11 @@ trait Runner[R] extends Inference with Timing {
    * @param verifier The verifier.
    * @return The teacher.
    */
-  protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher =
-    new Teacher(input, verifier)
+  protected def createTeacher(input: Input, verifier: Verifier): AbstractTeacher with Timing =
+    new Teacher(input, verifier) with Timing {
+      override def check(hypothesis: Hypothesis): Seq[Sample] =
+        recordTime(super.check(hypothesis))
+    }
 
   /**
    * Creates a learner with the given input and solver.
@@ -94,8 +98,11 @@ trait Runner[R] extends Inference with Timing {
    * @param solver The solver.
    * @return The learner.
    */
-  protected def createLearner(input: Input, solver: Solver): AbstractLearner =
-    new Learner(input, solver)
+  protected def createLearner(input: Input, solver: Solver): AbstractLearner with Timing =
+    new Learner(input, solver) with Timing {
+      override def hypothesis: Option[Hypothesis] =
+        recordTime(super.hypothesis)
+    }
 
   /**
    * Runs the inference with the given arguments.
@@ -115,41 +122,40 @@ trait Runner[R] extends Inference with Timing {
    * @return The result.
    */
   def run(configuration: Configuration): R = {
-    // process input
-    val (input, inputTime) = time {
-      Input.fromConfiguration(configuration)
-    }
-    // create verifier and solver
-    val ((verifier, solver), startupTime) = time {
+    val ((input, hypothesis, partial), totalTime) = time {
+      // process input
+      val input = Input.fromConfiguration(configuration)
+      // create verifier and solver
       val verifier = createVerifier(configuration)
       val solver = createSolver(configuration)
       verifier.start()
-      (verifier, solver)
-    }
-    // run inference
-    val ((hypothesis, iterations, samples), inferenceTime) = time {
+      // create teacher and learner
       val teacher = createTeacher(input, verifier)
       val learner = createLearner(input, solver)
+      // run inference
       val (hypothesis, iterations) = infer(teacher, learner)
-      val samples = learner.samples.size
-      (hypothesis, iterations, samples)
+      verifier.stop()
+      // partial statistics
+      val partial = { totalTime: Long =>
+        val samples = learner.samples.size
+        Statistics(
+          hypothesis = hypothesis,
+          input = input,
+          options = configuration.arguments,
+          success = hypothesis.isDefined,
+          iterations = iterations,
+          samples = samples,
+          totalTime = totalTime,
+          teacherTime = teacher.totalTime,
+          verifierTimes = verifier.times,
+          learnerTime = learner.totalTime,
+          solverTimes = solver.times
+        )
+      }
+      (input, hypothesis, partial)
     }
-    // stop verifier
-    verifier.stop()
-    // create statistics
-    val statistics = Statistics(
-      input = configuration.input,
-      options = configuration.arguments,
-      success = hypothesis.isDefined,
-      iterations = iterations,
-      samples = samples,
-      inputTime = inputTime,
-      startupTime = startupTime,
-      inferenceTime = inferenceTime,
-      verifierTimes = verifier.times,
-      solverTimes = solver.times
-    )
     // process inferred hypothesis and statistics
+    val statistics = partial(totalTime)
     process(input, hypothesis, statistics)
   }
 

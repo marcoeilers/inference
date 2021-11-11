@@ -8,40 +8,36 @@
 
 package inference.core
 
+import inference.input.Input
+
 import scala.xml.Elem
 
 /**
  * An object carrying statistical information.
  *
- * @param input         The path to the input file.
+ * @param input         The input to the inference
+ * @param hypothesis    The inferred hypothesis.
  * @param options       The options used by the inference.
- * @param success       The flag indicating whether the inference was successful.
+ * @param success       The flag indicated whether the inference was successful.
  * @param iterations    The number of iterations.
  * @param samples       The number of samples.
- * @param inputTime     The time it took to process the input.
- * @param startupTime   The time it took to start up the inference (mostly to create and start up verifier and solver).
- * @param inferenceTime The time recorded by the inference (this includes verifier and solver times).
+ * @param totalTime     The total time.
+ * @param teacherTime   The time spent by the teacher.
  * @param verifierTimes The times recorded by the verifier.
+ * @param learnerTime   The time spent by the learner.
  * @param solverTimes   The times recorded by the solver.
  */
-case class Statistics(input: String,
+case class Statistics(input: Input,
+                      hypothesis: Option[Hypothesis],
                       options: Seq[String],
                       success: Boolean,
                       iterations: Int,
                       samples: Int,
-                      inputTime: Long,
-                      startupTime: Long,
-                      inferenceTime: Long,
+                      totalTime: Long,
+                      teacherTime: Long,
                       verifierTimes: Seq[Long],
+                      learnerTime: Long,
                       solverTimes: Seq[Long]) {
-  /**
-   * Returns the total time.
-   *
-   * @return The total time.
-   */
-  def totalTime: Long =
-    inputTime + startupTime + inferenceTime
-
   /**
    * Returns the total verifier time.
    *
@@ -65,19 +61,23 @@ case class Statistics(input: String,
    */
   def toXml: Elem =
     <statistics>
-      <input>{input}</input>
+      <input>{input.path}</input>
       <options>{options.mkString(" ")}</options>
       <success>{success}</success>
       <iterations>{iterations}</iterations>
       <samples>{samples}</samples>
       <times>
         <total>{formatTime(totalTime)}</total>
-        <input>{formatTime(inputTime)}</input>
-        <startup>{formatTime(startupTime)}</startup>
+        <teacher>{formatTime(teacherTime)}</teacher>
         <verifier>{formatTime(verifierTime)}</verifier>
-        <solver>{formatTime(solverTime)}</solver>
+        <learner>{formatTime(learnerTime)}</learner>
+        <solver>{formatTime(learnerTime)}</solver>
       </times>
+      <result>{hypothesis.toSeq.flatMap { hypothesis =>hypothesis.predicates.map { predicate => <p>{predicate.toString()}</p>}}}</result>
     </statistics>
+
+  def formatBoolean(value: Boolean): String =
+    if (value) "yes" else "no"
 
   /**
    * Formats the given time.
@@ -85,8 +85,8 @@ case class Statistics(input: String,
    * @param time The time to format.
    * @return The formatted time.
    */
-  private def formatTime(time: Long): String = {
+  def formatTime(time: Long): String = {
     val fractional = time / 1000.0
-    String.format(f"$fractional%1.3f s")
+    String.format(f"$fractional%1.3f")
   }
 }
