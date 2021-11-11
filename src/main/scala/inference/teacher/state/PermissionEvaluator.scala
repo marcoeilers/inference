@@ -70,7 +70,7 @@ class PermissionEvaluator(input: Input, hypothesis: Hypothesis, state: StateEval
       case ast.PredicateAccessPredicate(access, _) =>
         resource match {
           case resource: FieldAbstraction =>
-            if (depth > 0) {
+            if (depth > 0 && Names.isRecursive(access.predicateName)) {
               val instance = input.instance(access)
               val nested = hypothesis.getInferred(instance)
               evaluate(resource, nested, depth - 1)
