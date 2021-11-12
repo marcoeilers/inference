@@ -30,8 +30,8 @@ case object Configuration {
       arguments = arguments,
       inputOption = options.file.toOption,
       z3Exe = options.z3Exe(),
-      useRecursive = options.recursive(),
-      useSegments = options.segments(),
+      useRecursive = isEqual(options.recursive, Set("default", "segments")),
+      useSegments = isEqual(options.recursive, "segments"),
       infinite = options.infinite(),
       iterations = options.iterations(),
       escalation = options.escalation(),
@@ -42,19 +42,54 @@ case object Configuration {
       foldDelta = options.foldDelta(),
       useAnnotations = options.annotations(),
       useBatching = options.batching(),
-      useNullityBranching = options.nullityBranching(),
-      useEqualityBranching = options.equalityBranching(),
+      useNullityBranching = isEqual(options.branching, Set("nullity", "both")),
+      useEqualityBranching = isEqual(options.branching, Set("equality", "both")),
       useUpperbounds = options.upperbounds(),
-      useSyntacticBounds = options.syntacticBounds(),
-      useSemanticBounds = options.semanticBounds(),
+      useSyntacticBounds = isEqual(options.implicitBounds, "syntactic"),
+      useSemanticBounds = isEqual(options.implicitBounds, "semantic"),
       querySimplification = options.querySimplification(),
       outputSimplification = options.outputSimplification(),
       choiceIntroduction = options.choiceIntroduction(),
-      assumeConsolidation = options.consolidation.filter(_ == "assume").isDefined,
-      explicitConsolidation = options.consolidation.filter(_ == "explicit").isDefined,
+      assumeConsolidation = isEqual(options.consolidation, "assume"),
+      explicitConsolidation = isEqual(options.consolidation, "explicit"),
       nagini = options.nagini()
     )
   }
+
+  /**
+   * Helper method that checks whether the value of the given option is equal to one of the given values.
+   *
+   * @param option The option.
+   * @param values The values.
+   * @return True if the option's value is equal to one of the values.
+   */
+  @inline
+  private def isEqual(option: ScallopOption[String], values: Set[String]) =
+    satisfies(option, values.contains)
+
+  /**
+   * Helper method that checks whether the value of the given option is equal to the given value.
+   *
+   * @param option The option.
+   * @param value  The value.
+   * @return True if the option's value is equal to value.
+   */
+  @inline
+  private def isEqual(option: ScallopOption[String], value: String) =
+    satisfies(option, _ == value)
+
+  /**
+   * Helper method that checks whether the value of the given option satisfies the given predicate.
+   *
+   * @param option    The option.
+   * @param predicate The predicate.
+   * @return True if the value satisfies the predicate.
+   */
+  @inline
+  private def satisfies(option: ScallopOption[String], predicate: String => Boolean): Boolean =
+    option
+      .filter(predicate)
+      .isDefined
 
   /**
    * A helper class used to parse input arguments.
@@ -70,20 +105,12 @@ case object Configuration {
         required = true
       )
 
-    val recursive: ScallopOption[Boolean] =
-      toggle(
+    val recursive: ScallopOption[String] =
+      choice(
         name = "recursive",
-        descrYes = "Enables the use of recursive predicates.",
-        descrNo = "Disables the use of recursive predicates.",
-        default = Some(true)
-      )
-
-    val segments: ScallopOption[Boolean] =
-      toggle(
-        name = "segments",
-        descrYes = "Enables the use of predicate segments.",
-        descrNo = "Disables the use of predicate segments.",
-        default = Some(false)
+        descr = "Enables the use of recursive predicates and predicate segments.",
+        choices = Seq("none", "default", "segments"),
+        default = Some("default")
       )
 
     val infinite: ScallopOption[Boolean] =
@@ -152,7 +179,8 @@ case object Configuration {
         name = "annotations",
         descrYes = "Enables the use of annotations.",
         descrNo = "Disables the use of annotations.",
-        default = Some(true)
+        default = Some(true),
+        hidden = true
       )
 
     val batching: ScallopOption[Boolean] =
@@ -164,21 +192,12 @@ case object Configuration {
         hidden = true
       )
 
-    val nullityBranching: ScallopOption[Boolean] =
-      toggle(
-        name = "nullityBranching",
-        descrYes = "Enables branching on nullity.",
-        descrNo = "Disables branching on nullity.",
-        default = Some(true),
-        hidden = true
-      )
-
-    val equalityBranching: ScallopOption[Boolean] =
-      toggle(
-        name = "equalityBranching",
-        descrYes = "Enables branching on equality.",
-        descrNo = "Disables branching on equality.",
-        default = Some(false),
+    val branching: ScallopOption[String] =
+      choice(
+        name = "branching",
+        descr = "Enables nullity or equality branching.",
+        choices = Seq("none", "nullity", "equality", "both"),
+        default = Some("nullity"),
         hidden = true
       )
 
@@ -191,21 +210,12 @@ case object Configuration {
         hidden = true
       )
 
-    val syntacticBounds: ScallopOption[Boolean] =
-      toggle(
-        name = "syntacticBounds",
-        descrYes = "Enables the use of syntactic implicit upper bounds.",
-        descrNo = "Disables the use of syntactic implicit upper bounds.",
-        default = Some(true),
-        hidden = true
-      )
-
-    val semanticBounds: ScallopOption[Boolean] =
-      toggle(
-        name = "semanticBounds",
-        descrYes = "Enables the use of semantic implicit upper bounds.",
-        descrNo = "Disables the use of semantic implicit upper bounds.",
-        default = Some(false),
+    val implicitBounds: ScallopOption[String] =
+      choice(
+        name = "implicit",
+        descr = "Enables syntactic or semantic implicit upper bounds.",
+        choices = Seq("none", "syntactic", "semantic"),
+        default = Some("syntactic"),
         hidden = true
       )
 
@@ -259,13 +269,6 @@ case object Configuration {
         descr = "The path to the input file.",
         required = false,
       )
-
-    validate(recursive, segments) { (recursive, segments) =>
-      if (segments && !recursive) Left("Enabling predicate segments requires enabling recursive predicates.")
-      else Right()
-    }
-
-    mutuallyExclusive(syntacticBounds, semanticBounds)
 
     verify()
   }

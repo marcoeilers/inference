@@ -14,7 +14,7 @@
         <option key="foldDelta" value="1"/>
     </options>
     <options>
-        <option key="segments"/>
+        <option key="recursive" value="segments"/>
         <option key="unfoldDepth" value="1"/>
         <option key="foldDelta" value="1"/>
     </options>
