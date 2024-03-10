@@ -37,6 +37,7 @@ trait Runner[R] extends Inference with Timing {
       "--z3Exe", configuration.z3Exe,
       "--counterexample", "native",
       "--enableMoreCompleteExhale",
+      "--z3ConfigArgs=\"model.partial=true\"",
       "--ignoreFile", "dummy.vpr")
     // create verifier
     createVerifier(arguments)

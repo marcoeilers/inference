@@ -20,8 +20,8 @@ object Main extends ExtensionRunner {
    */
   val baseOptions: Seq[String] =
     Seq(
-      "--z3Exe", "/usr/local/Viper/z3/bin/z3",
-      "--syntacticBounds",
+      "--z3Exe", "/usr/bin/z3"//,
+//      "--syntacticBounds",
       // "--unfoldDepth", "2"
     )
 
@@ -40,7 +40,7 @@ object Main extends ExtensionRunner {
   /**
    * The input file used if no arguments are specified.
    */
-  val file = "/Users/dohrau/Repositories/viper/inference/src/test/resources/example.vpr"
+  val file = "/viper/inference/inference/src/test/resources/tests/marco/gobra_basic.vpr"
 
   /**
    * The main method, i.e., the entry point of the inference.

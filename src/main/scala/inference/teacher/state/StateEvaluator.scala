@@ -8,6 +8,7 @@
 
 package inference.teacher.state
 
+import inference.marco.Extension
 import inference.teacher.state.StateEvaluator.{Heap, Store}
 import inference.util.ast.Infos
 import viper.silicon.interfaces.SiliconNativeCounterexample
@@ -17,6 +18,8 @@ import viper.silicon.resources.FieldID
 import viper.silicon.state.terms
 import viper.silicon.state.terms.sorts
 import viper.silicon.state.BasicChunk
+import viper.silver.ast.{DomainFuncApp, LocalVar}
+import viper.silver.verifier.MapEntry
 
 /**
  * State evaluator companion object.
@@ -35,7 +38,7 @@ object StateEvaluator {
   /**
    * The type shortcut for heaps.
    */
-  type Heap = Map[String, Map[String, String]]
+  type Heap = Map[String, Map[String, (String, String)]]
 
   /**
    * Extracts a state evaluator for the state with the given label from the given counter-example.
@@ -54,6 +57,7 @@ object StateEvaluator {
     StateEvaluator(Some(label), store, heap, model)
   }
 
+
   /**
    * Helper method that processes the given Silicon store.
    *
@@ -68,8 +72,8 @@ object StateEvaluator {
           val value = model.evaluateReference(term)
           Some(name -> value)
         case _ =>
-          // ignore non-reference variables
-          None
+          val value = model.evaluateReference(term)
+          Some(name -> value)
       }
     }
   }
@@ -86,16 +90,22 @@ object StateEvaluator {
       case (result, chunk: BasicChunk) if chunk.resourceID == FieldID =>
         val term = chunk.snap
         term.sort match {
-          case sorts.Ref =>
-            val receiver = model.evaluateReference(chunk.args.head)
-            val field = chunk.id.name
-            val value = model.evaluateReference(term)
-            // update field map
-            val fields = result
-              .getOrElse(receiver, Map.empty)
-              .updated(field, value)
-            // update heap
-            result.updated(receiver, fields)
+          case _ =>
+            try {
+              val receiver = model.evaluateReference(chunk.args.head)
+              val field = chunk.id.name
+              val value = (term.sort.toString, model.evaluateReference(term))
+              // update field map
+              val fields = result
+                .getOrElse(receiver, Map.empty)
+                .updated(field, value)
+              // update heap
+              result.updated(receiver, fields)
+            } catch {
+              case e: Exception =>
+                e.printStackTrace()
+                result
+            }
           case _ =>
             // ignore non-reference fields
             result
@@ -123,7 +133,7 @@ case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model
   private def lookup(variable: ast.LocalVar): String = {
     // get variable name
     val name = label match {
-      case Some(label) if !Infos.isSaved(variable) =>
+      case Some(label) if !Infos.isSaved(variable) && store.contains(s"${label}_${variable.name}") =>
         // adapt name
         s"${label}_${variable.name}"
       case _ =>
@@ -131,6 +141,33 @@ case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model
     }
     // lookup value
     store(name)
+  }
+
+  lazy val domainFuncs : Map[String, Map[String, String]] = {
+    val ammm: Map[String, Map[String, String]] = Extension.relevantDomainFuncNames.keys.map(fn => {
+      val entry = model.model.entries.find(_._1.startsWith(fn))
+      val umm: Map[String, String] = entry match {
+        case Some(aEntry) =>
+          val mEntry = aEntry._2.asInstanceOf[MapEntry]
+
+          val options = mEntry.options.map(op => {
+            assert(op._1.length == 1)
+            op._1.head.toString -> op._2.toString
+          })
+          options
+        case None =>
+          Map.empty
+      }
+      fn -> umm
+    }).toMap
+    val allValues = ammm.values.flatMap(_.keys)
+    allValues.map(v => {
+      val oof = ammm.filter(funcMap => funcMap._2.contains(v)).map(funcMap => {
+        funcMap._1 -> funcMap._2.get(v).get
+      })
+      v -> oof
+    }
+    ).toMap
   }
 
   /**
@@ -143,7 +180,7 @@ case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model
   private def lookup(node: String, field: String): Option[String] =
     heap
       .get(node)
-      .flatMap(_.get(field))
+      .flatMap(_.get(field).map(_._2))
 
   /**
    * Optionally evaluates the given expression (assumed to be boolean-typed).
@@ -226,11 +263,21 @@ case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model
         val value = model.evaluateReference(terms.Null())
         Some(value)
       case variable: ast.LocalVar =>
-        val value = lookup(variable)
-        Some(value)
+        try {
+          val value = lookup(variable)
+          Some(value)
+        } catch {
+          case e: NoSuchElementException =>
+            None
+        }
+
       case ast.FieldAccess(receiver, field) =>
         val value = evaluateReferenceOption(receiver)
         value.flatMap { node => lookup(node, field.name) }
+      case dfa: DomainFuncApp =>
+        val args = dfa.args.map(evaluateReference(_))
+        val value = model.evaluateDomainFunc(dfa.funcname, dfa.typ, args)
+        value
       case other =>
         sys.error(s"Unexpected expression: $other")
     }
@@ -250,6 +297,6 @@ case class StateEvaluator(label: Option[String], store: Store, heap: Heap, model
         lookup(variable)
       case ast.FieldAccess(receiver, ast.Field(field, _)) =>
         val receiverValue = evaluateReference(receiver)
-        heap(receiverValue)(field)
+        heap(receiverValue)(field)._2
     }
 }

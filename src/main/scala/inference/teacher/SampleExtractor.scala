@@ -380,7 +380,9 @@ trait SampleExtractor {
       case None =>
         access match {
           case location: ast.FieldAccess => abstractLocation(location, adaptor)
-          case other => sys.error(s"Unexpected access: $other")
+          case other =>
+            val adapted2 = adaptor.adapt(access, nullable)
+            sys.error(s"Unexpected access: $other")
         }
     }
   }

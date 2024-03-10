@@ -67,13 +67,20 @@ object Input extends CheckBuilder {
         program.initProperties()
         Some(program)
       case _ =>
+        println(result)
         None
     }
     // resolve and translate program
     program
-      .flatMap { parsed => Resolver(beforeResolving(parsed)).run }
-      .flatMap { resolved => Translator(resolved).translate }
-      .map { translated => afterTranslating(translated) }
+      .flatMap {
+        parsed => Resolver(beforeResolving(parsed)).run
+      }
+      .flatMap {
+        resolved => Translator(resolved).translate
+      }
+      .map {
+        translated => afterTranslating(translated)
+      }
   }
 
   /**

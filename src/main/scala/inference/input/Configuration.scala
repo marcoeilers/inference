@@ -151,7 +151,7 @@ case object Configuration {
       opt[Int](
         name = "maxLength",
         descr = "The maximal length of access paths that may appear in specifications.",
-        default = Some(2))
+        default = Some(3))
 
     val maxClauses: ScallopOption[Int] =
       opt[Int](

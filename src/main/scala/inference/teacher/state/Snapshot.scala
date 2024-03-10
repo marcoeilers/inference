@@ -9,8 +9,10 @@
 package inference.teacher.state
 
 import inference.core.{Instance, Placeholder}
+import inference.marco.Extension
 import inference.util.collections.SetMap
 import viper.silver.ast
+import viper.silver.ast.NoTrafos
 
 /**
  * A state snapshot.
@@ -35,17 +37,45 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
       else {
         // compute next step of reachability
         val next = current.foldLeft(Map.empty[String, Set[ast.Exp]]) {
-          case (map1, (node, expressions)) => state
-            .heap
+          case (map1, (node, expressions)) =>
+            val currentCode = (state.heap
             .getOrElse(node, Map.empty)
             .foldLeft(map1) {
-              case (map2, (name, value)) =>
+              case (map2, (name, (srt, value))) =>
                 val extended = expressions.map { expression =>
-                  val field = ast.Field(name, ast.Ref)()
+                  val actualType = srt match {
+                    case "Ref" => ast.Ref
+                    case "Int" => ast.Int
+                    case _ => ast.DomainType(srt, Map.empty)(Seq())
+                  }
+                  val field = ast.Field(name, actualType)()
                   ast.FieldAccess(expression, field)(): ast.Exp
                 }
                 SetMap.addAll(map2, value, extended)
+            })
+            val whatWasThat = state.heap.getOrElse(node, Map.empty)
+            val domainFuncMap = state.domainFuncs
+            val finalRes = if (domainFuncMap.contains(node)) {
+              val domainFuncs = domainFuncMap(node)
+              val domainFuncsMap = domainFuncs.flatMap { case (name, value) =>
+                val typeName = name.substring(name.indexOf("<") + 1, name.indexOf(">"))
+                val funcName = name.substring(0, name.indexOf("<"))
+                val extended: Set[ast.Exp] = expressions.map { expression =>
+                  val actualType = typeName match {
+                    case "Ref" => ast.Ref
+                    case "Int" => ast.Int
+                    case _ => ast.DomainType(typeName, Map.empty)(Seq())
+                  }
+                  val domainFuncApp = ast.DomainFuncApp(funcName, Seq(expression), Extension.domainFuncAppTypeMap(funcName, actualType))(ast.NoPosition, ast.NoInfo, actualType, "", ast.NoTrafos)
+                  domainFuncApp
+                }
+                SetMap.addAll(currentCode, value, extended)
+              }
+              SetMap.merge(currentCode, domainFuncsMap)
+            } else {
+              currentCode
             }
+            finalRes
         }
         // recurse and combine result
         val future = recurse(next, steps - 1)
@@ -59,9 +89,12 @@ case class Snapshot(instance: Instance, state: StateEvaluator) {
       .zip(parameters)
       .foldLeft(Map.empty[String, Set[ast.Exp]]) {
         case (result, (argument, parameter)) =>
-          if (argument.typ == ast.Ref) {
-            val value = state.evaluateReference(argument)
-            SetMap.add(result, value, parameter)
+          if (true || argument.typ == ast.Ref) {
+            val value = state.evaluateReferenceOption(argument)
+            if (value.isDefined)
+              SetMap.add(result, value.get, parameter)
+            else
+              result
           } else result
       }
 

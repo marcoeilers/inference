@@ -355,7 +355,7 @@ trait CheckBuilder extends Builder with Atoms {
                 // make sure all reference-typed arguments are variables or literals and different from targets
                 val expressions = arguments
                   .map { argument =>
-                    if (argument.isSubtype(ast.Ref)) {
+                    if (true || argument.isSubtype(ast.Ref)) {
                       // process reference-typed argument
                       argument match {
                         case literal: ast.NullLit =>

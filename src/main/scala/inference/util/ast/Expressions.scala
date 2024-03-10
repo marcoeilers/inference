@@ -36,6 +36,7 @@ object Expressions {
       case _: ast.NullLit => 0
       case _: ast.LocalVar => 0
       case ast.FieldAccess(receiver, _) => getDepth(receiver) + 1
+      case ast.DomainFuncApp(_, Seq(receiver), _) => getDepth(receiver) + 1
       case _ => sys.error(s"Expression $path is not an access path.")
     }
 

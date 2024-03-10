@@ -11,6 +11,7 @@ package inference.teacher.state
 import viper.silicon.state.terms
 import viper.silicon.state.terms.{Term, sorts}
 import viper.silver.verifier.{ApplicationEntry, ConstantEntry, MapEntry, Model, ModelEntry, ValueEntry}
+import viper.silver.ast
 
 /**
  * A model evaluator.
@@ -106,9 +107,40 @@ case class ModelEvaluator(model: Model) {
       case terms.App(applicable, arguments) if arguments.isEmpty =>
         val identifier = applicable.id
         getString(identifier.name)
+      case terms.App(applicable, arguments) =>
+        val identifier = applicable.id.name.replaceAll("\\[", "<").replaceAll("\\]", ">")
+        val entry = model.entries.get(identifier).get.asInstanceOf[MapEntry]
+        val argVals = arguments.map(evaluateReference)
+        val argSeq = argVals.map(av => ConstantEntry(av))
+        if (entry.options.contains(argSeq)) {
+          return entry.options.get(argSeq).get.toString
+        }
+        entry.default.toString
       case other =>
         sys.error(s"Unexpected reference term: $other")
     }
+
+
+  def evaluateDomainFunc(name: String, t: ast.Type, args: Seq[String]): Option[String] = {
+    val internalNamePrefix = s"${name}<"
+    val entry = model.entries.find(_._1.startsWith(internalNamePrefix))
+    entry match {
+      case Some(aEntry) =>
+        val mEntry = aEntry._2.asInstanceOf[MapEntry]
+        for (op <- mEntry.options) {
+          if (op._1.length == args.length){
+            val zipped = op._1.zip(args)
+            val zippedNames = zipped.map(p => p._1.toString)
+            if (zippedNames == args) {
+              return Some(op._2.toString)
+            }
+          }
+        }
+        return Some(mEntry.default.toString)
+      case None =>
+    }
+    return None
+  }
 
   /**
    * Evaluates the given term to a snapshot value (represented as a value entry).
